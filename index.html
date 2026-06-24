@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CRM · Funil de Vendas</title>
+<meta name="description" content="CRM de Funil de Vendas da ES Card — gestão de leads, etapas e equipe comercial.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CRM · Funil de Vendas">
+<meta property="og:description" content="Gestão de leads, etapas e equipe comercial da ES Card.">
+<meta property="og:site_name" content="ES Card CRM">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.108.2/dist/umd/supabase.min.js"
         integrity="sha384-JWEyvHh+lRf0sN/WWY+QTQwX+CyWqmNg4tkc8GQzAMEtR2wGNrCJlvnu1lHD1kDm"
         crossorigin="anonymous"></script>
@@ -875,7 +880,7 @@ async function loadStages(){
   stages = data || [];
 
   const stageSelect = document.getElementById('deal-stage');
-  stageSelect.innerHTML = stages.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  stageSelect.innerHTML = stages.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
 }
 
 async function loadProfiles(){
@@ -890,9 +895,9 @@ async function loadProfiles(){
   const ownerSelect = document.getElementById('deal-owner');
   const filterSelect = document.getElementById('filter-owner');
   if(isAdmin()){
-    ownerSelect.innerHTML = profiles.map(p=>`<option value="${p.id}">${p.full_name}</option>`).join('');
+    ownerSelect.innerHTML = profiles.map(p=>`<option value="${p.id}">${escapeHtml(p.full_name)}</option>`).join('');
     filterSelect.innerHTML = '<option value="">Todos os vendedores</option>' +
-      profiles.filter(p=>p.role==='vendedor').map(p=>`<option value="${p.id}">${p.full_name}</option>`).join('');
+      profiles.filter(p=>p.role==='vendedor').map(p=>`<option value="${p.id}">${escapeHtml(p.full_name)}</option>`).join('');
   }
 }
 
@@ -1031,7 +1036,7 @@ function renderDashboard(){
     if(s.is_lost) color = 'var(--lost)';
     return `
       <div class="funnel-row">
-        <div class="funnel-label">${s.name}</div>
+        <div class="funnel-label">${escapeHtml(s.name)}</div>
         <div class="funnel-bar-track">
           <div class="funnel-bar-fill" style="width:${Math.max(pct,4)}%; background:${color};">
             ${count > 0 ? `<span>${count}</span>` : ''}
@@ -1327,15 +1332,17 @@ dealForm.addEventListener('submit', async (e)=>{
   renderAll();
 });
 
-document.getElementById('delete-deal-btn').addEventListener('click', async ()=>{
+document.getElementById('delete-deal-btn').addEventListener('click', ()=>{
   if(!editingDealId) return;
-  if(!confirm('Tem certeza que deseja excluir este lead? Esta ação não pode ser desfeita.')) return;
-  const { error } = await db.from('deals').delete().eq('id', editingDealId);
-  if(error){ showToast('Erro ao excluir: ' + error.message, 'err'); return; }
-  showToast('Lead excluído', 'ok');
-  closeDealModal();
-  await loadDeals();
-  renderAll();
+  const id = editingDealId;
+  abrirModalConfirmacao('Tem certeza que deseja excluir este lead? Esta ação não pode ser desfeita.', async ()=>{
+    const { error } = await db.from('deals').delete().eq('id', id);
+    if(error){ showToast('Erro ao excluir: ' + error.message, 'err'); return; }
+    showToast('Lead excluído', 'ok');
+    closeDealModal();
+    await loadDeals();
+    renderAll();
+  });
 });
 
 // ------------------------------------------------------------
@@ -1528,7 +1535,7 @@ const importModal = document.getElementById('import-modal');
 document.getElementById('import-btn').addEventListener('click', ()=>{
   // Preenche o seletor de etapas com as etapas atuais
   const sel = document.getElementById('import-stage');
-  sel.innerHTML = stages.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  sel.innerHTML = stages.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
   document.getElementById('import-file').value = '';
   document.getElementById('import-preview').textContent = '';
   importModal.classList.remove('hidden');
@@ -1778,15 +1785,17 @@ document.getElementById('company-form').addEventListener('submit', async (e)=>{
   renderCompanies();
 });
 
-document.getElementById('delete-company-btn').addEventListener('click', async ()=>{
+document.getElementById('delete-company-btn').addEventListener('click', ()=>{
   if(!editingCompanyId) return;
-  if(!confirm('Excluir esta empresa?')) return;
-  const { error } = await db.from('companies').delete().eq('id', editingCompanyId);
-  if(error){ showToast('Erro: '+error.message,'err'); return; }
-  showToast('Empresa excluída','ok');
-  companyModal.classList.add('hidden');
-  await loadCompanies();
-  renderCompanies();
+  const id = editingCompanyId;
+  abrirModalConfirmacao('Excluir esta empresa?', async ()=>{
+    const { error } = await db.from('companies').delete().eq('id', id);
+    if(error){ showToast('Erro: '+error.message,'err'); return; }
+    showToast('Empresa excluída','ok');
+    companyModal.classList.add('hidden');
+    await loadCompanies();
+    renderCompanies();
+  });
 });
 
 function renderContacts(){
@@ -1870,15 +1879,17 @@ document.getElementById('contact-form').addEventListener('submit', async (e)=>{
   renderContacts();
 });
 
-document.getElementById('delete-contact-btn').addEventListener('click', async ()=>{
+document.getElementById('delete-contact-btn').addEventListener('click', ()=>{
   if(!editingContactId) return;
-  if(!confirm('Excluir esta pessoa?')) return;
-  const { error } = await db.from('contacts').delete().eq('id', editingContactId);
-  if(error){ showToast('Erro: '+error.message,'err'); return; }
-  showToast('Pessoa excluída','ok');
-  contactModal.classList.add('hidden');
-  await loadContacts();
-  renderContacts();
+  const id = editingContactId;
+  abrirModalConfirmacao('Excluir esta pessoa?', async ()=>{
+    const { error } = await db.from('contacts').delete().eq('id', id);
+    if(error){ showToast('Erro: '+error.message,'err'); return; }
+    showToast('Pessoa excluída','ok');
+    contactModal.classList.add('hidden');
+    await loadContacts();
+    renderContacts();
+  });
 });
 
 function etapaProspeccao(){
