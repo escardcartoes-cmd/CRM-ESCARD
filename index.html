@@ -504,13 +504,13 @@
   <div class="modal">
     <h3>Importar lista de leads</h3>
     <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px; line-height:1.5;">
-      Envie uma planilha <strong>CSV</strong> ou <strong>Excel (.xlsx)</strong>. Cada linha vira um lead no funil.
-      A primeira linha deve conter os títulos das colunas.
+      Envie uma planilha <strong>CSV</strong> ou <strong>Excel (.xlsx)</strong> com qualquer cabeçalho de colunas.
+      Cada linha vira um lead no funil. Depois de escolher o arquivo, você confere e ajusta o de-para das colunas.
     </p>
 
     <div style="background:var(--bg); border-radius:8px; padding:12px; margin-bottom:14px; font-size:12px;">
-      <strong style="display:block; margin-bottom:6px;">Colunas reconhecidas (use estes títulos):</strong>
-      <code style="font-size:11px; line-height:1.8;">nome</code> (obrigatório), <code style="font-size:11px;">contato</code>, <code style="font-size:11px;">telefone</code>, <code style="font-size:11px;">email</code>, <code style="font-size:11px;">valor</code>, <code style="font-size:11px;">origem</code>, <code style="font-size:11px;">data</code> (AAAA-MM-DD)
+      <strong style="display:block; margin-bottom:6px;">Campos do sistema:</strong>
+      <code style="font-size:11px; line-height:1.8;">nome</code> (obrigatório), <code style="font-size:11px;">contato</code>, <code style="font-size:11px;">telefone</code>, <code style="font-size:11px;">whatsapp</code>, <code style="font-size:11px;">cnpj</code>, <code style="font-size:11px;">email</code>, <code style="font-size:11px;">valor</code>, <code style="font-size:11px;">origem</code>, <code style="font-size:11px;">data</code> (AAAA-MM-DD)
       <button type="button" id="download-modelo" class="btn" style="margin-top:10px; width:100%; font-size:12px;">↓ Baixar planilha modelo</button>
     </div>
 
@@ -522,6 +522,14 @@
     <div class="field">
       <label>Selecione o arquivo (.csv ou .xlsx)</label>
       <input type="file" id="import-file" accept=".csv,.xlsx,.xls">
+    </div>
+
+    <div id="import-mapping" class="hidden" style="margin-bottom:12px;">
+      <label style="display:block; margin-bottom:8px;">Confira o de-para das colunas</label>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px; line-height:1.5;">
+        Para cada campo do sistema, escolhemos a coluna da sua planilha. Ajuste se precisar.
+      </p>
+      <div id="import-mapping-rows" style="display:flex; flex-direction:column; gap:8px;"></div>
     </div>
 
     <div id="import-preview" style="font-size:12px; color:var(--text-muted); margin-bottom:10px;"></div>
@@ -660,6 +668,8 @@ let companies = [];         // empresas
 let contacts = [];          // pessoas/contatos
 let editingDealId = null;   // id do deal sendo editado no modal
 let dealsChannel = null;     // canal realtime
+let importRows = [];        // importação: linhas cruas lidas da planilha
+let importHeaders = [];     // importação: cabeçalhos (colunas) da planilha
 
 // ============================================================
 // HELPERS
@@ -1538,6 +1548,10 @@ document.getElementById('import-btn').addEventListener('click', ()=>{
   sel.innerHTML = stages.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
   document.getElementById('import-file').value = '';
   document.getElementById('import-preview').textContent = '';
+  document.getElementById('import-mapping').classList.add('hidden');
+  document.getElementById('import-mapping-rows').innerHTML = '';
+  importRows = [];
+  importHeaders = [];
   importModal.classList.remove('hidden');
 });
 
@@ -1558,22 +1572,110 @@ document.getElementById('download-modelo').addEventListener('click', ()=>{
   URL.revokeObjectURL(url);
 });
 
-// Mapeia os títulos da planilha para os campos do sistema (aceita variações comuns)
+// Normaliza um título: minúsculo, sem acento, sem espaços/pontuação nas bordas.
+function normalizarTitulo(titulo){
+  return (titulo||'').toString()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // remove acentos
+    .toLowerCase()
+    .replace(/[._\-/\\]+/g,' ')   // separadores viram espaço
+    .replace(/\s+/g,' ')          // colapsa espaços
+    .trim();
+}
+
+// Lista de campos do sistema, na ordem em que aparecem na tela de de-para.
+// exatos  -> casam apenas quando o título inteiro é igual (após normalizar)
+// tokens  -> casam também quando aparecem como palavra isolada no título
+const CAMPOS_IMPORT = [
+  { campo: 'title',                rotulo: 'Nome / Empresa', obrigatorio: true,  exatos: ['nome','empresa','lead','cliente','razao social','razao','companhia','negocio','titulo','razaosocial','nome do cliente','nome da empresa'], tokens: ['nome','empresa','razao'] },
+  { campo: 'contact_name',         rotulo: 'Contato',        obrigatorio: false, exatos: ['contato','nome do contato','responsavel','contato nome','pessoa','nome contato'], tokens: ['contato','responsavel'] },
+  { campo: 'contact_phone',        rotulo: 'Telefone',       obrigatorio: false, exatos: ['telefone','fone','celular','tel','telephone','phone','numero'], tokens: ['telefone','fone','celular','phone'] },
+  { campo: 'whatsapp',             rotulo: 'WhatsApp',       obrigatorio: false, exatos: ['whatsapp','wpp','zap','whats','wzap','whatsap'], tokens: ['whatsapp','whats','wpp','zap'] },
+  { campo: 'cnpj',                 rotulo: 'CNPJ / CPF',     obrigatorio: false, exatos: ['cnpj','cpf','cpf cnpj','documento','doc'], tokens: ['cnpj','cpf'] },
+  { campo: 'contact_email',        rotulo: 'E-mail',         obrigatorio: false, exatos: ['email','e mail','mail','correio'], tokens: ['email','mail'] },
+  { campo: 'value',                rotulo: 'Valor',          obrigatorio: false, exatos: ['valor','valor do negocio','preco','ticket','montante','price','value','faturamento'], tokens: ['valor','preco','ticket','price','faturamento'] },
+  { campo: 'source',               rotulo: 'Origem',         obrigatorio: false, exatos: ['origem','fonte','source','canal','procedencia'], tokens: ['origem','fonte','canal'] },
+  { campo: 'expected_close_date',  rotulo: 'Data prevista',  obrigatorio: false, exatos: ['data','data prevista','fechamento','data de fechamento','previsao','data fechamento','vencimento','prazo'], tokens: ['fechamento','vencimento','prazo'] }
+];
+
+// Dado o título de uma coluna da planilha, devolve o campo do sistema correspondente (ou null).
 function mapearColuna(titulo){
-  const t = (titulo||'').toString().trim().toLowerCase();
-  if(['nome','empresa','lead','cliente','razao social','razão social'].includes(t)) return 'title';
-  if(['contato','nome do contato','responsavel','responsável'].includes(t)) return 'contact_name';
-  if(['telefone','fone','celular','tel'].includes(t)) return 'contact_phone';
-  if(['whatsapp','wpp','zap'].includes(t)) return 'whatsapp';
-  if(['cnpj','cpf/cnpj','cpf'].includes(t)) return 'cnpj';
-  if(['email','e-mail','mail'].includes(t)) return 'contact_email';
-  if(['valor','valor do negocio','valor do negócio','preco','preço','r$'].includes(t)) return 'value';
-  if(['origem','fonte','source'].includes(t)) return 'source';
-  if(['data','data prevista','fechamento','data de fechamento','previsao','previsão'].includes(t)) return 'expected_close_date';
+  const t = normalizarTitulo(titulo);
+  if(!t) return null;
+  // 1) Match EXATO tem prioridade absoluta.
+  for(const c of CAMPOS_IMPORT){
+    if(c.exatos.some(s => normalizarTitulo(s) === t)) return c.campo;
+  }
+  // 2) Match por palavra isolada, usando só os tokens seguros (não-ambíguos).
+  const palavras = t.split(' ');
+  for(const c of CAMPOS_IMPORT){
+    if(c.tokens.some(s => palavras.includes(normalizarTitulo(s)))) return c.campo;
+  }
   return null;
 }
 
-let leadsParaImportar = [];
+// Monta a tabela de de-para: para cada campo do sistema, um <select> com as colunas
+// da planilha, já pré-selecionando a coluna reconhecida automaticamente.
+function montarMapeamento(){
+  const cont = document.getElementById('import-mapping-rows');
+  // Pré-mapeia: campo do sistema -> coluna da planilha (reconhecimento automático)
+  const auto = {};
+  importHeaders.forEach(h=>{ const campo = mapearColuna(h); if(campo && !auto[campo]) auto[campo] = h; });
+
+  cont.innerHTML = CAMPOS_IMPORT.map(c=>{
+    const selecionado = auto[c.campo] || '';
+    const opcoes = ['<option value="">— ignorar —</option>']
+      .concat(importHeaders.map(h=>
+        `<option value="${escapeHtml(h)}"${h===selecionado?' selected':''}>${escapeHtml(h)}</option>`
+      )).join('');
+    const marca = selecionado
+      ? '<span style="color:var(--won); font-size:11px; font-weight:700; white-space:nowrap;">✓ auto</span>'
+      : (c.obrigatorio ? '<span style="color:var(--lost); font-size:11px; font-weight:700; white-space:nowrap;">obrigatório</span>' : '');
+    return `
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div style="flex:0 0 130px; font-size:12px; font-weight:600; color:var(--text);">
+          ${escapeHtml(c.rotulo)}${c.obrigatorio?' *':''}
+        </div>
+        <select data-map-campo="${c.campo}" style="flex:1;">${opcoes}</select>
+        <div style="flex:0 0 64px; text-align:right;">${marca}</div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('import-mapping').classList.remove('hidden');
+}
+
+document.getElementById('import-file').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  const preview = document.getElementById('import-preview');
+  importRows = [];
+  importHeaders = [];
+  document.getElementById('import-mapping').classList.add('hidden');
+  document.getElementById('import-mapping-rows').innerHTML = '';
+  if(!file){ preview.textContent=''; return; }
+
+  try {
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data, { type: 'array' });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+    if(!rows.length){
+      preview.innerHTML = '<span style="color:var(--lost);">A planilha está vazia.</span>';
+      return;
+    }
+
+    importRows = rows;
+    importHeaders = Object.keys(rows[0]);
+    montarMapeamento();
+
+    const reconhecidos = importHeaders.filter(h=>mapearColuna(h)).length;
+    preview.innerHTML = '<span style="color:var(--text-muted);">'
+      + rows.length + ' linha(s) lidas · ' + reconhecidos + ' coluna(s) reconhecida(s) automaticamente. Confira o de-para acima.</span>';
+  } catch(err){
+    preview.innerHTML = '<span style="color:var(--lost);">Erro ao ler o arquivo: '+escapeHtml(err.message)+'</span>';
+    importRows = [];
+    importHeaders = [];
+  }
+});
 
 // Converte valores monetários, aceitando formato BR (1.500,00) e internacional (1500.00)
 function parseValorBR(val){
@@ -1603,70 +1705,55 @@ function parseValorBR(val){
   return isNaN(n) ? 0 : n;
 }
 
-document.getElementById('import-file').addEventListener('change', async (e)=>{
-  const file = e.target.files[0];
-  const preview = document.getElementById('import-preview');
-  leadsParaImportar = [];
-  if(!file){ preview.textContent=''; return; }
-
-  try {
-    const data = await file.arrayBuffer();
-    const wb = XLSX.read(data, { type: 'array' });
-    const sheet = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-
-    if(!rows.length){
-      preview.innerHTML = '<span style="color:var(--lost);">A planilha está vazia.</span>';
-      return;
-    }
-
-    // Descobre o mapeamento das colunas a partir dos títulos
-    const titulos = Object.keys(rows[0]);
-    const mapa = {};
-    titulos.forEach(t=>{ const campo = mapearColuna(t); if(campo) mapa[t] = campo; });
-
-    const temNome = Object.values(mapa).includes('title');
-    if(!temNome){
-      preview.innerHTML = '<span style="color:var(--lost);">Não encontrei a coluna <strong>nome</strong> (ou empresa). Verifique os títulos da planilha.</span>';
-      return;
-    }
-
-    // Converte as linhas
-    leadsParaImportar = rows.map(row=>{
-      const lead = {};
-      for(const [titulo, campo] of Object.entries(mapa)){
-        let val = row[titulo];
-        if(campo === 'value'){
-          val = parseValorBR(val);
-        } else if(campo === 'expected_close_date'){
-          val = String(val).trim();
-          if(!/^\d{4}-\d{2}-\d{2}$/.test(val)) val = null; // só aceita AAAA-MM-DD
-        } else {
-          val = String(val).trim() || null;
-        }
-        lead[campo] = val;
-      }
-      return lead;
-    }).filter(l=> l.title); // descarta linhas sem nome
-
-    preview.innerHTML = '<span style="color:var(--won);">✓ '+leadsParaImportar.length+' lead(s) prontos para importar.</span>';
-  } catch(err){
-    preview.innerHTML = '<span style="color:var(--lost);">Erro ao ler o arquivo: '+err.message+'</span>';
-    leadsParaImportar = [];
-  }
-});
-
 document.getElementById('confirm-import-btn').addEventListener('click', async ()=>{
-  if(!leadsParaImportar.length){
+  if(!importRows.length){
     showToast('Selecione um arquivo válido primeiro.', 'err');
     return;
   }
+
+  // Lê o de-para escolhido nos dropdowns: coluna da planilha -> campo do sistema
+  const mapa = {};
+  let colunaNome = null;
+  document.querySelectorAll('#import-mapping-rows select[data-map-campo]').forEach(sel=>{
+    const campo = sel.dataset.mapCampo;
+    const coluna = sel.value;
+    if(coluna){ mapa[coluna] = campo; if(campo === 'title') colunaNome = coluna; }
+  });
+
+  if(!colunaNome){
+    showToast('Defina qual coluna é o Nome (campo obrigatório).', 'err');
+    return;
+  }
+
+  // Converte as linhas conforme o mapeamento confirmado
+  const leads = importRows.map(row=>{
+    const lead = {};
+    for(const [coluna, campo] of Object.entries(mapa)){
+      let val = row[coluna];
+      if(campo === 'value'){
+        val = parseValorBR(val);
+      } else if(campo === 'expected_close_date'){
+        val = String(val).trim();
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(val)) val = null;
+      } else {
+        val = String(val).trim() || null;
+      }
+      lead[campo] = val;
+    }
+    return lead;
+  }).filter(l=> l.title);
+
+  if(!leads.length){
+    showToast('Nenhuma linha tem Nome preenchido. Verifique o de-para.', 'err');
+    return;
+  }
+
   const stageId = document.getElementById('import-stage').value;
   const btn = document.getElementById('confirm-import-btn');
   btn.disabled = true; btn.textContent = 'Importando...';
 
   // Monta os registros com etapa e dono
-  const registros = leadsParaImportar.map(l=>({
+  const registros = leads.map(l=>({
     title: l.title,
     contact_name: l.contact_name || null,
     contact_phone: l.contact_phone || null,
