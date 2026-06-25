@@ -683,8 +683,10 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser = null;     // auth user
 let currentProfile = null;  // public.profiles row
 let stages = [];            // pipeline_stages
-let deals = [];             // deals (com profile do owner)
+let deals = [];             // deals carregados para o Kanban (parcial, mais recentes)
 let profiles = [];          // todos os profiles (apenas admin carrega de fato)
+let dashStats = null;       // estatísticas agregadas do dashboard (vêm do banco via RPC)
+const KANBAN_LIMIT = 300;   // máximo de cards carregados por vez no Kanban
 let companies = [];         // empresas
 let contacts = [];          // pessoas/contatos
 let editingDealId = null;   // id do deal sendo editado no modal
@@ -933,17 +935,24 @@ async function loadProfiles(){
 }
 
 async function loadDeals(){
-  const LIMIT = 500;
+  // 1) Estatísticas agregadas (contadores do dashboard) — calculadas no banco.
+  //    Independe do volume: retorna números prontos, não registros.
+  const { data: statsData, error: statsErr } = await db.rpc('dashboard_stats');
+  if(statsErr){
+    showToast('Erro ao carregar estatísticas: ' + statsErr.message, 'err');
+  } else {
+    dashStats = statsData || null;
+  }
+
+  // 2) Cards do Kanban — só os mais recentes (teto KANBAN_LIMIT) para não pesar o navegador.
+  //    A contagem real por etapa vem das estatísticas acima, não daqui.
   const { data, error } = await db
     .from('deals')
     .select('*, owner:profiles!deals_owner_id_fkey(id, full_name)')
     .order('created_at', { ascending: false })
-    .limit(LIMIT);
+    .range(0, KANBAN_LIMIT - 1);
   if(error){ showToast('Erro ao carregar leads: ' + error.message, 'err'); return; }
   deals = data || [];
-  if(deals.length === LIMIT){
-    showToast('Exibindo os 500 leads mais recentes.');
-  }
 }
 
 // ============================================================
@@ -979,6 +988,17 @@ function aplicarMudancaRealtime(payload){
   else deals.unshift(registro);             // novo entra no topo (created_at desc)
 }
 
+// Atualiza as estatísticas do dashboard de forma agrupada (debounce): várias
+// mudanças em rajada viram uma única consulta de agregação, evitando excesso de queries.
+let statsTimer = null;
+function agendarRefreshStats(){
+  clearTimeout(statsTimer);
+  statsTimer = setTimeout(async ()=>{
+    const { data, error } = await db.rpc('dashboard_stats');
+    if(!error){ dashStats = data || dashStats; renderDashboard(); }
+  }, 1500);
+}
+
 function setupRealtime(){
   if(dealsChannel) db.removeChannel(dealsChannel);
   dealsChannel = db
@@ -986,10 +1006,10 @@ function setupRealtime(){
     .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, (payload)=>{
       try {
         aplicarMudancaRealtime(payload);
-        renderAll();
+        renderKanban();        // Kanban reflete a mudança na hora (array local)
+        agendarRefreshStats(); // contadores do dashboard se atualizam logo em seguida
       } catch(e){
         // Rede de segurança: se algo inesperado vier no payload, recarrega tudo.
-        console.warn('[CRM] realtime incremental falhou, recarregando tudo:', e);
         loadDeals().then(renderAll);
       }
     })
@@ -1012,41 +1032,23 @@ function renderDashboard(){
     ? 'Visão geral de toda a equipe'
     : 'Visão geral dos seus leads';
 
-  const openDeals = deals.filter(d=>{
-    const st = stages.find(s=>s.id===d.stage_id);
-    return st && !st.is_won && !st.is_lost;
-  });
-  const wonDeals = deals.filter(d=>{
-    const st = stages.find(s=>s.id===d.stage_id);
-    return st && st.is_won;
-  });
-  const lostDeals = deals.filter(d=>{
-    const st = stages.find(s=>s.id===d.stage_id);
-    return st && st.is_lost;
-  });
+  // Usa as estatísticas agregadas vindas do banco (não o array parcial de cards).
+  const st = dashStats || {
+    total:0, open_count:0, open_value:0, won_count:0, won_value:0,
+    lost_count:0, followup_due:0, by_stage:{}, by_owner:{}
+  };
 
-  const openValue = openDeals.reduce((sum,d)=>sum + Number(d.value||0), 0);
-  const wonValue = wonDeals.reduce((sum,d)=>sum + Number(d.value||0), 0);
-  const total = deals.length;
-  const winRate = (wonDeals.length + lostDeals.length) > 0
-    ? Math.round((wonDeals.length / (wonDeals.length + lostDeals.length)) * 100)
+  const winRate = (st.won_count + st.lost_count) > 0
+    ? Math.round((st.won_count / (st.won_count + st.lost_count)) * 100)
     : 0;
 
-  // Follow-ups atrasados ou para hoje (só em negócios abertos)
-  const hojeDash = new Date(); hojeDash.setHours(0,0,0,0);
-  const followupPendente = openDeals.filter(d=>{
-    if(!d.next_followup_date) return false;
-    const fu = new Date(d.next_followup_date + 'T00:00:00');
-    return fu <= hojeDash;
-  }).length;
-
   const metrics = [
-    { label: '🔔 Follow-ups p/ hoje', value: followupPendente, sub: followupPendente>0 ? 'precisam de contato!' : 'tudo em dia' },
-    { label: 'Negócios em aberto', value: openDeals.length, sub: formatCurrency(openValue) + ' em negociação' },
-    { label: 'Ganhos', value: wonDeals.length, sub: formatCurrency(wonValue) + ' faturado' },
-    { label: 'Perdidos', value: lostDeals.length, sub: '' },
+    { label: '🔔 Follow-ups p/ hoje', value: st.followup_due, sub: st.followup_due>0 ? 'precisam de contato!' : 'tudo em dia' },
+    { label: 'Negócios em aberto', value: st.open_count, sub: formatCurrency(st.open_value) + ' em negociação' },
+    { label: 'Ganhos', value: st.won_count, sub: formatCurrency(st.won_value) + ' faturado' },
+    { label: 'Perdidos', value: st.lost_count, sub: '' },
     { label: 'Taxa de conversão', value: winRate + '%', sub: 'ganhos / (ganhos + perdidos)' },
-    { label: 'Total de leads', value: total, sub: '' },
+    { label: 'Total de leads', value: st.total, sub: '' },
   ];
 
   document.getElementById('metrics-grid').innerHTML = metrics.map(m=>`
@@ -1057,10 +1059,12 @@ function renderDashboard(){
     </div>
   `).join('');
 
-  // Funil chart
-  const maxCount = Math.max(1, ...stages.map(s=>deals.filter(d=>d.stage_id===s.id).length));
+  // Funil chart — contagem por etapa vinda das estatísticas agregadas.
+  const byStage = st.by_stage || {};
+  const contagem = s => (byStage[s.id] ? byStage[s.id].count : 0);
+  const maxCount = Math.max(1, ...stages.map(contagem));
   document.getElementById('funnel-chart').innerHTML = stages.map(s=>{
-    const count = deals.filter(d=>d.stage_id===s.id).length;
+    const count = contagem(s);
     const pct = Math.round((count / maxCount) * 100);
     let color = 'var(--primary)';
     if(s.is_won) color = 'var(--won)';
@@ -1078,28 +1082,20 @@ function renderDashboard(){
     `;
   }).join('');
 
-  // Leaderboard (apenas admin com dados de outros)
+  // Leaderboard (apenas admin) — ranking por vendedor vindo das estatísticas agregadas.
   const leaderboardPanel = document.getElementById('leaderboard-panel');
   if(isAdmin() && profiles.length){
     leaderboardPanel.classList.remove('hidden');
+    const byOwner = st.by_owner || {};
     const vendedores = profiles.filter(p=>p.role==='vendedor');
     const rows = vendedores.map(v=>{
-      const vendDeals = deals.filter(d=>d.owner_id===v.id);
-      const openV = vendDeals.filter(d=>{
-        const st = stages.find(s=>s.id===d.stage_id);
-        return st && !st.is_won && !st.is_lost;
-      });
-      const wonV = vendDeals.filter(d=>{
-        const st = stages.find(s=>s.id===d.stage_id);
-        return st && st.is_won;
-      });
-      const openValueV = openV.reduce((sum,d)=>sum+Number(d.value||0),0);
-      return { name: v.full_name, openCount: openV.length, wonCount: wonV.length, openValue: openValueV };
+      const o = byOwner[v.id] || { open_count:0, won_count:0, open_value:0 };
+      return { name: v.full_name, openCount: o.open_count, wonCount: o.won_count, openValue: Number(o.open_value)||0 };
     }).sort((a,b)=>b.openValue - a.openValue);
 
     document.getElementById('leaderboard').innerHTML = rows.length ? rows.map(r=>`
       <div class="leaderboard-row">
-        <span class="lb-name">${r.name}</span>
+        <span class="lb-name">${escapeHtml(r.name)}</span>
         <div class="lb-stats">
           <span>${r.openCount} aberto(s)</span>
           <span>${r.wonCount} ganho(s)</span>
@@ -1123,8 +1119,49 @@ document.getElementById('refresh-dash').addEventListener('click', async ()=>{
 // ------------------------------------------------------------
 const searchInput = document.getElementById('search-deals');
 const ownerFilter = document.getElementById('filter-owner');
-searchInput.addEventListener('input', renderKanban);
-ownerFilter.addEventListener('change', renderKanban);
+
+let buscaTimer = null;
+let buscaAtiva = false;
+
+// Busca no banco (em TODOS os leads, não só nos carregados). Com debounce para não
+// disparar uma query a cada tecla.
+async function buscarNoBanco(){
+  const term = searchInput.value.trim();
+  const ownerId = ownerFilter.value;
+
+  // Sem termo e sem filtro: volta ao conjunto padrão (recentes) já carregado.
+  if(!term && !ownerId){
+    if(buscaAtiva){ buscaAtiva = false; await loadDeals(); }
+    renderKanban();
+    return;
+  }
+
+  buscaAtiva = true;
+  let q = db.from('deals')
+    .select('*, owner:profiles!deals_owner_id_fkey(id, full_name)')
+    .order('created_at', { ascending: false })
+    .range(0, KANBAN_LIMIT - 1);
+
+  if(ownerId) q = q.eq('owner_id', ownerId);
+  if(term){
+    // Busca em vários campos (case-insensitive). Escapa vírgula/parênteses do termo.
+    const t = term.replace(/[%,()]/g, ' ');
+    q = q.or(`title.ilike.%${t}%,contact_name.ilike.%${t}%,contact_email.ilike.%${t}%,contact_phone.ilike.%${t}%,whatsapp.ilike.%${t}%,cnpj.ilike.%${t}%`);
+  }
+
+  const { data, error } = await q;
+  if(error){ showToast('Erro na busca: ' + error.message, 'err'); return; }
+  deals = data || [];
+  renderKanban();
+}
+
+function agendarBusca(){
+  clearTimeout(buscaTimer);
+  buscaTimer = setTimeout(buscarNoBanco, 350);
+}
+
+searchInput.addEventListener('input', agendarBusca);
+ownerFilter.addEventListener('change', buscarNoBanco);
 
 // Gera os selos visuais do card: follow-up atrasado e tempo parado na etapa
 function selosDoCard(d, stage){
@@ -1160,25 +1197,26 @@ function selosDoCard(d, stage){
 }
 
 function renderKanban(){
-  const term = searchInput.value.trim().toLowerCase();
+  const term = searchInput.value.trim();
   const ownerId = ownerFilter.value;
+  const temFiltro = !!(term || ownerId);
 
-  const filtered = deals.filter(d=>{
-    if(ownerId && d.owner_id !== ownerId) return false;
-    if(!term) return true;
-    return (d.title||'').toLowerCase().includes(term)
-      || (d.contact_name||'').toLowerCase().includes(term)
-      || (d.contact_email||'').toLowerCase().includes(term)
-      || (d.contact_phone||'').toLowerCase().includes(term)
-      || (d.whatsapp||'').toLowerCase().includes(term)
-      || (d.cnpj||'').toLowerCase().includes(term);
-  });
+  // deals já vem filtrado do banco quando há busca/filtro (buscarNoBanco).
+  // Aqui apenas distribuímos os cards por etapa.
+  const byStage = (dashStats && dashStats.by_stage) || {};
 
   const kanban = document.getElementById('kanban');
   kanban.innerHTML = stages.map(stage=>{
-    const stageDeals = filtered.filter(d=>d.stage_id === stage.id);
+    const stageDeals = deals.filter(d=>d.stage_id === stage.id);
     const colTotal = stageDeals.reduce((sum,d)=>sum+Number(d.value||0),0);
     const stageClass = stage.is_won ? 'stage-won' : (stage.is_lost ? 'stage-lost' : '');
+
+    // Sem filtro: cabeçalho mostra o total REAL da etapa (banco).
+    // Com filtro: mostra quantos casaram.
+    const totalReal = byStage[stage.id] ? byStage[stage.id].count : stageDeals.length;
+    const exibidos = stageDeals.length;
+    const headerCount = temFiltro ? exibidos : totalReal;
+    const ocultos = (!temFiltro && totalReal > exibidos) ? (totalReal - exibidos) : 0;
 
     const cards = stageDeals.map(d=>`
       <div class="deal-card" draggable="true" data-deal-id="${d.id}" data-stage-id="${stage.id}">
@@ -1193,17 +1231,22 @@ function renderKanban(){
       </div>
     `).join('');
 
+    const avisoOcultos = ocultos > 0
+      ? `<div class="empty-state" style="font-size:12px; opacity:.8;">+ ${ocultos} lead(s) nesta etapa. Use a busca para encontrar um específico.</div>`
+      : '';
+
     return `
       <div class="kanban-col ${stageClass}" data-stage-id="${stage.id}">
         <div class="kanban-col-header">
           <div>
-            <div class="title">${stage.name}</div>
+            <div class="title">${escapeHtml(stage.name)}</div>
             <div class="meta">${formatCurrency(colTotal)}</div>
           </div>
-          <div class="count">${stageDeals.length}</div>
+          <div class="count">${headerCount}</div>
         </div>
         <div class="kanban-cards" data-stage-id="${stage.id}">
           ${cards || '<div class="empty-state">Sem leads aqui</div>'}
+          ${avisoOcultos}
         </div>
       </div>
     `;
