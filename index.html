@@ -397,6 +397,22 @@
         <h3>Usuários</h3>
         <div id="admin-users-list"></div>
       </div>
+
+      <div class="panel">
+        <h3>Acessos &amp; Atividade da equipe</h3>
+        <p style="font-size:13px; color:var(--text-muted); margin:-4px 0 12px;">
+          Resumo de cada vendedor: último acesso, leads criados e valor em funil. Histórico completo desde o início.
+        </p>
+        <div id="admin-activity-list"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Movimentações recentes</h3>
+        <p style="font-size:13px; color:var(--text-muted); margin:-4px 0 12px;">
+          Últimos leads criados e modificados no sistema.
+        </p>
+        <div id="admin-timeline-list"></div>
+      </div>
     </section>
   </main>
 </div>
@@ -1535,6 +1551,114 @@ async function renderAdmin(){
       );
     });
   });
+
+  // Renderiza os painéis de relatório (atividade + timeline)
+  renderRelatorios();
+}
+
+// ============================================================
+// RELATÓRIOS (somente leitura — usa created_at/updated_at já gravados)
+// ============================================================
+async function renderRelatorios(){
+  if(!isAdmin()) return;
+
+  // --- 1) ACESSOS & ATIVIDADE POR VENDEDOR ---
+  // Cruza os profiles (já carregados em memória) com os deals para montar o resumo.
+  const { data: dealsAll, error: errDeals } = await db
+    .from('deals')
+    .select('id, title, owner_id, value, created_at, updated_at');
+
+  const activityEl = document.getElementById('admin-activity-list');
+  const timelineEl = document.getElementById('admin-timeline-list');
+
+  if(errDeals){
+    activityEl.innerHTML = '<span style="color:var(--lost);">Erro ao carregar atividade: ' + escapeHtml(errDeals.message) + '</span>';
+    return;
+  }
+
+  const deals = dealsAll || [];
+  const usuarios = (profiles || []).filter(p => !p.deleted_at);
+
+  const resumo = usuarios.map(p=>{
+    const meus = deals.filter(d => d.owner_id === p.id);
+    const valorTotal = meus.reduce((s,d)=> s + (Number(d.value)||0), 0);
+    const ultimaData = meus.reduce((max,d)=>{
+      const t = new Date(d.created_at).getTime();
+      return t > max ? t : max;
+    }, 0);
+    return {
+      nome: p.full_name,
+      role: p.role,
+      cadastro: p.created_at,
+      leads: meus.length,
+      valor: valorTotal,
+      ultimoLead: ultimaData ? new Date(ultimaData) : null
+    };
+  }).sort((a,b)=> b.leads - a.leads);
+
+  const fmtMoeda = v => 'R$ ' + (Number(v)||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const fmtData  = d => d ? new Date(d).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+  const fmtDia   = d => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+
+  activityEl.innerHTML = `
+    <div style="overflow-x:auto;">
+    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+      <thead>
+        <tr style="text-align:left; border-bottom:1px solid var(--border);">
+          <th style="padding:8px;">Vendedor</th>
+          <th style="padding:8px;">Papel</th>
+          <th style="padding:8px;">Cadastro</th>
+          <th style="padding:8px;">Leads criados</th>
+          <th style="padding:8px;">Valor em funil</th>
+          <th style="padding:8px;">Último lead criado</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${resumo.map(r=>
+          '<tr style="border-bottom:1px solid var(--border);">'
+          + '<td style="padding:8px;">' + escapeHtml(r.nome) + '</td>'
+          + '<td style="padding:8px;">' + escapeHtml(r.role) + '</td>'
+          + '<td style="padding:8px;">' + fmtDia(r.cadastro) + '</td>'
+          + '<td style="padding:8px; font-weight:600;">' + r.leads + '</td>'
+          + '<td style="padding:8px;">' + fmtMoeda(r.valor) + '</td>'
+          + '<td style="padding:8px;">' + fmtData(r.ultimoLead) + '</td>'
+          + '</tr>'
+        ).join('')}
+      </tbody>
+    </table>
+    </div>`;
+
+  // --- 2) TIMELINE: últimas 15 movimentações (criação/modificação) ---
+  // Usa o deal já carregado em memória (com title/owner) cruzando com datas.
+  const ownerNome = id => {
+    const p = (profiles || []).find(x => x.id === id);
+    return p ? p.full_name : '—';
+  };
+  // Junta eventos de criação e modificação num só fluxo, ordenado por data desc.
+  const eventos = [];
+  deals.forEach(d=>{
+    const titulo = d.title || 'Lead';
+    eventos.push({ tipo:'criado',     data:d.created_at, owner:d.owner_id, titulo });
+    if(d.updated_at && d.updated_at !== d.created_at){
+      eventos.push({ tipo:'modificado', data:d.updated_at, owner:d.owner_id, titulo });
+    }
+  });
+  eventos.sort((a,b)=> new Date(b.data) - new Date(a.data));
+  const top = eventos.slice(0, 15);
+
+  timelineEl.innerHTML = top.length ? `
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      ${top.map(e=>{
+        const cor = e.tipo === 'criado' ? 'var(--won)' : 'var(--primary)';
+        const tag = e.tipo === 'criado' ? 'Criado' : 'Modificado';
+        return '<div style="display:flex; align-items:center; gap:10px; padding:8px 10px; background:var(--bg); border-radius:8px; font-size:13px;">'
+          + '<span style="flex:0 0 auto; font-size:11px; font-weight:700; color:#fff; background:' + cor + '; padding:2px 8px; border-radius:999px;">' + tag + '</span>'
+          + '<span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + escapeHtml(e.titulo) + '</span>'
+          + '<span style="flex:0 0 auto; color:var(--text-muted);">' + escapeHtml(ownerNome(e.owner)) + '</span>'
+          + '<span style="flex:0 0 auto; color:var(--text-muted);">' + fmtData(e.data) + '</span>'
+          + '</div>';
+      }).join('')}
+    </div>` : '<span style="color:var(--text-muted);">Nenhuma movimentação registrada ainda.</span>';
 }
 
 // ============================================================
