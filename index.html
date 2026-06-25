@@ -947,7 +947,7 @@ async function loadDeals(){
   // 2) Cards do Kanban — os mais recentes de CADA etapa (não os N globais).
   //    Isso evita que uma etapa de alto volume (ex.: Prospecção) ocupe todo o limite
   //    e deixe outras colunas vazias na tela. A contagem real vem das estatísticas.
-  const { data, error } = await db.rpc('deals_for_kanban', { por_etapa: KANBAN_LIMIT });
+  const { data, error } = await db.rpc('deals_for_kanban', { por_etapa: KANBAN_LIMIT, p_owner: null });
   if(error){ showToast('Erro ao carregar leads: ' + error.message, 'err'); return; }
 
   // A RPC retorna a linha de deals sem o join do owner; anexamos pelo cache de profiles
@@ -1133,7 +1133,7 @@ async function buscarNoBanco(){
   const term = searchInput.value.trim();
   const ownerId = ownerFilter.value;
 
-  // Sem termo e sem filtro: volta ao conjunto padrão (recentes) já carregado.
+  // Sem termo e sem filtro: volta ao conjunto padrão (todos, por etapa).
   if(!term && !ownerId){
     if(buscaAtiva){ buscaAtiva = false; await loadDeals(); }
     renderKanban();
@@ -1141,6 +1141,23 @@ async function buscarNoBanco(){
   }
 
   buscaAtiva = true;
+
+  // CASO 1 — Filtro por vendedor SEM busca textual: usa a função por-etapa para que
+  // nenhuma etapa do vendedor fique de fora (mesmo as com poucos leads antigos).
+  if(ownerId && !term){
+    const { data, error } = await db.rpc('deals_for_kanban', { por_etapa: KANBAN_LIMIT, p_owner: ownerId });
+    if(error){ showToast('Erro ao filtrar: ' + error.message, 'err'); return; }
+    deals = (data || []).map(d=>{
+      const op = profiles.find(p => p.id === d.owner_id);
+      d.owner = op ? { id: op.id, full_name: op.full_name } : null;
+      return d;
+    });
+    renderKanban();
+    return;
+  }
+
+  // CASO 2 — Busca textual (com ou sem vendedor): varre todos os campos. Aqui o range
+  // global faz sentido, pois o usuário procura um termo específico.
   let q = db.from('deals')
     .select('*, owner:profiles!deals_owner_id_fkey(id, full_name)')
     .order('created_at', { ascending: false })
