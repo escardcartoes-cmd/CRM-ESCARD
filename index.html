@@ -535,6 +535,11 @@
       <select id="import-stage"></select>
     </div>
 
+    <div class="field hidden" id="import-owner-field">
+      <label>Atribuir os leads a</label>
+      <select id="import-owner"></select>
+    </div>
+
     <div class="field">
       <label>Selecione o arquivo (.csv ou .xlsx)</label>
       <input type="file" id="import-file" accept=".csv,.xlsx,.xls">
@@ -1670,6 +1675,23 @@ document.getElementById('import-btn').addEventListener('click', ()=>{
   // Preenche o seletor de etapas com as etapas atuais
   const sel = document.getElementById('import-stage');
   sel.innerHTML = stages.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+
+  // Campo "Atribuir a": somente admin escolhe o dono; vendedor importa para si.
+  const ownerField = document.getElementById('import-owner-field');
+  const ownerSel = document.getElementById('import-owner');
+  if(isAdmin()){
+    const lista = (profiles || []).filter(p => !p.deleted_at);
+    ownerSel.innerHTML = lista.map(p=>{
+      const sufixo = p.id === currentProfile.id ? ' (você)' : (p.role === 'admin' ? ' (admin)' : '');
+      const sel = p.id === currentProfile.id ? ' selected' : '';
+      return `<option value="${escapeHtml(p.id)}"${sel}>${escapeHtml(p.full_name)}${sufixo}</option>`;
+    }).join('');
+    ownerField.classList.remove('hidden');
+  } else {
+    ownerField.classList.add('hidden');
+    ownerSel.innerHTML = '';
+  }
+
   document.getElementById('import-file').value = '';
   document.getElementById('import-preview').textContent = '';
   document.getElementById('import-mapping').classList.add('hidden');
@@ -1873,6 +1895,16 @@ document.getElementById('confirm-import-btn').addEventListener('click', async ()
   }
 
   const stageId = document.getElementById('import-stage').value;
+
+  // Define o dono dos leads: admin pode escolher; vendedor recebe sempre a si mesmo.
+  let ownerId = currentProfile.id;
+  if(isAdmin()){
+    const escolhido = document.getElementById('import-owner').value;
+    // Valida que o id escolhido existe entre os profiles ativos (defesa contra valor adulterado)
+    const valido = (profiles || []).some(p => p.id === escolhido && !p.deleted_at);
+    if(escolhido && valido) ownerId = escolhido;
+  }
+
   const btn = document.getElementById('confirm-import-btn');
   btn.disabled = true; btn.textContent = 'Importando...';
 
@@ -1888,7 +1920,7 @@ document.getElementById('confirm-import-btn').addEventListener('click', async ()
     source: l.source || null,
     expected_close_date: l.expected_close_date || null,
     stage_id: stageId,
-    owner_id: currentProfile.id
+    owner_id: ownerId
   }));
 
   const { error } = await db.from('deals').insert(registros);
