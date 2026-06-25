@@ -944,15 +944,19 @@ async function loadDeals(){
     dashStats = statsData || null;
   }
 
-  // 2) Cards do Kanban — só os mais recentes (teto KANBAN_LIMIT) para não pesar o navegador.
-  //    A contagem real por etapa vem das estatísticas acima, não daqui.
-  const { data, error } = await db
-    .from('deals')
-    .select('*, owner:profiles!deals_owner_id_fkey(id, full_name)')
-    .order('created_at', { ascending: false })
-    .range(0, KANBAN_LIMIT - 1);
+  // 2) Cards do Kanban — os mais recentes de CADA etapa (não os N globais).
+  //    Isso evita que uma etapa de alto volume (ex.: Prospecção) ocupe todo o limite
+  //    e deixe outras colunas vazias na tela. A contagem real vem das estatísticas.
+  const { data, error } = await db.rpc('deals_for_kanban', { por_etapa: KANBAN_LIMIT });
   if(error){ showToast('Erro ao carregar leads: ' + error.message, 'err'); return; }
-  deals = data || [];
+
+  // A RPC retorna a linha de deals sem o join do owner; anexamos pelo cache de profiles
+  // (admin já tem todos carregados; vendedor só vê os próprios, não precisa do nome).
+  deals = (data || []).map(d=>{
+    const op = profiles.find(p => p.id === d.owner_id);
+    d.owner = op ? { id: op.id, full_name: op.full_name } : null;
+    return d;
+  });
 }
 
 // ============================================================
