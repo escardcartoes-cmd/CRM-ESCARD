@@ -893,12 +893,24 @@ async function loadProfiles(){
 }
 
 async function loadDeals(){
-  const { data, error } = await db
-    .from('deals')
-    .select('*, owner:profiles!deals_owner_id_fkey(id, full_name)')
-    .order('created_at', { ascending: false });
-  if(error){ showToast('Erro ao carregar leads: ' + error.message, 'err'); return; }
-  deals = data || [];
+  // O Supabase devolve no máximo 1000 linhas por requisição. Sem paginar, o
+  // admin só via os ~1000 leads mais recentes (os antigos de outros vendedores
+  // sumiam da tela). Aqui buscamos em blocos até trazer todos.
+  const PAGE = 1000;
+  let todos = [];
+  let de = 0;
+  while(true){
+    const { data, error } = await db
+      .from('deals')
+      .select('*, owner:profiles!deals_owner_id_fkey(id, full_name)')
+      .order('created_at', { ascending: false })
+      .range(de, de + PAGE - 1);
+    if(error){ showToast('Erro ao carregar leads: ' + error.message, 'err'); return; }
+    todos = todos.concat(data || []);
+    if(!data || data.length < PAGE) break;   // última página
+    de += PAGE;
+  }
+  deals = todos;
 }
 
 // ============================================================
