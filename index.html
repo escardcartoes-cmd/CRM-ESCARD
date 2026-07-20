@@ -266,7 +266,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
     <p class="sub" style="text-align:center;">Acesse sua conta para gerenciar seus leads.</p>
     <p style="font-size:11px;color:#16a34a;font-weight:700;margin-bottom:16px;text-align:center;">versão 2.0 · biblioteca embutida</p>
 
-    <div class="auth-tabs">
+    <div class="auth-tabs" id="auth-tabs">
       <button class="auth-tab active" data-tab="login">Entrar</button>
       <button class="auth-tab" data-tab="signup">Criar conta</button>
     </div>
@@ -284,6 +284,9 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
         <input type="password" id="login-password" required autocomplete="current-password">
       </div>
       <button type="submit" class="btn btn-primary auth-submit">Entrar</button>
+      <p style="font-size:12px; margin-top:12px; text-align:center;">
+        <a href="#" id="show-reset-link" style="color:var(--primary); font-weight:600; text-decoration:none;">Esqueci minha senha</a>
+      </p>
     </form>
 
     <!-- Signup -->
@@ -304,6 +307,37 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
       <p style="font-size:11px; color:var(--text-muted); margin-top:10px; text-align:center;">
         Novas contas entram como <strong>vendedor</strong>. Peça ao admin para promover seu acesso se necessário.
       </p>
+    </form>
+
+    <!-- Recuperar senha: solicitar link por e-mail -->
+    <form id="reset-form" class="hidden">
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">
+        Informe seu e-mail e enviaremos um link para você redefinir a sua senha.
+      </p>
+      <div class="field">
+        <label>E-mail</label>
+        <input type="email" id="reset-email" required autocomplete="email">
+      </div>
+      <button type="submit" class="btn btn-primary auth-submit">Enviar link de recuperação</button>
+      <p style="font-size:12px; margin-top:12px; text-align:center;">
+        <a href="#" id="back-to-login-link" style="color:var(--text-muted); font-weight:600; text-decoration:none;">Voltar para o login</a>
+      </p>
+    </form>
+
+    <!-- Definir nova senha (retorno pelo link de recuperação) -->
+    <form id="new-password-form" class="hidden">
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">
+        Defina a sua nova senha de acesso.
+      </p>
+      <div class="field">
+        <label>Nova senha (mín. 6 caracteres)</label>
+        <input type="password" id="new-password" required minlength="6" autocomplete="new-password">
+      </div>
+      <div class="field">
+        <label>Confirmar nova senha</label>
+        <input type="password" id="new-password-confirm" required minlength="6" autocomplete="new-password">
+      </div>
+      <button type="submit" class="btn btn-primary auth-submit">Salvar nova senha</button>
     </form>
   </div>
 </div>
@@ -629,25 +663,6 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   </div>
 </div>
 
-<!-- ===================== MODAL: DESATIVAR VENDEDOR ===================== -->
-<div id="deactivate-modal" class="modal-overlay hidden">
-  <div class="modal">
-    <h3>Desativar acesso</h3>
-    <p id="deactivate-msg" style="font-size:14px; color:var(--text-muted); margin-bottom:14px; line-height:1.5;"></p>
-    <div class="field">
-      <label>Transferir leads, empresas e contatos para:</label>
-      <select id="deactivate-target"></select>
-    </div>
-    <div class="modal-actions">
-      <div></div>
-      <div class="right">
-        <button type="button" class="btn" id="cancel-deactivate-btn">Cancelar</button>
-        <button type="button" class="btn btn-danger" id="confirm-deactivate-btn">Desativar e transferir</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <div id="toast"></div>
 
 <script>
@@ -761,6 +776,96 @@ document.getElementById('signup-form').addEventListener('submit', async (e)=>{
   showToast('Conta criada! Verifique seu e-mail caso a confirmação esteja ativada.', 'ok');
 });
 
+// ============================================================
+// RECUPERAÇÃO DE SENHA
+// ============================================================
+// Detecta, JÁ no carregamento, se o usuário chegou pelo link de redefinição.
+// Precisa ser lido aqui (síncrono) porque o cliente Supabase limpa o hash da URL
+// durante a inicialização assíncrona.
+let emRecuperacao = /type=recovery/.test(window.location.hash || '');
+
+const authTabs = document.getElementById('auth-tabs');
+const resetForm = document.getElementById('reset-form');
+const newPasswordForm = document.getElementById('new-password-form');
+
+function mostrarFormularioNovaSenha(){
+  document.getElementById('auth-screen').classList.remove('hidden');
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('login-form').classList.add('hidden');
+  document.getElementById('signup-form').classList.add('hidden');
+  resetForm.classList.add('hidden');
+  authTabs.classList.add('hidden');
+  newPasswordForm.classList.remove('hidden');
+  setAuthError(null);
+}
+
+function restaurarTelaLogin(){
+  newPasswordForm.classList.add('hidden');
+  resetForm.classList.add('hidden');
+  authTabs.classList.remove('hidden');
+  document.getElementById('signup-form').classList.add('hidden');
+  document.getElementById('login-form').classList.remove('hidden');
+  document.querySelectorAll('.auth-tab').forEach(t=>{
+    t.classList.toggle('active', t.dataset.tab === 'login');
+  });
+}
+
+// Login -> tela "esqueci minha senha"
+document.getElementById('show-reset-link').addEventListener('click', (e)=>{
+  e.preventDefault();
+  setAuthError(null);
+  document.getElementById('login-form').classList.add('hidden');
+  document.getElementById('signup-form').classList.add('hidden');
+  authTabs.classList.add('hidden');
+  resetForm.classList.remove('hidden');
+});
+
+// Voltar para o login
+document.getElementById('back-to-login-link').addEventListener('click', (e)=>{
+  e.preventDefault();
+  setAuthError(null);
+  restaurarTelaLogin();
+});
+
+// Solicitar o e-mail de recuperação
+resetForm.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  setAuthError(null);
+  const email = document.getElementById('reset-email').value.trim();
+  const btn = resetForm.querySelector('button[type="submit"]');
+  btn.disabled = true;
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + window.location.pathname
+  });
+  btn.disabled = false;
+  if(error){ setAuthError(traduzErro(error.message)); return; }
+  // Mensagem genérica de propósito: não revela se o e-mail existe (anti-enumeração).
+  showToast('Se este e-mail estiver cadastrado, você receberá um link para redefinir a senha.', 'ok');
+  document.getElementById('reset-email').value = '';
+});
+
+// Definir a nova senha (após clicar no link do e-mail)
+newPasswordForm.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  setAuthError(null);
+  const senha = document.getElementById('new-password').value;
+  const confirma = document.getElementById('new-password-confirm').value;
+  if(senha.length < 6){ setAuthError('A senha deve ter ao menos 6 caracteres.'); return; }
+  if(senha !== confirma){ setAuthError('As senhas não coincidem.'); return; }
+  const btn = newPasswordForm.querySelector('button[type="submit"]');
+  btn.disabled = true;
+  const { error } = await db.auth.updateUser({ password: senha });
+  btn.disabled = false;
+  if(error){ setAuthError(traduzErro(error.message)); return; }
+  emRecuperacao = false;
+  document.getElementById('new-password').value = '';
+  document.getElementById('new-password-confirm').value = '';
+  showToast('Senha alterada com sucesso! Você já está conectado.', 'ok');
+  // Conclui a recuperação entrando no app normalmente.
+  if(currentUser){ await loadProfileAndInit(); }
+  else { restaurarTelaLogin(); }
+});
+
 document.getElementById('logout-btn').addEventListener('click', async ()=>{
   await db.auth.signOut();
 });
@@ -769,13 +874,31 @@ function traduzErro(msg){
   const map = {
     'Invalid login credentials': 'E-mail ou senha incorretos.',
     'User already registered': 'Este e-mail já está cadastrado.',
-    'Password should be at least 6 characters': 'A senha deve ter ao menos 6 caracteres.'
+    'Password should be at least 6 characters': 'A senha deve ter ao menos 6 caracteres.',
+    'New password should be different from the old password.': 'A nova senha deve ser diferente da senha atual.',
+    'Auth session missing!': 'Sua sessão de recuperação expirou. Solicite um novo link.',
+    'Unable to validate email address: invalid format': 'Formato de e-mail inválido.'
   };
-  return map[msg] || msg;
+  if(map[msg]) return map[msg];
+  if(/rate limit/i.test(msg) || /for security purposes/i.test(msg)){
+    return 'Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.';
+  }
+  return msg;
 }
 
 // Observa mudanças de sessão
 db.auth.onAuthStateChange(async (event, session) => {
+  // Fluxo de redefinição de senha: o usuário chegou pelo link do e-mail.
+  // Enquanto não concluir (definir a nova senha), NÃO entra no app —
+  // mostramos apenas o formulário de nova senha. O evento PASSWORD_RECOVERY
+  // e o INITIAL_SESSION do link caem aqui; a flag é limpa no submit da nova senha.
+  if(emRecuperacao || event === 'PASSWORD_RECOVERY'){
+    emRecuperacao = true;
+    if(session && session.user){ currentUser = session.user; }
+    mostrarFormularioNovaSenha();
+    return;
+  }
+
   if(session && session.user){
     currentUser = session.user;
     await loadProfileAndInit();
@@ -785,6 +908,7 @@ db.auth.onAuthStateChange(async (event, session) => {
     if(dealsChannel){ db.removeChannel(dealsChannel); dealsChannel = null; }
     document.getElementById('auth-screen').classList.remove('hidden');
     document.getElementById('app').classList.add('hidden');
+    restaurarTelaLogin();
   }
 });
 
@@ -810,16 +934,6 @@ async function loadProfileAndInit(){
     };
   }
   currentProfile = profile;
-
-  // Bloqueio de acesso: usuário desativado não entra no sistema.
-  // A trava real acontece no banco (RLS restritiva); aqui é só a UX de
-  // deslogar com um aviso claro. Se o perfil veio do fallback (sem o campo
-  // active por falha de rede), não bloqueamos aqui — o RLS cobre esse caso.
-  if(currentProfile.active === false){
-    showToast('Seu acesso foi desativado. Fale com o administrador.', 'err');
-    setTimeout(()=>{ db.auth.signOut(); }, 1800);
-    return;
-  }
 
   // Mostra o app imediatamente (não deixa o usuário travado)
   document.getElementById('auth-screen').classList.add('hidden');
@@ -884,33 +998,19 @@ async function loadProfiles(){
   const ownerSelect = document.getElementById('deal-owner');
   const filterSelect = document.getElementById('filter-owner');
   if(isAdmin()){
-    // Só usuários ATIVOS podem receber novos leads / aparecer nos filtros.
-    const ativos = profiles.filter(p=>p.active !== false);
-    ownerSelect.innerHTML = ativos.map(p=>`<option value="${p.id}">${p.full_name}</option>`).join('');
+    ownerSelect.innerHTML = profiles.map(p=>`<option value="${p.id}">${p.full_name}</option>`).join('');
     filterSelect.innerHTML = '<option value="">Todos os vendedores</option>' +
-      ativos.filter(p=>p.role==='vendedor').map(p=>`<option value="${p.id}">${p.full_name}</option>`).join('');
+      profiles.filter(p=>p.role==='vendedor').map(p=>`<option value="${p.id}">${p.full_name}</option>`).join('');
   }
 }
 
 async function loadDeals(){
-  // O Supabase devolve no máximo 1000 linhas por requisição. Sem paginar, o
-  // admin só via os ~1000 leads mais recentes (os antigos de outros vendedores
-  // sumiam da tela). Aqui buscamos em blocos até trazer todos.
-  const PAGE = 1000;
-  let todos = [];
-  let de = 0;
-  while(true){
-    const { data, error } = await db
-      .from('deals')
-      .select('*, owner:profiles!deals_owner_id_fkey(id, full_name)')
-      .order('created_at', { ascending: false })
-      .range(de, de + PAGE - 1);
-    if(error){ showToast('Erro ao carregar leads: ' + error.message, 'err'); return; }
-    todos = todos.concat(data || []);
-    if(!data || data.length < PAGE) break;   // última página
-    de += PAGE;
-  }
-  deals = todos;
+  const { data, error } = await db
+    .from('deals')
+    .select('*, owner:profiles!deals_owner_id_fkey(id, full_name)')
+    .order('created_at', { ascending: false });
+  if(error){ showToast('Erro ao carregar leads: ' + error.message, 'err'); return; }
+  deals = data || [];
 }
 
 // ============================================================
@@ -1342,40 +1442,25 @@ async function renderAdmin(){
         <tr style="text-align:left; border-bottom:1px solid var(--border);">
           <th style="padding:8px;">Nome</th>
           <th style="padding:8px;">Papel</th>
-          <th style="padding:8px;">Status</th>
           <th style="padding:8px;">Cadastro</th>
           <th style="padding:8px;">Ação</th>
         </tr>
       </thead>
       <tbody>
-        ${data.map(p=>{
-          var inativo = p.active === false;
-          var statusHtml = inativo
-            ? '<span style="color:#dc2626; font-weight:600;">Inativo</span>'
-            : '<span style="color:#16a34a; font-weight:600;">Ativo</span>';
-          var acoes;
-          if(p.id === currentProfile.id){
-            acoes = '<span style="color:var(--text-muted);">você</span>';
-          } else {
-            var btnPapel = '<button class="btn" style="padding:5px 10px; font-size:12px;" data-toggle-role="'
-              + p.id + '" data-current-role="' + p.role + '">'
-              + (p.role === 'admin' ? 'Tornar vendedor' : 'Tornar admin') + '</button>';
-            var btnAcesso = inativo
-              ? '<button class="btn btn-primary" style="padding:5px 10px; font-size:12px;" data-reactivate="'
-                  + p.id + '" data-name="' + escapeHtml(p.full_name) + '">Reativar</button>'
-              : '<button class="btn btn-danger" style="padding:5px 10px; font-size:12px;" data-deactivate="'
-                  + p.id + '" data-name="' + escapeHtml(p.full_name) + '">Desativar</button>';
-            acoes = btnPapel + ' ' + btnAcesso;
-          }
-          return '<tr style="border-bottom:1px solid var(--border);'
-            + (inativo ? ' opacity:0.6;' : '') + '">'
-            + '<td style="padding:8px;">' + escapeHtml(p.full_name) + '</td>'
-            + '<td style="padding:8px;">' + p.role + '</td>'
-            + '<td style="padding:8px;">' + statusHtml + '</td>'
-            + '<td style="padding:8px;">' + new Date(p.created_at).toLocaleDateString('pt-BR') + '</td>'
-            + '<td style="padding:8px; display:flex; gap:6px; flex-wrap:wrap;">' + acoes + '</td>'
-            + '</tr>';
-        }).join('')}
+        ${data.map(p=>`
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:8px;">${escapeHtml(p.full_name)}</td>
+            <td style="padding:8px;">${p.role}</td>
+            <td style="padding:8px;">${new Date(p.created_at).toLocaleDateString('pt-BR')}</td>
+            <td style="padding:8px;">
+              ${p.id !== currentProfile.id ? `
+                <button class="btn" style="padding:5px 10px; font-size:12px;" data-toggle-role="${p.id}" data-current-role="${p.role}">
+                  ${p.role === 'admin' ? 'Tornar vendedor' : 'Tornar admin'}
+                </button>
+              ` : '<span style="color:var(--text-muted);">você</span>'}
+            </td>
+          </tr>
+        `).join('')}
       </tbody>
     </table>
     </div>
@@ -1392,100 +1477,6 @@ async function renderAdmin(){
       renderAdmin();
     });
   });
-
-  document.querySelectorAll('[data-deactivate]').forEach(btn=>{
-    btn.addEventListener('click', ()=> abrirModalDesativar(btn.dataset.deactivate, btn.dataset.name));
-  });
-
-  document.querySelectorAll('[data-reactivate]').forEach(btn=>{
-    btn.addEventListener('click', ()=> reativarUsuario(btn.dataset.reactivate, btn.dataset.name));
-  });
-}
-
-// ============================================================
-// DESATIVAR / REATIVAR VENDEDOR
-// ============================================================
-let pendingDeactivate = null; // { id, name } do usuário aguardando desativação
-
-function abrirModalDesativar(userId, userName){
-  pendingDeactivate = { id: userId, name: userName };
-  document.getElementById('deactivate-msg').textContent =
-    'O acesso de ' + userName + ' será desativado na hora. Escolha para quem vão os leads, '
-    + 'empresas e contatos dele. Você pode reativar o acesso depois (mas os registros já '
-    + 'transferidos não voltam automaticamente).';
-
-  // Destinos possíveis: usuários ativos, exceto o que está sendo desativado.
-  const destinos = profiles.filter(p => p.active !== false && p.id !== userId);
-  const sel = document.getElementById('deactivate-target');
-  sel.innerHTML = destinos.map(p =>
-    '<option value="' + p.id + '">' + escapeHtml(p.full_name)
-      + (p.id === currentProfile.id ? ' (você)' : '') + '</option>'
-  ).join('');
-
-  // Pré-seleciona o próprio admin, se ele estiver entre os destinos.
-  if(destinos.some(p => p.id === currentProfile.id)) sel.value = currentProfile.id;
-
-  document.getElementById('deactivate-modal').classList.remove('hidden');
-}
-
-document.getElementById('cancel-deactivate-btn').addEventListener('click', ()=>{
-  pendingDeactivate = null;
-  document.getElementById('deactivate-modal').classList.add('hidden');
-});
-
-document.getElementById('confirm-deactivate-btn').addEventListener('click', async ()=>{
-  if(!pendingDeactivate) return;
-  const destino = document.getElementById('deactivate-target').value;
-  if(!destino){ showToast('Selecione para quem transferir os registros.', 'err'); return; }
-
-  const origem = pendingDeactivate.id;
-  const btn = document.getElementById('confirm-deactivate-btn');
-  btn.disabled = true;
-
-  try {
-    // PASSO 1 — Transferir os leads. Se falhar, aborta ANTES de desativar,
-    // para nenhum lead ficar órfão de um usuário sem acesso.
-    const rDeals = await db.from('deals').update({ owner_id: destino }).eq('owner_id', origem);
-    if(rDeals.error){
-      showToast('Falha ao transferir leads: ' + rDeals.error.message, 'err');
-      btn.disabled = false; return;
-    }
-
-    // PASSO 2 — Transferir empresas e contatos (também têm dono). Um erro aqui
-    // é avisado, mas não impede a desativação — os leads (o principal) já foram.
-    const rComp = await db.from('companies').update({ owner_id: destino }).eq('owner_id', origem);
-    if(rComp.error) showToast('Aviso: empresas não transferidas (' + rComp.error.message + ')', 'err');
-    const rCont = await db.from('contacts').update({ owner_id: destino }).eq('owner_id', origem);
-    if(rCont.error) showToast('Aviso: contatos não transferidos (' + rCont.error.message + ')', 'err');
-
-    // PASSO 3 — Desativar o acesso só depois da transferência dos leads.
-    const rProf = await db.from('profiles').update({ active: false }).eq('id', origem);
-    if(rProf.error){
-      showToast('Leads transferidos, mas falha ao desativar: ' + rProf.error.message + '. Tente de novo.', 'err');
-      btn.disabled = false; return;
-    }
-
-    showToast('Usuário desativado e registros transferidos.', 'ok');
-    document.getElementById('deactivate-modal').classList.add('hidden');
-    pendingDeactivate = null;
-    await loadProfiles();
-    await loadDeals();
-    renderAll();
-    renderAdmin();
-  } catch(e){
-    showToast('Erro inesperado: ' + (e.message || 'falha de rede'), 'err');
-  } finally {
-    btn.disabled = false;
-  }
-});
-
-async function reativarUsuario(userId, userName){
-  if(!confirm('Reativar o acesso de ' + userName + '?\n\nOs leads já transferidos NÃO voltam automaticamente.')) return;
-  const { error } = await db.from('profiles').update({ active: true }).eq('id', userId);
-  if(error){ showToast('Erro ao reativar: ' + error.message, 'err'); return; }
-  showToast(userName + ' reativado.', 'ok');
-  await loadProfiles();
-  renderAdmin();
 }
 
 // ============================================================
