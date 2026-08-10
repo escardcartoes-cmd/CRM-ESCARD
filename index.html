@@ -1038,44 +1038,36 @@ function renderAll(){
 // ------------------------------------------------------------
 // DASHBOARD
 // ------------------------------------------------------------
-function renderDashboard(){
+async function renderDashboard(){
+ try {
   document.getElementById('dash-subtitle').textContent = isAdmin()
     ? 'Visão geral de toda a equipe'
     : 'Visão geral dos seus leads';
 
-  const openDeals = deals.filter(d=>{
-    const st = stages.find(s=>s.id===d.stage_id);
-    return st && !st.is_won && !st.is_lost;
-  });
-  const wonDeals = deals.filter(d=>{
-    const st = stages.find(s=>s.id===d.stage_id);
-    return st && st.is_won;
-  });
-  const lostDeals = deals.filter(d=>{
-    const st = stages.find(s=>s.id===d.stage_id);
-    return st && st.is_lost;
-  });
+  // Agrega no servidor via RPC: o Dashboard deixa de depender do array `deals`,
+  // que é truncado no teto de 1.000 linhas do carregamento do Kanban.
+  const { data: st, error } = await db.rpc('dashboard_stats');
+  if(error){ showToast('Erro ao carregar o dashboard: ' + error.message, 'err'); return; }
+  const stats = st || {};
+  const byStage = stats.by_stage || {};
+  const byOwner = stats.by_owner || {};
 
-  const openValue = openDeals.reduce((sum,d)=>sum + Number(d.value||0), 0);
-  const wonValue = wonDeals.reduce((sum,d)=>sum + Number(d.value||0), 0);
-  const total = deals.length;
-  const winRate = (wonDeals.length + lostDeals.length) > 0
-    ? Math.round((wonDeals.length / (wonDeals.length + lostDeals.length)) * 100)
+  const openCount = stats.open_count || 0;
+  const openValue = stats.open_value || 0;
+  const wonCount  = stats.won_count  || 0;
+  const wonValue  = stats.won_value  || 0;
+  const lostCount = stats.lost_count || 0;
+  const total     = stats.total      || 0;
+  const followupPendente = stats.followup_due || 0;
+  const winRate = (wonCount + lostCount) > 0
+    ? Math.round((wonCount / (wonCount + lostCount)) * 100)
     : 0;
-
-  // Follow-ups atrasados ou para hoje (só em negócios abertos)
-  const hojeDash = new Date(); hojeDash.setHours(0,0,0,0);
-  const followupPendente = openDeals.filter(d=>{
-    if(!d.next_followup_date) return false;
-    const fu = new Date(d.next_followup_date + 'T00:00:00');
-    return fu <= hojeDash;
-  }).length;
 
   const metrics = [
     { label: '🔔 Follow-ups p/ hoje', value: followupPendente, sub: followupPendente>0 ? 'precisam de contato!' : 'tudo em dia' },
-    { label: 'Negócios em aberto', value: openDeals.length, sub: formatCurrency(openValue) + ' em negociação' },
-    { label: 'Ganhos', value: wonDeals.length, sub: formatCurrency(wonValue) + ' faturado' },
-    { label: 'Perdidos', value: lostDeals.length, sub: '' },
+    { label: 'Negócios em aberto', value: openCount, sub: formatCurrency(openValue) + ' em negociação' },
+    { label: 'Ganhos', value: wonCount, sub: formatCurrency(wonValue) + ' faturado' },
+    { label: 'Perdidos', value: lostCount, sub: '' },
     { label: 'Taxa de conversão', value: winRate + '%', sub: 'ganhos / (ganhos + perdidos)' },
     { label: 'Total de leads', value: total, sub: '' },
   ];
@@ -1089,9 +1081,9 @@ function renderDashboard(){
   `).join('');
 
   // Funil chart
-  const maxCount = Math.max(1, ...stages.map(s=>deals.filter(d=>d.stage_id===s.id).length));
+  const maxCount = Math.max(1, ...stages.map(s=>byStage[s.id]?.count || 0));
   document.getElementById('funnel-chart').innerHTML = stages.map(s=>{
-    const count = deals.filter(d=>d.stage_id===s.id).length;
+    const count = byStage[s.id]?.count || 0;
     const pct = Math.round((count / maxCount) * 100);
     let color = 'var(--primary)';
     if(s.is_won) color = 'var(--won)';
@@ -1115,17 +1107,8 @@ function renderDashboard(){
     leaderboardPanel.classList.remove('hidden');
     const vendedores = profiles.filter(p=>p.role==='vendedor');
     const rows = vendedores.map(v=>{
-      const vendDeals = deals.filter(d=>d.owner_id===v.id);
-      const openV = vendDeals.filter(d=>{
-        const st = stages.find(s=>s.id===d.stage_id);
-        return st && !st.is_won && !st.is_lost;
-      });
-      const wonV = vendDeals.filter(d=>{
-        const st = stages.find(s=>s.id===d.stage_id);
-        return st && st.is_won;
-      });
-      const openValueV = openV.reduce((sum,d)=>sum+Number(d.value||0),0);
-      return { name: v.full_name, openCount: openV.length, wonCount: wonV.length, openValue: openValueV };
+      const o = byOwner[v.id] || {};
+      return { name: v.full_name, openCount: o.open_count || 0, wonCount: o.won_count || 0, openValue: o.open_value || 0 };
     }).sort((a,b)=>b.openValue - a.openValue);
 
     document.getElementById('leaderboard').innerHTML = rows.length ? rows.map(r=>`
@@ -1141,6 +1124,9 @@ function renderDashboard(){
   } else {
     leaderboardPanel.classList.add('hidden');
   }
+ } catch(err){
+  showToast('Erro ao renderizar o dashboard: ' + (err && err.message ? err.message : err), 'err');
+ }
 }
 
 document.getElementById('refresh-dash').addEventListener('click', async ()=>{
