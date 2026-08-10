@@ -116,6 +116,9 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   input:focus, select:focus, textarea:focus{outline:2px solid #bfdbfe; border-color:var(--primary);}
   label{font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:5px;}
   .field{margin-bottom:14px;}
+  .field-label{display:flex; align-items:center; justify-content:space-between; gap:8px;}
+  .quick-link{font-size:12px; line-height:1; text-decoration:none; color:var(--primary);}
+  .quick-link:hover{color:var(--primary-hover);}
   .field-row{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
 
   /* ===== Auth screen ===== */
@@ -473,13 +476,13 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
           <input type="text" id="deal-contact-name">
         </div>
         <div class="field">
-          <label>Telefone</label>
+          <label class="field-label">Telefone<a class="quick-link hidden" id="deal-phone-link" target="_blank" rel="noopener noreferrer" aria-label="Ligar" title="Ligar">📞</a></label>
           <input type="text" id="deal-contact-phone" placeholder="(00) 00000-0000">
         </div>
       </div>
       <div class="field-row">
         <div class="field">
-          <label>WhatsApp</label>
+          <label class="field-label">WhatsApp<a class="quick-link hidden" id="deal-whatsapp-link" target="_blank" rel="noopener noreferrer" aria-label="Abrir conversa no WhatsApp" title="Abrir no WhatsApp">💬</a></label>
           <input type="text" id="deal-whatsapp" placeholder="(00) 00000-0000" inputmode="numeric">
         </div>
         <div class="field">
@@ -488,7 +491,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
         </div>
       </div>
       <div class="field">
-        <label>E-mail do contato</label>
+        <label class="field-label">E-mail do contato<a class="quick-link hidden" id="deal-email-link" target="_blank" rel="noopener noreferrer" aria-label="Enviar e-mail" title="Enviar e-mail">✉️</a></label>
         <input type="email" id="deal-contact-email">
       </div>
       <div class="field-row">
@@ -1359,6 +1362,7 @@ async function openDealModal(dealId){
     if(isAdmin()) document.getElementById('deal-owner').value = currentProfile.id;
   }
   atualizarCampoMotivoPerda();
+  atualizarLinksContato();
   dealModal.classList.remove('hidden');
 }
 
@@ -1391,6 +1395,39 @@ function mascararCnpj(v){
 }
 document.getElementById('deal-whatsapp').addEventListener('input', (e)=>{ e.target.value = mascararWhatsapp(e.target.value); });
 document.getElementById('deal-cnpj').addEventListener('input', (e)=>{ e.target.value = mascararCnpj(e.target.value); });
+
+// Links de ação rápida (WhatsApp / tel / mailto). Só aparecem com valor válido,
+// atualizam ao digitar (input) e ao abrir o modal. Clicar NÃO registra contato.
+function ehMobile(){
+  return window.innerWidth <= 768 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+// Normaliza número BR: só dígitos; prefixa 55 se tiver 10/11 díg e não começar com 55.
+// Retorna null se o resultado não tiver 12 ou 13 dígitos (número inválido).
+function normalizarTelefoneBR(v){
+  let d = (v||'').replace(/\D/g,'');
+  if(!d.startsWith('55') && (d.length === 10 || d.length === 11)) d = '55' + d;
+  return (d.length === 12 || d.length === 13) ? d : null;
+}
+function emailValido(v){
+  const e = (v||'').trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : null;
+}
+function aplicarLink(link, href){
+  if(href){ link.href = href; link.classList.remove('hidden'); }
+  else { link.removeAttribute('href'); link.classList.add('hidden'); }
+}
+function atualizarLinksContato(){
+  const wa = normalizarTelefoneBR(document.getElementById('deal-whatsapp').value);
+  aplicarLink(document.getElementById('deal-whatsapp-link'),
+    wa ? (ehMobile() ? 'https://wa.me/' + wa : 'https://web.whatsapp.com/send?phone=' + wa) : null);
+  const tel = normalizarTelefoneBR(document.getElementById('deal-contact-phone').value);
+  aplicarLink(document.getElementById('deal-phone-link'), tel ? 'tel:+' + tel : null);
+  const mail = emailValido(document.getElementById('deal-contact-email').value);
+  aplicarLink(document.getElementById('deal-email-link'), mail ? 'mailto:' + mail : null);
+}
+['deal-whatsapp','deal-contact-phone','deal-contact-email'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', atualizarLinksContato);
+});
 
 // Dígito verificador do CNPJ. Vazio = válido (campo opcional).
 function cnpjValido(valor){
