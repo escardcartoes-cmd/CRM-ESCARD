@@ -477,6 +477,16 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
           <input type="text" id="deal-contact-phone" placeholder="(00) 00000-0000">
         </div>
       </div>
+      <div class="field-row">
+        <div class="field">
+          <label>WhatsApp</label>
+          <input type="text" id="deal-whatsapp" placeholder="(00) 00000-0000" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label>CNPJ</label>
+          <input type="text" id="deal-cnpj" placeholder="00.000.000/0000-00" inputmode="numeric">
+        </div>
+      </div>
       <div class="field">
         <label>E-mail do contato</label>
         <input type="email" id="deal-contact-email">
@@ -1329,6 +1339,8 @@ async function openDealModal(dealId){
     document.getElementById('deal-contact-name').value = deal.contact_name || '';
     document.getElementById('deal-contact-phone').value = deal.contact_phone || '';
     document.getElementById('deal-contact-email').value = deal.contact_email || '';
+    document.getElementById('deal-whatsapp').value = deal.whatsapp || '';
+    document.getElementById('deal-cnpj').value = deal.cnpj || '';
     document.getElementById('deal-value').value = deal.value || '';
     document.getElementById('deal-close-date').value = deal.expected_close_date || '';
     document.getElementById('deal-source').value = deal.source || '';
@@ -1355,13 +1367,66 @@ function atualizarCampoMotivoPerda(){
 }
 document.getElementById('deal-stage').addEventListener('change', atualizarCampoMotivoPerda);
 
+// Máscaras visuais de WhatsApp e CNPJ (apenas formatação; valor salvo formatado,
+// igual ao telefone). Sem dependências — compatível com iOS Safari.
+function mascararWhatsapp(v){
+  const d = (v||'').replace(/\D/g,'').slice(0,11);
+  if(!d) return '';
+  if(d.length < 3) return '(' + d;
+  if(d.length <= 6) return '(' + d.slice(0,2) + ') ' + d.slice(2);
+  if(d.length <= 10) return '(' + d.slice(0,2) + ') ' + d.slice(2,6) + '-' + d.slice(6);
+  return '(' + d.slice(0,2) + ') ' + d.slice(2,7) + '-' + d.slice(7);
+}
+function mascararCnpj(v){
+  const d = (v||'').replace(/\D/g,'').slice(0,14);
+  if(d.length > 12) return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2}).*/, '$1.$2.$3/$4-$5');
+  if(d.length > 8)  return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{0,4}).*/, '$1.$2.$3/$4');
+  if(d.length > 5)  return d.replace(/^(\d{2})(\d{3})(\d{0,3}).*/, '$1.$2.$3');
+  if(d.length > 2)  return d.replace(/^(\d{2})(\d{0,3}).*/, '$1.$2');
+  return d;
+}
+document.getElementById('deal-whatsapp').addEventListener('input', (e)=>{ e.target.value = mascararWhatsapp(e.target.value); });
+document.getElementById('deal-cnpj').addEventListener('input', (e)=>{ e.target.value = mascararCnpj(e.target.value); });
+
+// Dígito verificador do CNPJ. Vazio = válido (campo opcional).
+function cnpjValido(valor){
+  const c = (valor||'').replace(/\D/g,'');
+  if(c.length === 0) return true;
+  if(c.length !== 14) return false;
+  if(/^(\d)\1{13}$/.test(c)) return false; // rejeita sequências repetidas
+  const calc = (base)=>{
+    let peso = base.length - 7, soma = 0;
+    for(let i=0;i<base.length;i++){
+      soma += Number(base[i]) * peso;
+      peso = (peso === 2) ? 9 : peso - 1;
+    }
+    const r = soma % 11;
+    return (r < 2) ? 0 : 11 - r;
+  };
+  const d1 = calc(c.slice(0,12));
+  const d2 = calc(c.slice(0,12) + d1);
+  return c[12] === String(d1) && c[13] === String(d2);
+}
+
+// Validações do modal de deal, executadas só no submit. Retorna true se pode salvar.
+function validarDeal(){
+  if(!cnpjValido(document.getElementById('deal-cnpj').value)){
+    showToast('CNPJ inválido. Confira os números ou deixe o campo em branco.', 'err');
+    return false;
+  }
+  return true;
+}
+
 dealForm.addEventListener('submit', async (e)=>{
   e.preventDefault();
+  if(!validarDeal()) return;
   const payload = {
     title: document.getElementById('deal-title').value.trim(),
     contact_name: document.getElementById('deal-contact-name').value.trim() || null,
     contact_phone: document.getElementById('deal-contact-phone').value.trim() || null,
     contact_email: document.getElementById('deal-contact-email').value.trim() || null,
+    whatsapp: document.getElementById('deal-whatsapp').value.trim() || null,
+    cnpj: document.getElementById('deal-cnpj').value.trim() || null,
     value: document.getElementById('deal-value').value || 0,
     expected_close_date: document.getElementById('deal-close-date').value || null,
     source: document.getElementById('deal-source').value.trim() || null,
@@ -1526,7 +1591,9 @@ function mapearColuna(titulo){
   const t = (titulo||'').toString().trim().toLowerCase();
   if(['nome','empresa','lead','cliente','razao social','razão social'].includes(t)) return 'title';
   if(['contato','nome do contato','responsavel','responsável'].includes(t)) return 'contact_name';
-  if(['telefone','fone','celular','whatsapp','tel'].includes(t)) return 'contact_phone';
+  if(['telefone','fone','celular','tel'].includes(t)) return 'contact_phone';
+  if(['whatsapp','whats','zap'].includes(t)) return 'whatsapp';
+  if(['cnpj','cnpj/cpf','documento'].includes(t)) return 'cnpj';
   if(['email','e-mail','mail'].includes(t)) return 'contact_email';
   if(['valor','valor do negocio','valor do negócio','preco','preço','r$'].includes(t)) return 'value';
   if(['origem','fonte','source'].includes(t)) return 'source';
@@ -1632,6 +1699,8 @@ document.getElementById('confirm-import-btn').addEventListener('click', async ()
     contact_name: l.contact_name || null,
     contact_phone: l.contact_phone || null,
     contact_email: l.contact_email || null,
+    whatsapp: l.whatsapp || null,
+    cnpj: l.cnpj || null,
     value: l.value || 0,
     source: l.source || null,
     expected_close_date: l.expected_close_date || null,
