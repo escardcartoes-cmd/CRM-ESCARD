@@ -930,7 +930,11 @@ db.auth.onAuthStateChange(async (event, session) => {
   if(session && session.user){
     currentUser = session.user;
     if(hashTinhaRecovery){ limparHashDaUrl(); } // higieniza a URL seja qual for o desfecho
-    await loadProfileAndInit();
+    // Fora do callback (macrotask nova): quebra o deadlock do LockManager. A query em
+    // loadProfileAndInit chama getSession()->_acquireLock, que não pode rodar enquanto o
+    // evento (via _recoverAndRefresh/_initialize) ainda segura o lock. Padrão do CLAUDE.md;
+    // o próprio gotrue defere assim no _initialize. .catch evita rejeição solta silenciosa.
+    setTimeout(() => { loadProfileAndInit().catch(err => showToast('Erro ao inicializar: ' + (err && err.message ? err.message : err), 'err')); }, 0);
   } else {
     currentUser = null;
     currentProfile = null;
