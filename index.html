@@ -782,7 +782,21 @@ document.getElementById('signup-form').addEventListener('submit', async (e)=>{
 // Detecta, JÁ no carregamento, se o usuário chegou pelo link de redefinição.
 // Precisa ser lido aqui (síncrono) porque o cliente Supabase limpa o hash da URL
 // durante a inicialização assíncrona.
-let emRecuperacao = /type=recovery/.test(window.location.hash || '');
+// Leitura SÍNCRONA do hash — PRESERVADA (workaround): capturada antes de o SDK
+// processar a URL (ele lê window.location de forma assíncrona, após o LockManager).
+// Agora é só PISTA DE DIAGNÓSTICO — nunca ativa o formulário sozinha.
+const hashTinhaRecovery = /type=recovery/.test(window.location.hash || '');
+// Modo recuperação: ligado APENAS pelo evento PASSWORD_RECOVERY do SDK.
+let emRecuperacao = false;
+
+// Remove o fragmento da URL da aba atual. Só é seguro chamar DEPOIS que o SDK leu
+// a URL (ou seja, de dentro do handler de auth) — nunca na leitura síncrona, senão
+// o token some antes do gotrue parseá-lo e o PASSWORD_RECOVERY não dispara.
+function limparHashDaUrl(){
+  if(window.location.hash){
+    history.replaceState(null, document.title, window.location.pathname + window.location.search);
+  }
+}
 
 const authTabs = document.getElementById('auth-tabs');
 const resetForm = document.getElementById('reset-form');
@@ -888,19 +902,24 @@ function traduzErro(msg){
 
 // Observa mudanças de sessão
 db.auth.onAuthStateChange(async (event, session) => {
-  // Fluxo de redefinição de senha: o usuário chegou pelo link do e-mail.
-  // Enquanto não concluir (definir a nova senha), NÃO entra no app —
-  // mostramos apenas o formulário de nova senha. O evento PASSWORD_RECOVERY
-  // e o INITIAL_SESSION do link caem aqui; a flag é limpa no submit da nova senha.
-  if(emRecuperacao || event === 'PASSWORD_RECOVERY'){
+  // Req 2: modo recuperação ATIVA só quando o SDK confirma o token via
+  // PASSWORD_RECOVERY. Token expirado/consumido não emite este evento.
+  if(event === 'PASSWORD_RECOVERY'){
     emRecuperacao = true;
+    limparHashDaUrl();               // Req 1, no momento seguro: o SDK já consumiu o token
     if(session && session.user){ currentUser = session.user; }
     mostrarFormularioNovaSenha();
     return;
   }
 
+  // Redefinição em andamento: ignora eventos subsequentes (ex.: INITIAL_SESSION)
+  // até a nova senha ser definida, para não cair no app no meio do fluxo.
+  if(emRecuperacao){ return; }
+
+  // Req 3: precedência invertida — sessão válida sem PASSWORD_RECOVERY segue normal.
   if(session && session.user){
     currentUser = session.user;
+    if(hashTinhaRecovery){ limparHashDaUrl(); } // higieniza a URL seja qual for o desfecho
     await loadProfileAndInit();
   } else {
     currentUser = null;
@@ -909,6 +928,12 @@ db.auth.onAuthStateChange(async (event, session) => {
     document.getElementById('auth-screen').classList.remove('hidden');
     document.getElementById('app').classList.add('hidden');
     restaurarTelaLogin();
+    // Hash tinha recovery mas o SDK NÃO emitiu PASSWORD_RECOVERY: token expirado ou
+    // já consumido. Higieniza a URL e avisa — em vez de abrir o formulário (Req 2).
+    if(hashTinhaRecovery){
+      limparHashDaUrl();
+      setAuthError('Este link de redefinição expirou. Faça login ou solicite um novo.');
+    }
   }
 });
 
