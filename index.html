@@ -278,6 +278,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   .fu-quick a.off{opacity:.3; pointer-events:none;}
   .fu-btns{display:flex; gap:8px;}
   .fu-more{display:flex; justify-content:center; margin-top:14px;}
+  .kanban-mais{width:100%; margin-top:8px;}
 
   .empty-state{text-align:center; padding:40px 20px; color:var(--text-muted); font-size:13px;}
 
@@ -812,7 +813,12 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser = null;     // auth user
 let currentProfile = null;  // public.profiles row
 let stages = [];            // pipeline_stages
-let deals = [];             // deals (com profile do owner)
+let deals = [];             // deals (com profile do owner) — ainda usado por drag/modal (Fase 3/4)
+// Kanban — estado lido das RPCs (kanban_contagem/kanban_cards), NÃO do array `deals`
+let kanbanCounts = {};      // { stageId: {total, valor} }
+let kanbanCards = {};       // { stageId: {cards, carregados, total} }
+let kanbanBusca = '';
+let kanbanOwner = null;
 let profiles = [];          // todos os profiles (apenas admin carrega de fato)
 let companies = [];         // empresas
 let contacts = [];          // pessoas/contatos
@@ -1166,14 +1172,27 @@ async function loadDeals(){
 // ============================================================
 // REALTIME
 // ============================================================
+let realtimeTimer = null;
+// Realtime: coalesce eventos (~1s) e só recarrega o Kanban se o funil estiver
+// visível. Mantém loadDeals (array p/ modal/drag) e o dashboard atualizados.
+// Recarga TOTAL a cada tick (não faz update cirúrgico por payload) — é o fallback
+// seguro para qualquer payload inesperado.
+function agendarRefreshRealtime(){
+  clearTimeout(realtimeTimer);
+  realtimeTimer = setTimeout(async ()=>{
+    try {
+      await loadDeals();
+      const funnel = document.getElementById('page-funnel');
+      if(funnel && !funnel.classList.contains('hidden')){ await carregarKanban(); }
+      renderDashboard();
+    } catch(err){ /* silencioso; o próximo evento tenta novamente */ }
+  }, 1000);
+}
 function setupRealtime(){
   if(dealsChannel) db.removeChannel(dealsChannel);
   dealsChannel = db
     .channel('deals-realtime')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, async ()=>{
-      await loadDeals();
-      renderAll();
-    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, ()=>{ agendarRefreshRealtime(); })
     .subscribe();
 }
 
@@ -1182,7 +1201,7 @@ function setupRealtime(){
 // ============================================================
 function renderAll(){
   renderDashboard();
-  renderKanban();
+  carregarKanban();
 }
 
 // ------------------------------------------------------------
@@ -1290,8 +1309,14 @@ document.getElementById('refresh-dash').addEventListener('click', async ()=>{
 // ------------------------------------------------------------
 const searchInput = document.getElementById('search-deals');
 const ownerFilter = document.getElementById('filter-owner');
-searchInput.addEventListener('input', renderKanban);
-ownerFilter.addEventListener('change', renderKanban);
+let kanbanBuscaTimer = null;
+// Busca e filtro de vendedor viram parâmetros das RPCs (não filtram mais o array).
+searchInput.addEventListener('input', (e)=>{
+  clearTimeout(kanbanBuscaTimer);
+  const val = e.target.value;
+  kanbanBuscaTimer = setTimeout(()=>{ kanbanBusca = val.trim(); carregarKanban(); }, 400);
+});
+ownerFilter.addEventListener('change', (e)=>{ kanbanOwner = e.target.value || null; carregarKanban(); });
 
 // Gera os selos visuais do card: follow-up atrasado e tempo parado na etapa
 function selosDoCard(d, stage){
@@ -1326,26 +1351,15 @@ function selosDoCard(d, stage){
   return selos.length ? `<div class="card-selos">${selos.join('')}</div>` : '';
 }
 
+// Render PURO, a partir do estado (kanbanCounts/kanbanCards). Não lê o array `deals`.
 function renderKanban(){
-  const term = searchInput.value.trim().toLowerCase();
-  const ownerId = ownerFilter.value;
-
-  const filtered = deals.filter(d=>{
-    if(ownerId && d.owner_id !== ownerId) return false;
-    if(!term) return true;
-    return (d.title||'').toLowerCase().includes(term)
-      || (d.contact_name||'').toLowerCase().includes(term)
-      || (d.contact_email||'').toLowerCase().includes(term)
-      || (d.contact_phone||'').toLowerCase().includes(term);
-  });
-
   const kanban = document.getElementById('kanban');
   kanban.innerHTML = stages.map(stage=>{
-    const stageDeals = filtered.filter(d=>d.stage_id === stage.id);
-    const colTotal = stageDeals.reduce((sum,d)=>sum+Number(d.value||0),0);
+    const cnt = kanbanCounts[stage.id] || { total: 0, valor: 0 };
+    const col = kanbanCards[stage.id] || { cards: [], carregados: 0, total: cnt.total };
     const stageClass = stage.is_won ? 'stage-won' : (stage.is_lost ? 'stage-lost' : '');
 
-    const cards = stageDeals.map(d=>`
+    const cards = col.cards.map(d=>`
       <div class="deal-card" draggable="true" data-deal-id="${d.id}" data-stage-id="${stage.id}">
         <div class="dc-title">${escapeHtml(d.title)}</div>
         ${Number(d.value) > 0 ? `<div class="dc-value">${formatCurrency(d.value)}</div>` : ''}
@@ -1354,27 +1368,97 @@ function renderKanban(){
           <span>${d.expected_close_date ? formatDate(d.expected_close_date) : ''}</span>
         </div>
         ${selosDoCard(d, stage)}
-        ${isAdmin() && d.owner ? `<span class="dc-owner">${escapeHtml(d.owner.full_name)}</span>` : ''}
+        ${isAdmin() && d.owner_name ? `<span class="dc-owner">${escapeHtml(d.owner_name)}</span>` : ''}
       </div>
     `).join('');
+
+    const faltam = cnt.total - col.carregados;
+    const maisBtn = (col.carregados < cnt.total)
+      ? `<button type="button" class="btn btn-slim kanban-mais" data-stage-mais="${stage.id}">Carregar mais (${faltam})</button>`
+      : '';
 
     return `
       <div class="kanban-col ${stageClass}" data-stage-id="${stage.id}">
         <div class="kanban-col-header">
           <div>
-            <div class="title">${stage.name}</div>
-            <div class="meta">${formatCurrency(colTotal)}</div>
+            <div class="title">${escapeHtml(stage.name)}</div>
+            <div class="meta">${formatCurrency(cnt.valor)}</div>
           </div>
-          <div class="count">${stageDeals.length}</div>
+          <div class="count">${cnt.total}</div>
         </div>
         <div class="kanban-cards" data-stage-id="${stage.id}">
           ${cards || '<div class="empty-state">Sem leads aqui</div>'}
+          ${maisBtn}
         </div>
       </div>
     `;
   }).join('');
 
   attachKanbanEvents();
+  kanban.querySelectorAll('[data-stage-mais]').forEach(b=>b.addEventListener('click',()=>carregarMaisColuna(b.dataset.stageMais)));
+}
+
+// Carga do Kanban a partir das RPCs (contagem + cards por etapa em paralelo).
+// Chamada pelo renderAll: drag/realtime/modal seguem funcionando sem alteração —
+// eles chamam renderAll, que agora recarrega o Kanban do banco.
+async function recarregarContagem(){
+  try {
+    const { data, error } = await db.rpc('kanban_contagem', { p_owner: kanbanOwner, p_busca: kanbanBusca || null });
+    if(error) throw error;
+    const novo = {};
+    (data || []).forEach(r=>{ novo[r.stage_id] = { total: Number(r.total), valor: Number(r.soma_valor) }; });
+    kanbanCounts = novo;
+  } catch(err){
+    showToast('Erro ao carregar o funil: ' + (err && err.message ? err.message : err), 'err');
+  }
+}
+// Recarrega UMA coluna preservando a profundidade já carregada (p_limit = max(100, carregados)).
+async function recarregarColuna(stageId){
+  const limite = Math.max(100, (kanbanCards[stageId] && kanbanCards[stageId].carregados) || 0);
+  try {
+    const { data, error } = await db.rpc('kanban_cards', { p_stage: stageId, p_owner: kanbanOwner, p_busca: kanbanBusca || null, p_limit: limite, p_offset: 0 });
+    if(error) throw error;
+    const cards = data || [];
+    kanbanCards[stageId] = { cards, carregados: cards.length, total: kanbanCounts[stageId] ? kanbanCounts[stageId].total : cards.length };
+  } catch(err){
+    if(!kanbanCards[stageId]) kanbanCards[stageId] = { cards: [], carregados: 0, total: kanbanCounts[stageId] ? kanbanCounts[stageId].total : 0 };
+  }
+}
+async function carregarKanban(){
+  await recarregarContagem();
+  const novos = {};
+  await Promise.all(stages.map(async (s)=>{
+    // Preserva a profundidade: colunas expandidas não voltam a 100 num renderAll.
+    const limite = Math.max(100, (kanbanCards[s.id] && kanbanCards[s.id].carregados) || 0);
+    try {
+      const { data, error } = await db.rpc('kanban_cards', { p_stage: s.id, p_owner: kanbanOwner, p_busca: kanbanBusca || null, p_limit: limite, p_offset: 0 });
+      if(error) throw error;
+      const cards = data || [];
+      novos[s.id] = { cards, carregados: cards.length, total: kanbanCounts[s.id] ? kanbanCounts[s.id].total : cards.length };
+    } catch(err){
+      novos[s.id] = { cards: [], carregados: 0, total: kanbanCounts[s.id] ? kanbanCounts[s.id].total : 0 };
+    }
+  }));
+  kanbanCards = novos;
+  renderKanban();
+}
+
+// "Carregar mais" de UMA coluna: próxima página (offset = já carregados), concatena.
+async function carregarMaisColuna(stageId){
+  const col = kanbanCards[stageId];
+  if(!col) return;
+  try {
+    const { data, error } = await db.rpc('kanban_cards', {
+      p_stage: stageId, p_owner: kanbanOwner, p_busca: kanbanBusca || null,
+      p_limit: 100, p_offset: col.carregados,
+    });
+    if(error) throw error;
+    col.cards = col.cards.concat(data || []);
+    col.carregados = col.cards.length;
+    renderKanban();
+  } catch(err){
+    showToast('Erro ao carregar mais: ' + (err && err.message ? err.message : err), 'err');
+  }
 }
 
 function escapeHtml(str){
@@ -1386,7 +1470,7 @@ function escapeHtml(str){
 function attachKanbanEvents(){
   // Click para editar
   document.querySelectorAll('.deal-card').forEach(card=>{
-    card.addEventListener('click', ()=> openDealModal(card.dataset.dealId));
+    card.addEventListener('click', ()=> abrirLeadPorId(card.dataset.dealId));
 
     // Drag events
     card.addEventListener('dragstart', (e)=>{
@@ -1410,17 +1494,25 @@ function attachKanbanEvents(){
       zone.closest('.kanban-col').classList.remove('drag-over');
       const dealId = e.dataTransfer.getData('text/plain');
       const newStageId = zone.dataset.stageId;
-      const deal = deals.find(d=>d.id===dealId);
-      if(!deal || deal.stage_id === newStageId) return;
+      // Etapa de origem vem do dataset do card, NÃO do array `deals` (que pode
+      // não conter o lead antigo agora visível pela RPC).
+      const cardEl = document.querySelector('.deal-card[data-deal-id="' + dealId + '"]');
+      const oldStageId = cardEl ? cardEl.dataset.stageId : null;
+      if(!oldStageId || oldStageId === newStageId) return;
 
       const { error } = await db
         .from('deals')
-        .update({ stage_id: newStageId })
+        .update({ stage_id: newStageId, stage_changed_at: new Date().toISOString() })
         .eq('id', dealId);
       if(error){ showToast('Erro ao mover lead: ' + error.message, 'err'); return; }
       showToast('Lead movido', 'ok');
-      await loadDeals();
-      renderAll();
+      // Mantém o array consistente para o modal, sem recarga total (best-effort).
+      const dLocal = deals.find(d=>d.id===dealId);
+      if(dLocal) dLocal.stage_id = newStageId;
+      // Recarrega contagem + apenas as duas colunas afetadas (preservando profundidade).
+      await recarregarContagem();
+      await Promise.all([ recarregarColuna(oldStageId), recarregarColuna(newStageId) ]);
+      renderKanban();
     });
   });
 }
@@ -2101,13 +2193,14 @@ function renderFollowupLista(){
     if(aMail){ if(mail){ aMail.href = 'mailto:'+mail; } else { aMail.classList.add('off'); } }
   });
   list.querySelectorAll('[data-fu-reg]').forEach(b=>b.addEventListener('click',()=>abrirRegistroFollowup(b.dataset.fuReg)));
-  list.querySelectorAll('[data-fu-open]').forEach(b=>b.addEventListener('click',()=>abrirLeadDoFollowup(b.dataset.fuOpen)));
+  list.querySelectorAll('[data-fu-open]').forEach(b=>b.addEventListener('click',()=>abrirLeadPorId(b.dataset.fuOpen)));
   if(info) info.textContent = `Exibindo ${fuItens.length} de ${fuTotal}`;
   if(moreWrap) moreWrap.classList.toggle('hidden', fuItens.length >= fuTotal);
 }
 
 // "Abrir lead": o deal pode não estar no array truncado; busca por id e injeta.
-async function abrirLeadDoFollowup(id){
+// Reutilizado pelo clique do card no Kanban (lead antigo fora do array).
+async function abrirLeadPorId(id){
   let deal = deals.find(d=>d.id===id);
   if(!deal){
     try {
