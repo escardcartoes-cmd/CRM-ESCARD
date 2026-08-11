@@ -250,6 +250,34 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   .canal-travado .chip{opacity:.5; cursor:default;}
   .canal-travado .chip.sel{opacity:1;}
   .reg-actions{display:flex; gap:8px; justify-content:flex-end;}
+  /* Aba Follow-up (fila de trabalho) */
+  .nav-badge{display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px; margin-left:6px; border-radius:9px; background:var(--lost); color:#fff; font-size:11px; font-weight:700;}
+  .fu-cards{display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px;}
+  .fu-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px 16px; cursor:pointer; min-width:120px; box-shadow:var(--shadow);}
+  .fu-card:hover{border-color:#c7ccd4;}
+  .fu-card.active{border-color:var(--primary); background:#eef2ff;}
+  .fu-card .fu-num{font-size:22px; font-weight:800; color:var(--text);}
+  .fu-card .fu-lbl{font-size:11px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:.03em;}
+  .fu-stages{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px;}
+  .fu-count{color:var(--text-muted); font-size:12px; margin:4px 0 10px;}
+  .fu-list{display:flex; flex-direction:column; gap:10px;}
+  .fu-row{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px; box-shadow:var(--shadow);}
+  .fu-row-top{display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;}
+  .fu-right{text-align:right;}
+  .fu-title{font-weight:700; color:var(--text);}
+  .fu-stage{font-size:12px; color:var(--text-muted); font-weight:600;}
+  .fu-contact{font-size:12px; color:var(--text-muted); margin-top:2px;}
+  .fu-owner{font-size:12px; color:var(--text-muted); margin-top:2px;}
+  .fu-flags{font-size:12px; margin-top:8px; color:var(--text-muted);}
+  .fu-flag-atraso{color:var(--lost); font-weight:600;}
+  .fu-flag-hoje{color:var(--primary); font-weight:600;}
+  .fu-flag-parado{color:var(--lost); font-weight:600;}
+  .fu-actions{display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap;}
+  .fu-quick{display:flex; gap:8px; font-size:18px;}
+  .fu-quick a{text-decoration:none;}
+  .fu-quick a.off{opacity:.3; pointer-events:none;}
+  .fu-btns{display:flex; gap:8px;}
+  .fu-more{display:flex; justify-content:center; margin-top:14px;}
 
   .empty-state{text-align:center; padding:40px 20px; color:var(--text-muted); font-size:13px;}
 
@@ -377,6 +405,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
     <nav>
       <button class="nav-btn active" data-page="dashboard">📊 Dashboard</button>
       <button class="nav-btn" data-page="funnel">🗂️ Funil de Vendas</button>
+      <button class="nav-btn" data-page="followup">🔔 Follow-up<span class="nav-badge hidden" id="followup-badge"></span></button>
       <button class="nav-btn" data-page="companies">🏢 Empresas</button>
       <button class="nav-btn" data-page="contacts">👤 Pessoas</button>
       <button class="nav-btn hidden" data-page="admin" id="nav-admin">⚙️ Administração</button>
@@ -434,6 +463,35 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
       </div>
 
       <div class="kanban" id="kanban"></div>
+    </section>
+
+    <!-- ---------- FOLLOW-UP ---------- -->
+    <section id="page-followup" class="hidden">
+      <div class="page-header">
+        <div>
+          <h2>Follow-up</h2>
+          <p id="fu-subtitle">Seus leads aguardando contato</p>
+        </div>
+      </div>
+      <div class="fu-cards" id="fu-cards"></div>
+      <div class="fu-stages" id="fu-stages"></div>
+      <div class="funnel-toolbar">
+        <input type="text" id="fu-busca" placeholder="Buscar por nome, contato ou CNPJ...">
+        <select id="fu-min-dias">
+          <option value="0">Qualquer período</option>
+          <option value="7">7+ dias parado</option>
+          <option value="15">15+ dias parado</option>
+          <option value="30">30+ dias parado</option>
+          <option value="60">60+ dias parado</option>
+          <option value="90">90+ dias parado</option>
+        </select>
+        <select id="fu-owner" class="hidden"></select>
+      </div>
+      <div class="fu-count" id="fu-count"></div>
+      <div class="fu-list" id="fu-list"></div>
+      <div class="fu-more hidden" id="fu-more-wrap">
+        <button class="btn" id="fu-more-btn">Carregar mais</button>
+      </div>
     </section>
 
     <!-- ---------- EMPRESAS ---------- -->
@@ -1043,6 +1101,7 @@ async function loadProfileAndInit(){
   try { await loadDeals(); } catch(e){}
   try { await loadCompanies(); } catch(e){}
   try { await loadContacts(); } catch(e){}
+  try { await carregarContadores(); } catch(e){}
   try { renderAll(); } catch(e){}
   try { setupRealtime(); } catch(e){}
 }
@@ -1059,6 +1118,7 @@ document.querySelectorAll('.nav-btn').forEach(btn=>{
     if(btn.dataset.page === 'admin') renderAdmin();
     if(btn.dataset.page === 'companies') renderCompanies();
     if(btn.dataset.page === 'contacts') renderContacts();
+    if(btn.dataset.page === 'followup') abrirFollowup();
   });
 });
 
@@ -1604,6 +1664,8 @@ function dataMaisDias(dias){
 let atividadesDoDeal = [];
 let editandoAtividadeId = null;
 let regState = { canal:null, resultado:null, proximoKey:'sem', proximo:null };
+let regContext = 'modal';   // 'modal' (timeline do lead) ou 'followup' (linha da fila)
+let regDealId = null;       // deal alvo do registro, independente do modal aberto
 
 async function loadAtividades(dealId){
   const list = document.getElementById('deal-notes-list');
@@ -1693,7 +1755,7 @@ function selecionarProximo(k){
   renderRegProximo();
 }
 
-function abrirFormRegistro(){
+function resetCamposRegistro(){
   editandoAtividadeId = null;
   regState = { canal:null, resultado:null, proximoKey:'sem', proximo:null };
   document.getElementById('reg-canais').classList.remove('canal-travado');
@@ -1705,12 +1767,34 @@ function abrirFormRegistro(){
   document.getElementById('reg-resultado-row').classList.add('hidden');
   document.getElementById('reg-salvar').textContent = 'Salvar contato';
   renderRegCanais(); renderRegProximo();
+}
+function abrirFormRegistro(){
+  regContext = 'modal';
+  regDealId = editingDealId;
+  resetCamposRegistro();
+  document.getElementById('reg-form').classList.remove('hidden');
+}
+// Abre o MESMO formulário, relocado inline na linha da fila de follow-up.
+function abrirRegistroFollowup(id){
+  const host = document.getElementById('fu-host-' + id);
+  if(!host) return;
+  host.appendChild(document.getElementById('reg-form'));
+  regContext = 'followup';
+  regDealId = id;
+  resetCamposRegistro();
   document.getElementById('reg-form').classList.remove('hidden');
 }
 function fecharFormRegistro(){
   editandoAtividadeId = null;
+  regContext = 'modal';
   const form = document.getElementById('reg-form');
-  if(form) form.classList.add('hidden');
+  if(form){
+    form.classList.add('hidden');
+    // devolve o form compartilhado ao lugar de origem (dentro do modal do lead)
+    const home = document.getElementById('deal-notes-section');
+    const anchor = document.getElementById('deal-notes-list');
+    if(home && form.parentNode !== home){ home.insertBefore(form, anchor); }
+  }
   const canais = document.getElementById('reg-canais');
   if(canais) canais.classList.remove('canal-travado');
   const salvar = document.getElementById('reg-salvar');
@@ -1764,7 +1848,7 @@ document.getElementById('reg-next-date').addEventListener('change', (e)=>{
 });
 
 document.getElementById('reg-salvar').addEventListener('click', async ()=>{
-  if(!editingDealId) return;
+  if(!regDealId) return;
   // Validações (espelham as constraints do banco)
   if(!regState.canal){ showToast('Escolha o canal do contato.', 'err'); return; }
   const ehNota = regState.canal === 'nota';
@@ -1792,7 +1876,7 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
       if(error) throw error;
     } else {
       const { error } = await db.from('deal_activities').insert({
-        deal_id: editingDealId,
+        deal_id: regDealId,
         author_id: currentProfile.id,
         channel: regState.canal,
         outcome: ehNota ? null : regState.resultado,
@@ -1805,23 +1889,280 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
     // Seção 3 — loop do próximo passo: espelha em deals.next_followup_date (mesma operação).
     // "Sem próximo passo" (nextDate null) não altera o follow-up do deal.
     if(nextDate){
-      const { error: e2 } = await db.from('deals').update({ next_followup_date: nextDate }).eq('id', editingDealId);
+      const { error: e2 } = await db.from('deals').update({ next_followup_date: nextDate }).eq('id', regDealId);
       if(e2) throw e2;
-      const deal = deals.find(d=>d.id===editingDealId);
+      const deal = deals.find(d=>d.id===regDealId);
       if(deal) deal.next_followup_date = nextDate;
       const fu = document.getElementById('deal-followup');
       if(fu) fu.value = nextDate;
       renderAll();
     }
     showToast(editandoAtividadeId ? 'Contato atualizado' : 'Contato registrado', 'ok');
+    const ctxReg = regContext;
+    const alvoReg = regDealId;
     fecharFormRegistro();
-    await loadAtividades(editingDealId);
+    if(ctxReg === 'followup'){
+      // Fila de trabalho: recarrega contadores e a lista (o servidor decide se o
+      // item ainda pertence ao filtro — some da fila ao ser tratado). Preserva a
+      // profundidade já carregada.
+      const manter = Math.max(FU_LIMIT, fuItens.length);
+      await carregarContadores();
+      await carregarFollowups({ reset:true, limit: manter });
+    } else {
+      await loadAtividades(alvoReg);
+    }
   } catch(err){
     showToast('Erro ao salvar contato: ' + (err && err.message ? err.message : err), 'err');
   } finally {
     btn.disabled = false;
   }
 });
+
+// ============================================================
+// FOLLOW-UP (fila de trabalho) — 100% via RPC; NÃO lê o array `deals`
+// ============================================================
+const FU_LIMIT = 50;
+const FU_FILTROS = [
+  { k:'esteira',   label:'Esteira' },
+  { k:'atrasados', label:'Atrasados' },
+  { k:'hoje',      label:'Hoje' },
+  { k:'semana',    label:'Próximos 7 dias' },
+  { k:'sem_passo', label:'Sem próximo passo' },
+];
+let fuFiltro = 'esteira';
+let fuBusca = '';
+let fuMinDias = 0;
+let fuStage = null;
+let fuOwner = null;
+let fuItens = [];
+let fuTotal = 0;
+let fuContadores = {};
+let fuBuscaTimer = null;
+
+// Vendedor sempre null (RLS restringe aos seus); admin escolhe ou 'Todos' (null).
+function fuOwnerParam(){ return isAdmin() ? (fuOwner || null) : null; }
+
+async function carregarContadores(){
+  try {
+    const { data, error } = await db.rpc('followups_contadores', { p_owner: fuOwnerParam(), p_min_dias: fuMinDias, p_stage: fuStage });
+    if(error) throw error;
+    fuContadores = data || {};
+    renderContadores();
+    renderFiltroEtapas();
+    atualizarBadgeFollowup();
+  } catch(err){
+    // silencioso: não derruba a navegação
+  }
+}
+function atualizarBadgeFollowup(){
+  const badge = document.getElementById('followup-badge');
+  if(!badge) return;
+  const n = Number(fuContadores.atrasados || 0) + Number(fuContadores.hoje || 0);
+  if(n > 0){ badge.textContent = n; badge.classList.remove('hidden'); }
+  else { badge.classList.add('hidden'); }
+}
+function renderContadores(){
+  const el = document.getElementById('fu-cards');
+  if(!el) return;
+  el.innerHTML = FU_FILTROS.map(f=>`
+    <div class="fu-card${fuFiltro===f.k?' active':''}" data-fu-filtro="${f.k}">
+      <div class="fu-num">${Number(fuContadores[f.k] || 0)}</div>
+      <div class="fu-lbl">${escapeHtml(f.label)}</div>
+    </div>`).join('');
+  el.querySelectorAll('[data-fu-filtro]').forEach(b=>b.addEventListener('click',()=>selecionarFiltroFollowup(b.dataset.fuFiltro)));
+}
+function selecionarFiltroFollowup(k){
+  fuFiltro = k;
+  fecharFormRegistro();
+  renderContadores();
+  carregarFollowups({ reset:true });
+}
+
+// Filtro por etapa — nomes/contagens vêm de fuContadores.por_etapa (calculado
+// ANTES do filtro de etapa, então os totais dos botões não zeram ao selecionar).
+function renderFiltroEtapas(){
+  const el = document.getElementById('fu-stages');
+  if(!el) return;
+  const porEtapa = fuContadores.por_etapa || {};
+  const etapas = Object.keys(porEtapa)
+    .map(id => ({ id, nome: porEtapa[id].nome, ordem: porEtapa[id].ordem, total: porEtapa[id].total }))
+    .sort((a,b)=> a.ordem - b.ordem);
+  let html = `<button type="button" class="chip${fuStage===null?' sel':''}" data-fu-stage="">Todas as etapas</button>`;
+  html += etapas.map(e=>`<button type="button" class="chip${fuStage===e.id?' sel':''}" data-fu-stage="${e.id}">${escapeHtml(e.nome)} ${Number(e.total)}</button>`).join('');
+  el.innerHTML = html;
+  el.querySelectorAll('[data-fu-stage]').forEach(b=>b.addEventListener('click',()=>selecionarEtapaFollowup(b.dataset.fuStage || null)));
+}
+function selecionarEtapaFollowup(stageId){
+  fuStage = stageId;
+  fecharFormRegistro();
+  carregarContadores();
+  carregarFollowups({ reset:true });
+}
+
+async function carregarFollowups(opts){
+  opts = opts || {};
+  const list = document.getElementById('fu-list');
+  const limit = opts.limit || FU_LIMIT;
+  if(opts.reset){ fuItens = []; }
+  const offset = fuItens.length;
+  try {
+    const { data, error } = await db.rpc('followups_list', {
+      p_filtro:   fuFiltro,
+      p_busca:    fuBusca || null,
+      p_owner:    fuOwnerParam(),
+      p_min_dias: fuMinDias,
+      p_stage:    fuStage,
+      p_limit:    limit,
+      p_offset:   offset,
+    });
+    if(error) throw error;
+    const rows = data || [];
+    if(rows.length){ fuTotal = Number(rows[0].total_registros); }
+    else if(opts.reset){ fuTotal = 0; }
+    fuItens = fuItens.concat(rows);
+    renderFollowupLista();
+  } catch(err){
+    if(list) list.innerHTML = '<div class="empty-state">Erro ao carregar os follow-ups.</div>';
+  }
+}
+
+function fuFlagsHtml(it){
+  const flags = [];
+  if(it.next_followup_date){
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const alvo = new Date(it.next_followup_date + 'T00:00:00');
+    const diff = Math.round((alvo - hoje) / 86400000);
+    if(diff < 0) flags.push(`<span class="fu-flag-atraso">⚠ Follow-up atrasado ${Math.abs(diff)}d</span>`);
+    else if(diff === 0) flags.push(`<span class="fu-flag-hoje">📅 Follow-up hoje</span>`);
+    else flags.push(`<span>📅 Follow-up em ${diff}d</span>`);
+  } else {
+    flags.push(`<span>Sem próximo passo</span>`);
+  }
+  const parado = Number(it.dias_parado || 0);
+  flags.push(`<span class="${parado > 30 ? 'fu-flag-parado' : ''}">${parado}d parado</span>`);
+  flags.push(`<span>${it.total_atividades} atividade${Number(it.total_atividades)===1?'':'s'}</span>`);
+  return flags.join(' · ');
+}
+
+function fuLinhaHtml(it){
+  const stageName = it.stage_name || '';
+  const contato = [it.contact_name, it.contact_phone].filter(Boolean).map(escapeHtml).join(' · ');
+  return `
+    <div class="fu-row" data-fu-id="${it.id}">
+      <div class="fu-row-top">
+        <div>
+          <div class="fu-title">${escapeHtml(it.title || '(sem título)')}</div>
+          <div class="fu-contact">${contato || '—'}</div>
+        </div>
+        <div class="fu-right">
+          <div class="fu-stage">${escapeHtml(stageName)}</div>
+          <div class="fu-owner">${escapeHtml(it.owner_name || '—')}</div>
+        </div>
+      </div>
+      <div class="fu-flags">${fuFlagsHtml(it)}</div>
+      <div class="fu-actions">
+        <div class="fu-quick">
+          <a data-fu-wa="${it.id}" title="WhatsApp" target="_blank" rel="noopener noreferrer">💬</a>
+          <a data-fu-tel="${it.id}" title="Ligar">📞</a>
+          <a data-fu-mail="${it.id}" title="E-mail">✉️</a>
+        </div>
+        <div class="fu-btns">
+          <button type="button" class="btn btn-slim" data-fu-reg="${it.id}">Registrar contato</button>
+          <button type="button" class="btn btn-slim btn-primary" data-fu-open="${it.id}">Abrir lead</button>
+        </div>
+      </div>
+      <div class="fu-host" id="fu-host-${it.id}"></div>
+    </div>`;
+}
+
+function renderFollowupLista(){
+  fecharFormRegistro(); // devolve o form compartilhado antes de recriar a lista
+  const list = document.getElementById('fu-list');
+  const info = document.getElementById('fu-count');
+  const moreWrap = document.getElementById('fu-more-wrap');
+  if(!list) return;
+  if(!fuItens.length){
+    list.innerHTML = '<div class="empty-state">Nada nesta fila. 🎉</div>';
+    if(info) info.textContent = '';
+    if(moreWrap) moreWrap.classList.add('hidden');
+    return;
+  }
+  list.innerHTML = fuItens.map(fuLinhaHtml).join('');
+  // hrefs dos links rápidos via propriedade .href (XSS-safe), reutilizando os helpers
+  fuItens.forEach(it=>{
+    const wa = normalizarTelefoneBR(it.whatsapp);
+    const aWa = list.querySelector('[data-fu-wa="'+it.id+'"]');
+    if(aWa){ if(wa){ aWa.href = ehMobile() ? ('https://wa.me/'+wa) : ('https://web.whatsapp.com/send?phone='+wa); } else { aWa.classList.add('off'); } }
+    const tel = normalizarTelefoneBR(it.contact_phone);
+    const aTel = list.querySelector('[data-fu-tel="'+it.id+'"]');
+    if(aTel){ if(tel){ aTel.href = 'tel:+'+tel; } else { aTel.classList.add('off'); } }
+    const mail = emailValido(it.contact_email);
+    const aMail = list.querySelector('[data-fu-mail="'+it.id+'"]');
+    if(aMail){ if(mail){ aMail.href = 'mailto:'+mail; } else { aMail.classList.add('off'); } }
+  });
+  list.querySelectorAll('[data-fu-reg]').forEach(b=>b.addEventListener('click',()=>abrirRegistroFollowup(b.dataset.fuReg)));
+  list.querySelectorAll('[data-fu-open]').forEach(b=>b.addEventListener('click',()=>abrirLeadDoFollowup(b.dataset.fuOpen)));
+  if(info) info.textContent = `Exibindo ${fuItens.length} de ${fuTotal}`;
+  if(moreWrap) moreWrap.classList.toggle('hidden', fuItens.length >= fuTotal);
+}
+
+// "Abrir lead": o deal pode não estar no array truncado; busca por id e injeta.
+async function abrirLeadDoFollowup(id){
+  let deal = deals.find(d=>d.id===id);
+  if(!deal){
+    try {
+      const { data, error } = await db
+        .from('deals')
+        .select('*, owner:profiles!deals_owner_id_fkey(id, full_name)')
+        .eq('id', id).maybeSingle();
+      if(error || !data){ showToast('Não foi possível abrir o lead.', 'err'); return; }
+      deals.push(data);
+    } catch(err){
+      showToast('Não foi possível abrir o lead.', 'err'); return;
+    }
+  }
+  openDealModal(id);
+}
+
+async function abrirFollowup(){
+  const sub = document.getElementById('fu-subtitle');
+  if(sub) sub.textContent = isAdmin() ? 'Acompanhamento de toda a equipe' : 'Seus leads aguardando contato';
+  const sel = document.getElementById('fu-owner');
+  if(sel){
+    if(isAdmin()){
+      sel.classList.remove('hidden');
+      if(!sel.dataset.montado){
+        sel.innerHTML = '<option value="">Todos os vendedores</option>' +
+          profiles.filter(p=>p.role==='vendedor').map(p=>`<option value="${p.id}">${escapeHtml(p.full_name)}</option>`).join('');
+        sel.dataset.montado = '1';
+      }
+    } else {
+      sel.classList.add('hidden');
+    }
+  }
+  fecharFormRegistro();
+  await carregarContadores();
+  await carregarFollowups({ reset:true });
+}
+
+document.getElementById('fu-busca').addEventListener('input', (e)=>{
+  clearTimeout(fuBuscaTimer);
+  const val = e.target.value;
+  fuBuscaTimer = setTimeout(()=>{ fuBusca = val.trim(); fecharFormRegistro(); carregarFollowups({ reset:true }); }, 400);
+});
+document.getElementById('fu-owner').addEventListener('change', (e)=>{
+  fuOwner = e.target.value || null;
+  fecharFormRegistro();
+  carregarContadores();
+  carregarFollowups({ reset:true });
+});
+document.getElementById('fu-min-dias').addEventListener('change', (e)=>{
+  fuMinDias = Number(e.target.value) || 0;
+  fecharFormRegistro();
+  carregarContadores();
+  carregarFollowups({ reset:true });
+});
+document.getElementById('fu-more-btn').addEventListener('click', ()=>{ carregarFollowups({}); });
 
 // ============================================================
 // ADMIN
