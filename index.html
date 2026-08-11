@@ -225,6 +225,31 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   .note-item .note-meta{color:var(--text-muted); font-size:10px; margin-bottom:3px;}
   .note-add{display:flex; gap:8px;}
   .note-add textarea{resize:vertical; min-height:38px;}
+  /* Timeline de contatos + formulário de registro (deal_activities) */
+  .activity-item{background:var(--bg); border-radius:8px; padding:8px 10px; font-size:12px;}
+  .activity-head{display:flex; align-items:baseline; gap:6px; flex-wrap:wrap;}
+  .activity-channel{font-weight:600; color:var(--text);}
+  .activity-outcome{font-weight:600;}
+  .activity-outcome.pos{color:var(--won);}
+  .activity-outcome.neg{color:var(--lost);}
+  .activity-meta{color:var(--text-muted); font-size:10px; margin-left:auto;}
+  .activity-edited{font-style:italic;}
+  .activity-note{white-space:pre-wrap; color:var(--text); margin-top:3px;}
+  .activity-next{color:var(--primary); font-size:11px; font-weight:600; margin-top:3px;}
+  .activity-actions{display:flex; gap:12px; margin-top:5px;}
+  .activity-actions button{background:none; border:none; padding:0; cursor:pointer; font-size:11px; font-weight:600; color:var(--text-muted);}
+  .activity-actions button:hover{color:var(--text);}
+  .btn-slim{padding:5px 10px; font-size:12px;}
+  .reg-form{background:var(--bg); border-radius:8px; padding:12px; margin:8px 0 10px; display:flex; flex-direction:column; gap:10px;}
+  .reg-row{display:flex; flex-direction:column; gap:6px;}
+  .reg-form textarea{min-height:38px; resize:vertical;}
+  .reg-chips{display:flex; flex-wrap:wrap; gap:6px;}
+  .chip{padding:6px 12px; border:1px solid var(--border); background:var(--surface); border-radius:20px; font-size:12px; font-weight:600; cursor:pointer; color:var(--text);}
+  .chip:hover{border-color:#c7ccd4;}
+  .chip.sel{background:var(--primary); border-color:var(--primary); color:#fff;}
+  .canal-travado .chip{opacity:.5; cursor:default;}
+  .canal-travado .chip.sel{opacity:1;}
+  .reg-actions{display:flex; gap:8px; justify-content:flex-end;}
 
   .empty-state{text-align:center; padding:40px 20px; color:var(--text-muted); font-size:13px;}
 
@@ -538,12 +563,35 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
       </div>
 
       <div class="field hidden" id="deal-notes-section">
-        <label>Histórico de anotações</label>
-        <div class="notes-list" id="deal-notes-list"></div>
-        <div class="note-add">
-          <textarea id="new-note" placeholder="Adicionar anotação sobre este contato..."></textarea>
-          <button type="button" class="btn" id="add-note-btn" style="width:auto; white-space:nowrap;">Adicionar</button>
+        <div class="field-label">Histórico de contatos<button type="button" class="btn btn-slim" id="registrar-contato-btn">+ Registrar contato</button></div>
+        <div class="reg-form hidden" id="reg-form">
+          <div class="reg-row">
+            <label>Canal</label>
+            <div class="reg-chips" id="reg-canais"></div>
+          </div>
+          <div class="reg-row hidden" id="reg-resultado-row">
+            <label>Resultado</label>
+            <div class="reg-chips" id="reg-resultados"></div>
+          </div>
+          <div class="reg-row">
+            <label>Observação</label>
+            <textarea id="reg-note" placeholder="Observação (opcional)"></textarea>
+          </div>
+          <div class="reg-row">
+            <label>Quando</label>
+            <input type="datetime-local" id="reg-occurred">
+          </div>
+          <div class="reg-row">
+            <label>Próximo contato</label>
+            <div class="reg-chips" id="reg-proximo"></div>
+            <input type="date" id="reg-next-date" class="hidden">
+          </div>
+          <div class="reg-actions">
+            <button type="button" class="btn" id="reg-cancelar">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="reg-salvar">Salvar contato</button>
+          </div>
         </div>
+        <div class="notes-list" id="deal-notes-list"></div>
       </div>
 
       <div class="modal-actions">
@@ -1355,7 +1403,8 @@ async function openDealModal(dealId){
     document.getElementById('deal-followup').value = deal.next_followup_date || '';
     document.getElementById('deal-loss-reason').value = deal.loss_reason || '';
     if(isAdmin()) document.getElementById('deal-owner').value = deal.owner_id;
-    await loadNotes(dealId);
+    fecharFormRegistro();
+    await loadAtividades(dealId);
   } else {
     document.getElementById('deal-modal-title').textContent = 'Novo Lead';
     document.getElementById('deal-stage').value = stages[0]?.id || '';
@@ -1505,40 +1554,273 @@ document.getElementById('delete-deal-btn').addEventListener('click', async ()=>{
 });
 
 // ------------------------------------------------------------
-// NOTAS / HISTÓRICO
+// TIMELINE DE CONTATOS (deal_activities)
 // ------------------------------------------------------------
-async function loadNotes(dealId){
-  const { data, error } = await db
-    .from('deal_notes')
-    .select('*, author:profiles(full_name)')
-    .eq('deal_id', dealId)
-    .order('created_at', { ascending: false });
-  const list = document.getElementById('deal-notes-list');
-  if(error || !data || !data.length){
-    list.innerHTML = '<div class="empty-state" style="padding:14px;">Sem anotações ainda.</div>';
-    return;
-  }
-  list.innerHTML = data.map(n=>`
-    <div class="note-item">
-      <div class="note-meta">${n.author?.full_name || 'Usuário'} · ${new Date(n.created_at).toLocaleString('pt-BR')}</div>
-      ${escapeHtml(n.note)}
-    </div>
-  `).join('');
+const ACTIVITY_CHANNELS = [
+  { value:'telefone',   label:'Telefone',   icon:'📞' },
+  { value:'whatsapp',   label:'WhatsApp',   icon:'💬' },
+  { value:'email',      label:'E-mail',     icon:'✉️' },
+  { value:'presencial', label:'Presencial', icon:'🤝' },
+  { value:'nota',       label:'Nota',       icon:'📝' },
+];
+// Valores idênticos à constraint resultado_valido; tone define a cor semântica.
+const ACTIVITY_OUTCOMES = {
+  telefone:   [ {v:'atendeu',t:'Atendeu',tone:'pos'}, {v:'nao_atendeu',t:'Não atendeu',tone:'neg'}, {v:'caixa_postal',t:'Caixa postal',tone:'neg'}, {v:'numero_errado',t:'Número errado',tone:'neg'} ],
+  whatsapp:   [ {v:'respondeu',t:'Respondeu',tone:'pos'}, {v:'visualizou',t:'Visualizou',tone:'neu'}, {v:'nao_visualizou',t:'Não visualizou',tone:'neg'}, {v:'numero_invalido',t:'Número inválido',tone:'neg'} ],
+  email:      [ {v:'respondeu',t:'Respondeu',tone:'pos'}, {v:'sem_resposta',t:'Sem resposta',tone:'neu'}, {v:'bounce',t:'Bounce',tone:'neg'} ],
+  presencial: [ {v:'realizada',t:'Realizada',tone:'pos'}, {v:'nao_compareceu',t:'Não compareceu',tone:'neg'} ],
+  nota:       [],
+};
+const PROXIMO_OPCOES = [
+  { k:'amanha', label:'Amanhã',            dias:1 },
+  { k:'3dias',  label:'3 dias',            dias:3 },
+  { k:'1sem',   label:'1 semana',          dias:7 },
+  { k:'15dias', label:'15 dias',           dias:15 },
+  { k:'data',   label:'Data...',           dias:null },
+  { k:'sem',    label:'Sem próximo passo', dias:null },
+];
+
+function iconeCanal(c){ const x = ACTIVITY_CHANNELS.find(k=>k.value===c); return x ? x.icon : '•'; }
+function rotuloCanal(c){ const x = ACTIVITY_CHANNELS.find(k=>k.value===c); return x ? x.label : c; }
+function infoResultado(canal, outcome){
+  if(!outcome) return null;
+  const arr = ACTIVITY_OUTCOMES[canal] || [];
+  return arr.find(o=>o.v===outcome) || { v:outcome, t:outcome, tone:'neu' };
+}
+function fmtDataHora(ts){
+  return ts ? new Date(ts).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+}
+// ISO/timestamptz -> 'YYYY-MM-DDTHH:MM' na hora LOCAL (para datetime-local)
+function tsParaLocal(ts){
+  const d = new Date(ts);
+  return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+}
+// hoje + N dias -> 'YYYY-MM-DD' local
+function dataMaisDias(dias){
+  const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() + dias);
+  return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
 }
 
-document.getElementById('add-note-btn').addEventListener('click', async ()=>{
+let atividadesDoDeal = [];
+let editandoAtividadeId = null;
+let regState = { canal:null, resultado:null, proximoKey:'sem', proximo:null };
+
+async function loadAtividades(dealId){
+  const list = document.getElementById('deal-notes-list');
+  try {
+    const { data, error } = await db
+      .from('deal_activities')
+      .select('*, author:profiles!deal_activities_author_id_fkey(full_name)')
+      .eq('deal_id', dealId)
+      .order('occurred_at', { ascending: false });
+    if(error) throw error;
+    atividadesDoDeal = data || [];
+  } catch(err){
+    list.innerHTML = '<div class="empty-state" style="padding:14px;">Erro ao carregar o histórico.</div>';
+    return;
+  }
+  renderAtividades();
+}
+
+function renderAtividades(){
+  const list = document.getElementById('deal-notes-list');
+  if(!atividadesDoDeal.length){
+    list.innerHTML = '<div class="empty-state" style="padding:14px;">Sem contatos registrados ainda.</div>';
+    return;
+  }
+  list.innerHTML = atividadesDoDeal.map(a=>{
+    const res = infoResultado(a.channel, a.outcome);
+    const toneCls = res ? (res.tone==='pos' ? 'pos' : (res.tone==='neg' ? 'neg' : '')) : '';
+    const resHtml = res ? ` · <span class="activity-outcome ${toneCls}">${escapeHtml(res.t)}</span>` : '';
+    const editado = a.edited_at ? ' · <span class="activity-edited">editado</span>' : '';
+    const autor = (a.author && a.author.full_name) ? a.author.full_name : 'Usuário';
+    const noteHtml = a.note ? `<div class="activity-note">${escapeHtml(a.note)}</div>` : '';
+    const nextHtml = a.next_action_date ? `<div class="activity-next">→ Próximo contato: ${escapeHtml(formatDate(a.next_action_date))}</div>` : '';
+    const podeExcluir = isAdmin() || a.author_id === currentProfile.id;
+    return `
+      <div class="activity-item">
+        <div class="activity-head">
+          <span class="activity-channel">${iconeCanal(a.channel)} ${escapeHtml(rotuloCanal(a.channel))}</span>${resHtml}
+          <span class="activity-meta">${escapeHtml(fmtDataHora(a.occurred_at))} · ${escapeHtml(autor)}${editado}</span>
+        </div>
+        ${noteHtml}
+        ${nextHtml}
+        <div class="activity-actions">
+          <button type="button" data-edit-atividade="${a.id}">Editar</button>
+          ${podeExcluir ? `<button type="button" data-del-atividade="${a.id}">Excluir</button>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+  list.querySelectorAll('[data-edit-atividade]').forEach(b=>b.addEventListener('click',()=>abrirEdicaoAtividade(b.dataset.editAtividade)));
+  list.querySelectorAll('[data-del-atividade]').forEach(b=>b.addEventListener('click',()=>excluirAtividade(b.dataset.delAtividade)));
+}
+
+function renderRegCanais(){
+  const el = document.getElementById('reg-canais');
+  el.innerHTML = ACTIVITY_CHANNELS.map(c=>`<button type="button" class="chip${regState.canal===c.value?' sel':''}" data-canal="${c.value}">${c.icon} ${escapeHtml(c.label)}</button>`).join('');
+  el.querySelectorAll('[data-canal]').forEach(b=>b.addEventListener('click',()=>selecionarCanal(b.dataset.canal)));
+}
+function selecionarCanal(canal){
+  if(editandoAtividadeId) return; // canal não é editável (spec 2.3)
+  regState.canal = canal;
+  regState.resultado = null;
+  renderRegCanais();
+  const row = document.getElementById('reg-resultado-row');
+  if(canal === 'nota'){ row.classList.add('hidden'); }
+  else { row.classList.remove('hidden'); renderRegResultados(); }
+  document.getElementById('reg-note').placeholder = (canal==='nota')
+    ? 'Observação (obrigatória para nota)'
+    : 'Observação (opcional)';
+}
+function renderRegResultados(){
+  const el = document.getElementById('reg-resultados');
+  const arr = ACTIVITY_OUTCOMES[regState.canal] || [];
+  el.innerHTML = arr.map(o=>`<button type="button" class="chip${regState.resultado===o.v?' sel':''}" data-resultado="${o.v}">${escapeHtml(o.t)}</button>`).join('');
+  el.querySelectorAll('[data-resultado]').forEach(b=>b.addEventListener('click',()=>{ regState.resultado = b.dataset.resultado; renderRegResultados(); }));
+}
+function renderRegProximo(){
+  const el = document.getElementById('reg-proximo');
+  el.innerHTML = PROXIMO_OPCOES.map(o=>`<button type="button" class="chip${regState.proximoKey===o.k?' sel':''}" data-prox="${o.k}">${escapeHtml(o.label)}</button>`).join('');
+  el.querySelectorAll('[data-prox]').forEach(b=>b.addEventListener('click',()=>selecionarProximo(b.dataset.prox)));
+}
+function selecionarProximo(k){
+  regState.proximoKey = k;
+  const dateInput = document.getElementById('reg-next-date');
+  const opc = PROXIMO_OPCOES.find(o=>o.k===k);
+  if(k === 'sem'){ regState.proximo = null; dateInput.classList.add('hidden'); }
+  else if(k === 'data'){ dateInput.classList.remove('hidden'); regState.proximo = dateInput.value || null; }
+  else { regState.proximo = dataMaisDias(opc.dias); dateInput.classList.add('hidden'); }
+  renderRegProximo();
+}
+
+function abrirFormRegistro(){
+  editandoAtividadeId = null;
+  regState = { canal:null, resultado:null, proximoKey:'sem', proximo:null };
+  document.getElementById('reg-canais').classList.remove('canal-travado');
+  document.getElementById('reg-note').value = '';
+  document.getElementById('reg-note').placeholder = 'Observação (opcional)';
+  document.getElementById('reg-occurred').value = tsParaLocal(new Date().toISOString());
+  const dateInput = document.getElementById('reg-next-date');
+  dateInput.value = ''; dateInput.classList.add('hidden');
+  document.getElementById('reg-resultado-row').classList.add('hidden');
+  document.getElementById('reg-salvar').textContent = 'Salvar contato';
+  renderRegCanais(); renderRegProximo();
+  document.getElementById('reg-form').classList.remove('hidden');
+}
+function fecharFormRegistro(){
+  editandoAtividadeId = null;
+  const form = document.getElementById('reg-form');
+  if(form) form.classList.add('hidden');
+  const canais = document.getElementById('reg-canais');
+  if(canais) canais.classList.remove('canal-travado');
+  const salvar = document.getElementById('reg-salvar');
+  if(salvar) salvar.textContent = 'Salvar contato';
+}
+function abrirEdicaoAtividade(id){
+  const a = atividadesDoDeal.find(x=>x.id===id);
+  if(!a) return;
+  editandoAtividadeId = id;
+  regState = {
+    canal: a.channel,
+    resultado: a.outcome || null,
+    proximoKey: a.next_action_date ? 'data' : 'sem',
+    proximo: a.next_action_date || null,
+  };
+  document.getElementById('reg-note').value = a.note || '';
+  document.getElementById('reg-note').placeholder = (a.channel==='nota') ? 'Observação (obrigatória para nota)' : 'Observação (opcional)';
+  document.getElementById('reg-occurred').value = tsParaLocal(a.occurred_at);
+  const dateInput = document.getElementById('reg-next-date');
+  dateInput.value = a.next_action_date || '';
+  dateInput.classList.toggle('hidden', !a.next_action_date);
+  const row = document.getElementById('reg-resultado-row');
+  if(a.channel === 'nota'){ row.classList.add('hidden'); } else { row.classList.remove('hidden'); }
+  document.getElementById('reg-canais').classList.add('canal-travado'); // canal travado na edição
+  document.getElementById('reg-salvar').textContent = 'Salvar edição';
+  renderRegCanais();
+  if(a.channel !== 'nota') renderRegResultados();
+  renderRegProximo();
+  document.getElementById('reg-form').classList.remove('hidden');
+}
+
+async function excluirAtividade(id){
+  const a = atividadesDoDeal.find(x=>x.id===id);
+  if(!a) return;
+  if(!(isAdmin() || a.author_id === currentProfile.id)){ showToast('Só o autor ou um admin pode excluir.', 'err'); return; }
+  if(!confirm('Excluir este registro de contato?')) return;
+  try {
+    const { error } = await db.from('deal_activities').delete().eq('id', id);
+    if(error) throw error;
+    showToast('Contato excluído', 'ok');
+    await loadAtividades(editingDealId);
+  } catch(err){
+    showToast('Erro ao excluir: ' + (err && err.message ? err.message : err), 'err');
+  }
+}
+
+document.getElementById('registrar-contato-btn').addEventListener('click', abrirFormRegistro);
+document.getElementById('reg-cancelar').addEventListener('click', fecharFormRegistro);
+document.getElementById('reg-next-date').addEventListener('change', (e)=>{
+  if(regState.proximoKey === 'data') regState.proximo = e.target.value || null;
+});
+
+document.getElementById('reg-salvar').addEventListener('click', async ()=>{
   if(!editingDealId) return;
-  const textarea = document.getElementById('new-note');
-  const note = textarea.value.trim();
-  if(!note) return;
-  const { error } = await db.from('deal_notes').insert({
-    deal_id: editingDealId,
-    author_id: currentProfile.id,
-    note
-  });
-  if(error){ showToast('Erro ao adicionar nota: ' + error.message, 'err'); return; }
-  textarea.value = '';
-  await loadNotes(editingDealId);
+  // Validações (espelham as constraints do banco)
+  if(!regState.canal){ showToast('Escolha o canal do contato.', 'err'); return; }
+  const ehNota = regState.canal === 'nota';
+  if(!ehNota && !regState.resultado){ showToast('Escolha o resultado do contato antes de salvar.', 'err'); return; }
+  const note = document.getElementById('reg-note').value.trim();
+  if(ehNota && !note){ showToast('A nota precisa de um texto.', 'err'); return; }
+
+  const occurredVal = document.getElementById('reg-occurred').value;
+  const occurred_at = occurredVal ? new Date(occurredVal).toISOString() : new Date().toISOString();
+  let nextDate = regState.proximo;
+  if(regState.proximoKey === 'data'){ nextDate = document.getElementById('reg-next-date').value || null; }
+
+  const btn = document.getElementById('reg-salvar');
+  btn.disabled = true;
+  try {
+    if(editandoAtividadeId){
+      const { error } = await db.from('deal_activities').update({
+        outcome: ehNota ? null : regState.resultado,
+        note: note || null,
+        occurred_at,
+        next_action_date: nextDate || null,
+        edited_at: new Date().toISOString(),
+        edited_by: currentProfile.id,
+      }).eq('id', editandoAtividadeId);
+      if(error) throw error;
+    } else {
+      const { error } = await db.from('deal_activities').insert({
+        deal_id: editingDealId,
+        author_id: currentProfile.id,
+        channel: regState.canal,
+        outcome: ehNota ? null : regState.resultado,
+        note: note || null,
+        occurred_at,
+        next_action_date: nextDate || null,
+      });
+      if(error) throw error;
+    }
+    // Seção 3 — loop do próximo passo: espelha em deals.next_followup_date (mesma operação).
+    // "Sem próximo passo" (nextDate null) não altera o follow-up do deal.
+    if(nextDate){
+      const { error: e2 } = await db.from('deals').update({ next_followup_date: nextDate }).eq('id', editingDealId);
+      if(e2) throw e2;
+      const deal = deals.find(d=>d.id===editingDealId);
+      if(deal) deal.next_followup_date = nextDate;
+      const fu = document.getElementById('deal-followup');
+      if(fu) fu.value = nextDate;
+      renderAll();
+    }
+    showToast(editandoAtividadeId ? 'Contato atualizado' : 'Contato registrado', 'ok');
+    fecharFormRegistro();
+    await loadAtividades(editingDealId);
+  } catch(err){
+    showToast('Erro ao salvar contato: ' + (err && err.message ? err.message : err), 'err');
+  } finally {
+    btn.disabled = false;
+  }
 });
 
 // ============================================================
