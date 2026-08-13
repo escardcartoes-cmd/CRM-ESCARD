@@ -677,13 +677,18 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
 
     <div style="background:var(--bg); border-radius:8px; padding:12px; margin-bottom:14px; font-size:12px;">
       <strong style="display:block; margin-bottom:6px;">Colunas reconhecidas (use estes títulos):</strong>
-      <code style="font-size:11px; line-height:1.8;">nome</code> (obrigatório), <code style="font-size:11px;">contato</code>, <code style="font-size:11px;">telefone</code>, <code style="font-size:11px;">email</code>, <code style="font-size:11px;">valor</code>, <code style="font-size:11px;">origem</code>, <code style="font-size:11px;">data</code> (AAAA-MM-DD)
+      <code style="font-size:11px; line-height:1.8;">nome</code> (obrigatório), <code style="font-size:11px;">contato</code>, <code style="font-size:11px;">telefone</code>, <code style="font-size:11px;">whatsapp</code>, <code style="font-size:11px;">cnpj</code>, <code style="font-size:11px;">email</code>, <code style="font-size:11px;">valor</code>, <code style="font-size:11px;">origem</code>, <code style="font-size:11px;">data</code> (AAAA-MM-DD)
       <button type="button" id="download-modelo" class="btn" style="margin-top:10px; width:100%; font-size:12px;">↓ Baixar planilha modelo</button>
     </div>
 
     <div class="field">
       <label>Etapa do funil para os leads importados</label>
       <select id="import-stage"></select>
+    </div>
+
+    <div class="field hidden" id="import-owner-field">
+      <label>Atribuir os leads a</label>
+      <select id="import-owner"></select>
     </div>
 
     <div class="field">
@@ -2317,10 +2322,31 @@ async function renderAdmin(){
 // ============================================================
 const importModal = document.getElementById('import-modal');
 
-document.getElementById('import-btn').addEventListener('click', ()=>{
+document.getElementById('import-btn').addEventListener('click', async ()=>{
   // Preenche o seletor de etapas com as etapas atuais
   const sel = document.getElementById('import-stage');
   sel.innerHTML = stages.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+
+  // Seletor "Atribuir os leads a": só admin escolhe o dono; vendedor importa para si.
+  const ownerField = document.getElementById('import-owner-field');
+  const ownerSel = document.getElementById('import-owner');
+  if(isAdmin()){
+    // Recarrega os profiles p/ captar cadastros recentes. Se falhar, usa o array atual.
+    try { await loadProfiles(); } catch(e){ /* mantém o cache atual */ }
+    // Vendedores ativos + o próprio admin. Dono padrão = usuário logado (selected).
+    const vendedores = (profiles || []).filter(p => p.role === 'vendedor' && p.active !== false);
+    const lista = [currentProfile, ...vendedores];
+    ownerSel.innerHTML = lista.map(p=>{
+      const sufixo = p.id === currentProfile.id ? ' (você)' : '';
+      const selecionado = p.id === currentProfile.id ? ' selected' : '';
+      return `<option value="${escapeHtml(p.id)}"${selecionado}>${escapeHtml(p.full_name)}${sufixo}</option>`;
+    }).join('');
+    ownerField.classList.remove('hidden');
+  } else {
+    ownerField.classList.add('hidden');
+    ownerSel.innerHTML = '';
+  }
+
   document.getElementById('import-file').value = '';
   document.getElementById('import-preview').textContent = '';
   importModal.classList.remove('hidden');
@@ -2332,8 +2358,8 @@ document.getElementById('cancel-import-btn').addEventListener('click', ()=>{
 
 // Baixar planilha modelo (CSV simples)
 document.getElementById('download-modelo').addEventListener('click', ()=>{
-  const modelo = 'nome,contato,telefone,email,valor,origem,data\n'
-    + 'Empresa Exemplo Ltda,João Silva,(27) 99999-0000,joao@exemplo.com,5000,Indicação,2026-07-30\n';
+  const modelo = 'nome,contato,telefone,whatsapp,cnpj,email,valor,origem,data\n'
+    + 'Empresa Exemplo Ltda,João Silva,(27) 99999-0000,(27) 98888-0000,12.345.678/0001-90,joao@exemplo.com,5000,Indicação,2026-07-30\n';
   const blob = new Blob([modelo], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -2447,6 +2473,16 @@ document.getElementById('confirm-import-btn').addEventListener('click', async ()
     return;
   }
   const stageId = document.getElementById('import-stage').value;
+
+  // Dono dos leads: admin escolhe no seletor; vendedor recebe sempre a si mesmo.
+  let ownerId = currentProfile.id;
+  if(isAdmin()){
+    const escolhido = document.getElementById('import-owner').value;
+    // Valida que o id escolhido é um profile conhecido (defesa contra valor adulterado).
+    const valido = (profiles || []).some(p => p.id === escolhido);
+    if(escolhido && valido) ownerId = escolhido;
+  }
+
   const btn = document.getElementById('confirm-import-btn');
   btn.disabled = true; btn.textContent = 'Importando...';
 
@@ -2462,7 +2498,7 @@ document.getElementById('confirm-import-btn').addEventListener('click', async ()
     source: l.source || null,
     expected_close_date: l.expected_close_date || null,
     stage_id: stageId,
-    owner_id: currentProfile.id
+    owner_id: ownerId
   }));
 
   const { error } = await db.from('deals').insert(registros);
