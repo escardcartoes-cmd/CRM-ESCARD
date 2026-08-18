@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Escard — Consultor de Oferta</title>
+<meta name="description" content="Diagnóstico comercial Escard: qual produto ofertar e quanto o cliente ganha em 3, 12 e 24 meses.">
+<meta property="og:title" content="Escard — Consultor de Oferta">
+<meta property="og:description" content="Responda 8 perguntas e veja o produto certo, o ganho do cliente e o teto de brinde.">
+<meta property="og:type" content="website">
+<style id="estilo-base">
+:root{
+  --c-bg:#f6f7f9; --c-surface:#ffffff; --c-ink:#12203a; --c-ink-2:#4a5a75;
+  --c-line:#dfe4ec; --c-brand:#12306b; --c-brand-2:#ee4036;
+  --c-ok:#0f7a4d; --c-ok-bg:#e8f6ef; --c-warn:#8a5a00; --c-warn-bg:#fdf3dc;
+  --c-bad:#a32218; --c-bad-bg:#fdecea;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px;
+  --r-1:6px; --r-2:10px; --r-3:16px;
+  --fs-s:13px; --fs-m:15px; --fs-l:19px; --fs-xl:26px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--c-bg); color:var(--c-ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-size:var(--fs-m); line-height:1.5; -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:900px;margin:0 auto;padding:var(--sp-4) var(--sp-3) 64px}
+.head{padding:var(--sp-5) 0 var(--sp-4)}
+.head__title{margin:0;font-size:var(--fs-xl);letter-spacing:-.02em;color:var(--c-brand)}
+.head__sub{margin:var(--sp-2) 0 0;color:var(--c-ink-2);font-size:var(--fs-s)}
+.card{background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--r-3);padding:var(--sp-4);margin-bottom:var(--sp-4)}
+.card__title{margin:0 0 var(--sp-1);font-size:var(--fs-l);letter-spacing:-.01em}
+.card__hint{margin:0 0 var(--sp-4);color:var(--c-ink-2);font-size:var(--fs-s)}
+.grid{display:grid;grid-template-columns:1fr;gap:var(--sp-3)}
+@media(min-width:640px){.grid--2{grid-template-columns:1fr 1fr}.grid--3{grid-template-columns:1fr 1fr 1fr}}
+.field{display:flex;flex-direction:column;gap:var(--sp-1)}
+.field__label{font-size:var(--fs-s);font-weight:600;color:var(--c-ink-2)}
+.field__note{font-size:12px;color:var(--c-ink-2)}
+input,select{
+  font:inherit;color:var(--c-ink);background:var(--c-surface);
+  border:1px solid var(--c-line);border-radius:var(--r-1);
+  padding:10px 12px;width:100%;min-height:44px;appearance:none;-webkit-appearance:none;
+}
+select{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' stroke='%234a5a75' stroke-width='2' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 12px center;padding-right:34px}
+input:focus,select:focus,button:focus{outline:3px solid #9db4e8;outline-offset:1px}
+.btn{
+  font:inherit;font-weight:600;cursor:pointer;border:1px solid transparent;
+  border-radius:var(--r-2);padding:14px 20px;min-height:48px;width:100%;
+}
+.btn--primary{background:var(--c-brand);color:#fff}
+.btn--ghost{background:var(--c-surface);color:var(--c-brand);border-color:var(--c-line)}
+.btn+.btn{margin-top:var(--sp-2)}
+@media(min-width:640px){.btn{width:auto;display:inline-block}.btn+.btn{margin-top:0;margin-left:var(--sp-2)}}
+.tag{display:inline-block;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;margin:0 var(--sp-1) var(--sp-1) 0}
+.tag--ok{background:var(--c-ok-bg);color:var(--c-ok)}
+.tag--warn{background:var(--c-warn-bg);color:var(--c-warn)}
+.tag--bad{background:var(--c-bad-bg);color:var(--c-bad)}
+.tag--info{background:#e9eefb;color:var(--c-brand)}
+.rec{border-left:4px solid var(--c-brand);padding-left:var(--sp-3);margin-bottom:var(--sp-4)}
+.rec__role{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--c-brand-2)}
+.rec__name{font-size:var(--fs-l);font-weight:700;margin:2px 0}
+.rec__why{color:var(--c-ink-2);font-size:var(--fs-s);margin:0}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-s)}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--c-line);vertical-align:top}
+th{font-weight:600;color:var(--c-ink-2);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.total td{font-weight:700;border-bottom:none;border-top:2px solid var(--c-ink)}
+.big{display:grid;grid-template-columns:1fr;gap:var(--sp-3);margin:var(--sp-4) 0}
+@media(min-width:640px){.big{grid-template-columns:repeat(3,1fr)}}
+.big__item{background:#f0f3f9;border-radius:var(--r-2);padding:var(--sp-3)}
+.big__label{font-size:12px;color:var(--c-ink-2);text-transform:uppercase;letter-spacing:.05em}
+.big__value{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin-top:2px}
+.big__value--neg{color:var(--c-bad)}
+.note{background:#f0f3f9;border-radius:var(--r-2);padding:var(--sp-3);font-size:var(--fs-s);color:var(--c-ink-2)}
+.note--warn{background:var(--c-warn-bg);color:var(--c-warn)}
+.note--bad{background:var(--c-bad-bg);color:var(--c-bad)}
+.note--ok{background:var(--c-ok-bg);color:var(--c-ok)}
+.note+.note{margin-top:var(--sp-2)}
+ul.list{margin:var(--sp-2) 0 0;padding-left:18px}
+ul.list li{margin-bottom:var(--sp-1)}
+details{border:1px solid var(--c-line);border-radius:var(--r-2);padding:var(--sp-3);background:var(--c-surface)}
+summary{cursor:pointer;font-weight:600;font-size:var(--fs-s)}
+.hidden{display:none}
+.foot{color:var(--c-ink-2);font-size:12px;text-align:center;padding-top:var(--sp-5)}
+.pres{background:var(--c-surface);border:1px solid var(--c-line);border-radius:var(--r-3);padding:var(--sp-5) var(--sp-4);margin-bottom:var(--sp-4)}
+.pres__eyebrow{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--c-brand-2);margin:0}
+.pres__h{font-size:24px;line-height:1.2;letter-spacing:-.02em;margin:var(--sp-2) 0 var(--sp-1);color:var(--c-brand)}
+.pres__lead{color:var(--c-ink-2);margin:0}
+.pres__hero{background:var(--c-brand);color:#fff;border-radius:var(--r-3);padding:var(--sp-5) var(--sp-4);margin-bottom:var(--sp-4)}
+.pres__hero .pres__h,.pres__hero .pres__eyebrow{color:#fff}
+.pres__hero .pres__lead{color:#c9d6f0}
+.hero__nums{display:grid;grid-template-columns:1fr;gap:var(--sp-3);margin-top:var(--sp-4)}
+@media(min-width:640px){.hero__nums{grid-template-columns:repeat(3,1fr)}}
+.hero__item{background:rgba(255,255,255,.1);border-radius:var(--r-2);padding:var(--sp-3)}
+.hero__label{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#c9d6f0}
+.hero__value{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin-top:2px}
+.step{display:flex;gap:var(--sp-3);padding:var(--sp-3) 0;border-bottom:1px solid var(--c-line)}
+.step:last-child{border-bottom:none}
+.step__n{flex:0 0 30px;height:30px;border-radius:999px;background:var(--c-brand);color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center}
+.step__t{font-weight:700;margin:0 0 2px}
+.step__d{margin:0;color:var(--c-ink-2);font-size:var(--fs-s)}
+.incl{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-top:var(--sp-3)}
+.incl__i{background:var(--c-ok-bg);color:var(--c-ok);border-radius:var(--r-2);padding:8px 12px;font-size:var(--fs-s);font-weight:600}
+.chart{width:100%;height:auto;display:block;margin-top:var(--sp-3)}
+.nivel{display:flex;align-items:center;gap:var(--sp-2);padding-top:var(--sp-3)}
+.nivel__tag{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:999px;background:#e9eefb;color:var(--c-brand)}
+.nivel__tag--dir{background:var(--c-bad-bg);color:var(--c-bad)}
+.nivel .btn{width:auto;padding:8px 14px;min-height:38px;font-size:13px}
+.switch{display:flex;gap:var(--sp-2);margin-bottom:var(--sp-4)}
+.switch .btn{flex:1;width:auto}
+.btn--on{background:var(--c-brand);color:#fff;border-color:var(--c-brand)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media print{body{background:#fff}.no-print{display:none}.card{break-inside:avoid;border-color:#bbb}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="nivel no-print" id="nivel-bar">
+  <span class="nivel__tag" id="nivel-tag">Vendas</span>
+  <button class="btn btn--ghost" id="btn-nivel" type="button">Acesso diretoria</button>
+</div>
+<header class="head">
+  <h1 class="head__title">Consultor de Oferta</h1>
+  <p class="head__sub">Responda o diagnóstico. A ferramenta indica o produto, calcula o ganho do cliente em 3, 12 e 24 meses e mostra o teto de brinde.</p>
+</header>
+
+<main>
+<section class="card no-print" aria-labelledby="t-diag">
+  <h2 class="card__title" id="t-diag">1. Diagnóstico</h2>
+  <p class="card__hint">Oito perguntas. Cada uma muda a recomendação.</p>
+
+  <div class="grid grid--2">
+    <div class="field">
+      <label class="field__label" for="f-nome">Nome do cliente</label>
+      <input id="f-nome" type="text" placeholder="Ex.: Multishow Castelo">
+    </div>
+    <div class="field">
+      <label class="field__label" for="f-fone">WhatsApp do cliente</label>
+      <input id="f-fone" type="tel" placeholder="27 99999-9999" inputmode="tel">
+      <span class="field__note">Opcional. Usado para enviar a proposta.</span>
+    </div>
+    <div class="field">
+      <label class="field__label" for="f-quem">1. Quem vai usar o cartão</label>
+      <select id="f-quem">
+        <option value="func">Funcionários da empresa</option>
+        <option value="cliente">Clientes finais da loja</option>
+        <option value="assoc">Associados / sindicalizados</option>
+        <option value="revend">Revendedores / rede B2B</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="field__label" for="f-regime">2. Regime tributário</label>
+      <select id="f-regime">
+        <option value="real">Lucro Real</option>
+        <option value="presumido">Lucro Presumido</option>
+        <option value="simples">Simples Nacional</option>
+        <option value="na">Não sei / não se aplica</option>
+      </select>
+      <span class="field__note">Dedução PAT só existe no Lucro Real.</span>
+    </div>
+    <div class="field">
+      <label class="field__label" for="f-pessoas">3. Quantas pessoas</label>
+      <input id="f-pessoas" type="number" min="1" step="1" value="200" inputmode="numeric">
+    </div>
+    <div class="field">
+      <label class="field__label" for="f-fora">3b. Quantas trabalham fora da sede ou viajam</label>
+      <input id="f-fora" type="number" min="0" step="1" value="0" inputmode="numeric">
+      <span class="field__note">Define a bandeira: Elo (nacional) ou Escard (rede propria).</span>
+    </div>
+    <div class="field">
+      <label class="field__label" for="f-valor">4. Valor mensal por pessoa (R$)</label>
+      <input id="f-valor" type="number" min="0" step="10" value="600" inputmode="decimal">
+      <span class="field__note">Carga por cartão. Define o teto de brinde.</span>
+    </div>
+    <div class="field">
+      <label class="field__label" for="f-salario">5. Salário médio (R$)</label>
+      <input id="f-salario" type="number" min="0" step="100" value="2500" inputmode="decimal">
+      <span class="field__note">Base do cálculo de encargo e turnover.</span>
+    </div>
+    <div class="field">
+      <label class="field__label" for="f-cidade">6. Cidade da maior parte das pessoas</label>
+      <select id="f-cidade"></select>
+    </div>
+    <div class="field">
+      <label class="field__label" for="f-dor">7. Dor número um</label>
+      <select id="f-dor">
+        <option value="custo">Custo de folha e encargos</option>
+        <option value="turnover">Turnover e retenção</option>
+        <option value="atracao">Atrair e qualificar talento</option>
+        <option value="giro">Giro de vendas na própria loja</option>
+        <option value="credito">Crédito para o cliente final</option>
+        <option value="inad">Inadimplência / recuperação</option>
+        <option value="nr1">Adequação à NR-1</option>
+        <option value="controle">Controle de despesa e verba</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="field__label" for="f-loja">8. Tem loja própria onde essas pessoas compram?</label>
+      <select id="f-loja">
+        <option value="nao">Não</option>
+        <option value="sim">Sim</option>
+      </select>
+    </div>
+  </div>
+
+  <details style="margin-top:16px">
+    <summary>Dados extras — private label e cobrança</summary>
+    <div class="grid grid--2" style="margin-top:12px">
+      <div class="field">
+        <label class="field__label" for="f-fatloja">Faturamento mensal da loja (R$)</label>
+        <input id="f-fatloja" type="number" min="0" step="1000" value="0" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label class="field__label" for="f-clientes">Clientes ativos da loja</label>
+        <input id="f-clientes" type="number" min="0" step="10" value="0" inputmode="numeric">
+      </div>
+      <div class="field">
+        <label class="field__label" for="f-carteira">Carteira inadimplente (R$)</label>
+        <input id="f-carteira" type="number" min="0" step="1000" value="0" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label class="field__label" for="f-idade">Idade média da dívida (meses)</label>
+        <input id="f-idade" type="number" min="0" step="1" value="6" inputmode="numeric">
+      </div>
+    </div>
+  </details>
+
+  <details style="margin-top:12px" id="box-premissas">
+    <summary>Premissas de mercado — editáveis</summary>
+    <p class="field__note" style="margin:8px 0 0">Os valores abaixo não são dados da Escard. São premissas de mercado. Ajuste com o cliente antes de apresentar.</p>
+    <div class="grid grid--3" style="margin-top:12px">
+      <div class="field"><label class="field__label" for="p-mdr">MDR da rede propria (%)</label><input id="p-mdr" type="number" min="0" max="3.6" step="0.01" value="2.1" inputmode="decimal"><span class="field__note">Media Escard 2,1% &middot; teto legal 3,6%</span></div>
+      <div class="field"><label class="field__label" for="p-mdrelo">MDR na bandeira Elo (%)</label><input id="p-mdrelo" type="number" min="0" max="2" step="0.01" value="1.49" inputmode="decimal"><span class="field__note">Retorno Elo 1,49% &middot; teto legal 2,0%</span></div>
+      <div class="field"><label class="field__label" for="p-margemin">Margem minima de venda (%)</label><input id="p-margemin" type="number" min="0" max="500" step="1" value="30" inputmode="decimal"><span class="field__note">Piso do desconto do consultor</span></div>
+      <div class="field"><label class="field__label" for="p-markup">Markup padrao (x custo)</label><input id="p-markup" type="number" min="1" step="0.1" value="3" inputmode="decimal"><span class="field__note">Para itens sem preco de tabela</span></div>
+      <div class="field"><label class="field__label" for="p-plast-es">Plastico Escard (R$)</label><input id="p-plast-es" type="number" min="0" step="0.01" value="5.50" inputmode="decimal"></div>
+      <div class="field"><label class="field__label" for="p-plast-elo">Plastico Elo (R$)</label><input id="p-plast-elo" type="number" min="0" step="0.01" value="20.00" inputmode="decimal"></div>
+      <div class="field"><label class="field__label" for="p-log">Logistica por cartao (R$)</label><input id="p-log" type="number" min="0" step="0.01" value="2.00" inputmode="decimal"></div>
+      <div class="field"><label class="field__label" for="p-proc">Processamento por cartao/mes (R$)</label><input id="p-proc" type="number" min="0" step="0.01" value="1.10" inputmode="decimal"></div>
+      <div class="field"><label class="field__label" for="p-prazo">Prazo do contrato</label><select id="p-prazo"><option value="12">12 meses</option><option value="24" selected>24 meses</option><option value="36">36 meses</option></select><span class="field__note">Amortiza plastico e logistica</span></div>
+      <div class="field"><label class="field__label" for="p-imposto">Carga tributaria sobre receita (%)</label><input id="p-imposto" type="number" min="0" max="100" step="0.01" value="16.33" inputmode="decimal"><span class="field__note">Lucro Presumido: PIS/COFINS 3,65 + ISS 5,00 + IRPJ/CSLL 7,68</span></div>
+      <div class="field"><label class="field__label" for="p-fixomes">Custo fixo mensal da Escard (R$)</label><input id="p-fixomes" type="number" min="0" step="100" value="37828" inputmode="decimal"><span class="field__note">Analise financeira Abr/26</span></div>
+      <div class="field"><label class="field__label" for="p-ativos">Cartoes ativos na base</label><input id="p-ativos" type="number" min="1" step="100" value="3763" inputmode="numeric"><span class="field__note">Painel Jun/26. Diluí o custo fixo</span></div>
+      <div class="field"><label class="field__label" for="p-aloc">Parcela do fixo alocada a este produto (%)</label><input id="p-aloc" type="number" min="0" max="100" step="1" value="100" inputmode="decimal"><span class="field__note">100% = absorcao total</span></div>
+      <div class="field"><label class="field__label" for="p-lucro">Margem de lucro alvo (%)</label><input id="p-lucro" type="number" min="0" max="100" step="0.1" value="15" inputmode="decimal"></div>
+      <div class="field"><label class="field__label" for="p-turnover">Turnover anual (%)</label><input id="p-turnover" type="number" min="0" step="1" value="30" inputmode="decimal"></div>
+      <div class="field"><label class="field__label" for="p-redturn">Redução de turnover atribuível (%)</label><input id="p-redturn" type="number" min="0" max="50" step="1" value="10" inputmode="decimal"></div>
+      <div class="field"><label class="field__label" for="p-reposicao">Custo de reposição (salários)</label><input id="p-reposicao" type="number" min="0" step="0.1" value="1.5" inputmode="decimal"></div>
+      <div class="field"><label class="field__label" for="p-irpj">IRPJ devido anual (R$)</label><input id="p-irpj" type="number" min="0" step="1000" value="0" inputmode="decimal"><span class="field__note">Só Lucro Real</span></div>
+      <div class="field"><label class="field__label" for="p-adesao">Adesão ao cartão da loja (%)</label><input id="p-adesao" type="number" min="0" max="100" step="1" value="20" inputmode="decimal"></div>
+      <div class="field"><label class="field__label" for="p-tkup">Aumento de ticket médio (%)</label><input id="p-tkup" type="number" min="0" step="1" value="15" inputmode="decimal"></div>
+      <div class="field"><label class="field__label" for="p-margem">Margem bruta do varejo (%)</label><input id="p-margem" type="number" min="0" step="1" value="22" inputmode="decimal"></div>
+      <div class="field"><label class="field__label" for="p-mdradq">MDR de adquirente hoje (%)</label><input id="p-mdradq" type="number" min="0" step="0.1" value="3.2" inputmode="decimal"></div>
+      <div class="field"><label class="field__label" for="p-recatual">Recuperação atual (%)</label><input id="p-recatual" type="number" min="0" max="100" step="1" value="15" inputmode="decimal"></div>
+      <div class="field"><label class="field__label" for="p-recnova">Recuperação com plataforma (%)</label><input id="p-recnova" type="number" min="0" max="100" step="1" value="30" inputmode="decimal"></div>
+      <div class="field"><label class="field__label" for="p-fee">Success fee Escard (%)</label><input id="p-fee" type="number" min="0" max="100" step="1" value="20" inputmode="decimal"></div>
+      <div class="field"><label class="field__label" for="p-cdi">CDI ao ano (%)</label><input id="p-cdi" type="number" min="0" step="0.1" value="14.7" inputmode="decimal"></div>
+    </div>
+  </details>
+
+  <div style="margin-top:16px">
+    <button class="btn btn--primary" id="btn-calc" type="button">Gerar recomenda&ccedil;&atilde;o</button>
+    <button class="btn btn--ghost" id="btn-print" type="button">Imprimir / PDF</button>
+  </div>
+</section>
+
+<div class="switch no-print hidden" id="switch">
+  <button class="btn btn--primary" id="btn-cliente" type="button">Abrir apresenta&ccedil;&atilde;o do cliente</button>
+</div>
+<div id="out" aria-live="polite"></div>
+</main>
+
+<p class="foot">Escard — ferramenta interna. Premissas de mercado são estimativas, não garantias contratuais.</p>
+</div>
+
+<script>
+/* ==CALC-START== */
+var CUSTO = {
+  telemedicina: 5.99, apoioMental: 4.99, academia: 5.19,
+  educacao: 5.99, hubSeguros: 5.99, nr1: 9.50,
+  farm100G: 9.90, farm150G: 11.90, farm150M: 37.90
+};
+var VENDA = {
+  telemedicina: 22.88, apoioMental: 14.97, academia: 15.57,
+  educacao: 18.09, hubSeguros: 18.21,
+  farm100G: 18.81, farm150G: 22.61, farm150M: 72.01
+};
+var PACOTES = [
+  { id:'fitness', nome:'Pacote Fitness', custo:5.19, venda:15.42 },
+  { id:'mental', nome:'Pacote Mental', custo:10.18, venda:26.35 },
+  { id:'educacao', nome:'Pacote Educacao', custo:10.98, venda:32.76 },
+  { id:'saude', nome:'Pacote Saude', custo:10.98, venda:37.55 },
+  { id:'acolhimento', nome:'Pacote Acolhimento', custo:11.98, venda:36.00 },
+  { id:'bemestar', nome:'Pacote Bem Estar', custo:28.15, venda:88.47 }
+];
+var WELLHUB = [
+  { max:20, unico:15.99, familia:20.79 },
+  { max:100, unico:12.99, familia:16.89 },
+  { max:250, unico:9.99, familia:12.99 },
+  { max:500, unico:7.99, familia:10.39 },
+  { max:999999, unico:6.99, familia:9.09 }
+];
+var COBERTURA = [
+  { c:"Santa Maria de Jetibá", n:81, uf:"ES" },
+  { c:"Vitória", n:47, uf:"ES" },
+  { c:"Serra", n:41, uf:"ES" },
+  { c:"Vargem Alta", n:38, uf:"ES" },
+  { c:"Castelo", n:35, uf:"ES" },
+  { c:"Vila Velha", n:35, uf:"ES" },
+  { c:"Aracruz", n:33, uf:"ES" },
+  { c:"Colatina", n:30, uf:"ES" },
+  { c:"Cariacica", n:27, uf:"ES" },
+  { c:"Linhares", n:23, uf:"ES" },
+  { c:"Guarapari", n:21, uf:"ES" },
+  { c:"Marilândia", n:20, uf:"ES" },
+  { c:"Rio Bananal", n:17, uf:"ES" },
+  { c:"Muniz Freire", n:14, uf:"ES" },
+  { c:"Cachoeiro de Itapemirim", n:12, uf:"ES" },
+  { c:"São Roque do Canaã", n:12, uf:"ES" },
+  { c:"Santa Teresa", n:11, uf:"ES" },
+  { c:"Marataízes", n:10, uf:"ES" },
+  { c:"São Mateus", n:10, uf:"ES" },
+  { c:"Domingos Martins", n:8, uf:"ES" },
+  { c:"Anchieta", n:7, uf:"ES" },
+  { c:"Itapemirim", n:7, uf:"ES" },
+  { c:"Viana", n:7, uf:"ES" },
+  { c:"Iconha", n:6, uf:"ES" },
+  { c:"Venda Nova do Imigrante", n:6, uf:"ES" },
+  { c:"Baixo Guandu", n:5, uf:"ES" },
+  { c:"Nova Venécia", n:5, uf:"ES" },
+  { c:"Boa Esperança", n:4, uf:"ES" },
+  { c:"Fundão", n:4, uf:"ES" },
+  { c:"Governador Lindenberg", n:4, uf:"ES" },
+  { c:"Itaguaçu", n:4, uf:"ES" },
+  { c:"Jerônimo Monteiro", n:4, uf:"ES" },
+  { c:"Pinheiros", n:4, uf:"ES" },
+  { c:"Piúma", n:4, uf:"ES" },
+  { c:"Afonso Cláudio", n:3, uf:"ES" },
+  { c:"Conceição do Castelo", n:3, uf:"ES" },
+  { c:"Iúna", n:3, uf:"ES" },
+  { c:"Jaguaré", n:3, uf:"ES" },
+  { c:"João Neiva", n:3, uf:"ES" },
+  { c:"Pedro Canário", n:3, uf:"ES" },
+  { c:"Vila Valério", n:3, uf:"ES" },
+  { c:"Alfredo Chaves", n:2, uf:"ES" },
+  { c:"Barra de São Francisco", n:2, uf:"ES" },
+  { c:"Ecoporanga", n:2, uf:"ES" },
+  { c:"Ibiraçu", n:2, uf:"ES" },
+  { c:"Itamaraju", n:2, uf:"BA" },
+  { c:"Itarana", n:2, uf:"ES" },
+  { c:"Mucuri", n:2, uf:"BA" },
+  { c:"Nova Viçosa", n:2, uf:"BA" },
+  { c:"Sooretama", n:2, uf:"ES" },
+  { c:"São Gabriel da Palha", n:2, uf:"ES" },
+  { c:"São Jorge do Tiradentes", n:2, uf:"ES" },
+  { c:"Teixeira de Freitas", n:2, uf:"BA" },
+  { c:"Aimorés", n:1, uf:"MG" },
+  { c:"Alcobaça", n:1, uf:"BA" },
+  { c:"Brejetuba", n:1, uf:"ES" },
+  { c:"Conceição da Barra", n:1, uf:"ES" },
+  { c:"Ibatiba", n:1, uf:"ES" },
+  { c:"Irupi", n:1, uf:"ES" },
+  { c:"Isabel", n:1, uf:"ES" },
+  { c:"Laranja da Terra", n:1, uf:"ES" },
+  { c:"Marechal Floriano", n:1, uf:"ES" },
+  { c:"Montanha", n:1, uf:"ES" },
+  { c:"Novo Brasil", n:1, uf:"ES" },
+  { c:"Pancas", n:1, uf:"ES" },
+  { c:"Paraju", n:1, uf:"ES" },
+  { c:"Prado", n:1, uf:"BA" },
+  { c:"Águia Branca", n:1, uf:"ES" }
+];
+var PROV_13_FERIAS = 0.1944;
+var CPP_TERCEIROS = 0.278;
+var FGTS = 0.08;
+var DECAY = [
+  { ate:1, taxa:0.70 }, { ate:2, taxa:0.50 }, { ate:3, taxa:0.35 },
+  { ate:6, taxa:0.20 }, { ate:12, taxa:0.10 }, { ate:999, taxa:0.05 }
+];
+
+function acharCidade(nome) {
+  var i;
+  for (i = 0; i < COBERTURA.length; i++) {
+    if (COBERTURA[i].c === nome) { return COBERTURA[i]; }
+  }
+  return null;
+}
+
+/* Bandeira: Elo aceita nacional mas remunera intercambio (teto 2%).
+   Rede propria remunera MDR cheio mas so cobre a praca credenciada.
+   Frota mista: MDR ponderado pelo numero de cartoes em cada bandeira. */
+function definirBandeira(d) {
+  var cob = acharCidade(d.cidade);
+  var lojas = cob ? cob.n : 0;
+  var pessoas = d.pessoas > 0 ? d.pessoas : 0;
+  var fora = d.fora > 0 ? Math.min(d.fora, pessoas) : 0;
+  var sede = pessoas - fora;
+  var semRede = lojas < 15;
+  var tipo, why;
+
+  if (pessoas > 0 && fora >= pessoas) {
+    tipo = 'Elo';
+    why = 'Toda a equipe circula fora da praca. Rede propria nao atende.';
+    sede = 0; fora = pessoas;
+  } else if (fora === 0 && !semRede) {
+    tipo = 'Escard';
+    why = 'Equipe concentrada em praca com ' + lojas + ' lojistas credenciados. Rede propria remunera MDR cheio.';
+  } else if (fora === 0 && semRede) {
+    tipo = 'Elo';
+    why = 'Equipe concentrada, mas a praca tem apenas ' + lojas + ' lojistas. Rede propria nao sustenta a base.';
+  } else if (semRede) {
+    tipo = 'Elo';
+    why = fora + ' pessoas fora da sede e praca com apenas ' + lojas + ' lojistas. Elo para toda a base.';
+    sede = 0; fora = pessoas;
+  } else {
+    tipo = 'Mista';
+    why = sede + ' na sede com Escard (MDR cheio) e ' + fora + ' em transito com Elo (intercambio).';
+  }
+
+  var mdrPropria = d.mdr > 0 ? d.mdr : 0;
+  var mdrElo = d.mdrElo > 0 ? d.mdrElo : 0;
+  var nSede, nElo;
+  if (tipo === 'Escard') { nSede = pessoas; nElo = 0; }
+  else if (tipo === 'Elo') { nSede = 0; nElo = pessoas; }
+  else { nSede = sede; nElo = fora; }
+
+  var mdrEfetivo = pessoas > 0 ? (nSede * mdrPropria + nElo * mdrElo) / pessoas : 0;
+  var perda = (mdrPropria - mdrEfetivo) * (d.valor > 0 ? d.valor : 0) / 100;
+  return {
+    tipo: tipo, why: why, lojas: lojas,
+    nSede: nSede, nElo: nElo,
+    mdrPropria: mdrPropria, mdrElo: mdrElo,
+    mdrEfetivo: mdrEfetivo,
+    perdaVsPropria: perda > 0 ? perda : 0
+  };
+}
+
+/* DRE por cartao/mes. O teto de brinde e o que sobra DEPOIS de
+   imposto, processamento, plastico amortizado, rateio fixo e lucro alvo. */
+function dreCartao(d) {
+  var band = definirBandeira(d);
+  var pessoas = d.pessoas > 0 ? d.pessoas : 1;
+  var prazo = d.prazo > 0 ? d.prazo : 24;
+  var valor = d.valor > 0 ? d.valor : 0;
+
+  var receita = valor * band.mdrEfetivo / 100;
+  var imposto = receita * (d.imposto > 0 ? d.imposto : 0) / 100;
+  var fixoMes = d.fixoMes > 0 ? d.fixoMes : 0;
+  var ativos = d.ativos > 0 ? d.ativos : 1;
+  var aloc = d.alocFixo > 0 ? d.alocFixo : 0;
+  var fixo = (fixoMes * aloc / 100) / ativos;
+  var lucro = receita * (d.lucroAlvo > 0 ? d.lucroAlvo : 0) / 100;
+
+  var plastEs = d.plastEs > 0 ? d.plastEs : 0;
+  var plastElo = d.plastElo > 0 ? d.plastElo : 0;
+  var log = d.logistica > 0 ? d.logistica : 0;
+  var plasticoMedio = (band.nSede * plastEs + band.nElo * plastElo) / pessoas;
+  var amortizacao = (plasticoMedio + log) / prazo;
+  var proc = d.processamento > 0 ? d.processamento : 0;
+
+  var custoTotal = imposto + proc + amortizacao + fixo + lucro;
+  var disponivel = receita - custoTotal;
+
+  return {
+    band: band,
+    receita: receita,
+    imposto: imposto,
+    processamento: proc,
+    plasticoMedio: plasticoMedio,
+    amortizacao: amortizacao,
+    fixo: fixo,
+    lucro: lucro,
+    custoTotal: custoTotal,
+    disponivel: disponivel,
+    fixoMes: fixoMes,
+    ativos: ativos,
+    margemContribuicao: receita - imposto - proc - amortizacao,
+    margemPct: receita > 0 ? (disponivel / receita) * 100 : 0,
+    /* carga minima para o cartao cobrir variavel + fixo + lucro */
+    breakEvenCarga: (function () {
+      var k = (band.mdrEfetivo / 100) * (1 - ((d.imposto > 0 ? d.imposto : 0) + (d.lucroAlvo > 0 ? d.lucroAlvo : 0)) / 100);
+      return k > 0 ? (proc + amortizacao + fixo) / k : 0;
+    })(),
+    /* quantos cartoes ativos a base precisa para o contrato fechar no zero */
+    breakEvenAtivos: (function () {
+      var mc = receita - imposto - proc - amortizacao - lucro;
+      return mc > 0 ? Math.ceil((fixoMes * aloc / 100) / mc) : 0;
+    })(),
+    /* quantos ativos para sobrar X por cartao */
+    ativosPara: function (alvo) {
+      var mc = receita - imposto - proc - amortizacao - lucro - alvo;
+      return mc > 0 ? Math.ceil((fixoMes * aloc / 100) / mc) : 0;
+    }
+  };
+}
+
+/* Sobra por cartao em cada prazo contratual possivel. */
+function tetoPorPrazo(d) {
+  var prazos = [12, 24, 36], out = [], i, dd;
+  for (i = 0; i < prazos.length; i++) {
+    dd = {};
+    for (var k in d) { if (Object.prototype.hasOwnProperty.call(d, k)) { dd[k] = d[k]; } }
+    dd.prazo = prazos[i];
+    out.push({ prazo: prazos[i], teto: dreCartao(dd).disponivel });
+  }
+  return out;
+}
+
+function wellhubPreco(pessoas, familia) {
+  var i;
+  for (i = 0; i < WELLHUB.length; i++) {
+    if (pessoas <= WELLHUB[i].max) {
+      return familia ? WELLHUB[i].familia : WELLHUB[i].unico;
+    }
+  }
+  return WELLHUB[WELLHUB.length - 1].unico;
+}
+
+function taxaRecuperacao(idadeMeses) {
+  var i;
+  for (i = 0; i < DECAY.length; i++) {
+    if (idadeMeses <= DECAY[i].ate) { return DECAY[i].taxa; }
+  }
+  return 0.05;
+}
+
+function encargoPct(regime) {
+  if (regime === 'simples') { return FGTS; }
+  if (regime === 'real' || regime === 'presumido') { return CPP_TERCEIROS + FGTS; }
+  return FGTS;
+}
+
+/* Economia por transformar salario em beneficio nao-salarial.
+   Se pago como salario: custa valor * (1 + provisao 13/ferias) * (1 + encargo).
+   Como beneficio PAT: custa o valor. Economia = diferenca. */
+function economiaEncargoMensal(valorPorPessoa, pessoas, regime) {
+  var enc = encargoPct(regime);
+  var fator = (1 + PROV_13_FERIAS) * (1 + enc) - 1;
+  return valorPorPessoa * pessoas * fator;
+}
+
+/* PAT: deducao limitada a 4% do IRPJ DEVIDO, so no Lucro Real. */
+function deducaoPatAnual(regime, irpjDevidoAnual) {
+  if (regime !== 'real') { return 0; }
+  if (!irpjDevidoAnual || irpjDevidoAnual <= 0) { return 0; }
+  return irpjDevidoAnual * 0.04;
+}
+
+function custoTurnoverAnual(pessoas, salario, turnoverPct, reposicaoSalarios) {
+  return pessoas * (turnoverPct / 100) * salario * reposicaoSalarios;
+}
+
+function tetoBrinde(valorPorPessoa, mdrPct) {
+  return valorPorPessoa * (mdrPct / 100);
+}
+
+/* Tabela de venda por produto, com piso e desconto maximo.
+   O piso protege a margem minima; nunca desce abaixo do custo. */
+function tabelaVenda(d) {
+  var mk = d.markup > 1 ? d.markup : 3;
+  var mm = d.margemMin > 0 ? d.margemMin : 0;
+  var pessoas = d.pessoas > 0 ? d.pessoas : 1;
+  var itens = [
+    { nome: 'Apoio mental', custo: CUSTO.apoioMental, venda: VENDA.apoioMental, grupo: 'Bem-estar' },
+    { nome: 'Academia Digital', custo: CUSTO.academia, venda: VENDA.academia, grupo: 'Bem-estar' },
+    { nome: 'Telemedicina', custo: CUSTO.telemedicina, venda: VENDA.telemedicina, grupo: 'Bem-estar' },
+    { nome: 'Plataforma de Educacao', custo: CUSTO.educacao, venda: VENDA.educacao, grupo: 'Bem-estar' },
+    { nome: 'Hub de Seguros', custo: CUSTO.hubSeguros, venda: VENDA.hubSeguros, grupo: 'Bem-estar' },
+    { nome: 'Farmacia 100 G', custo: CUSTO.farm100G, venda: VENDA.farm100G, grupo: 'Farmacia' },
+    { nome: 'Farmacia 150 G', custo: CUSTO.farm150G, venda: VENDA.farm150G, grupo: 'Farmacia' },
+    { nome: 'Farmacia 150 M', custo: CUSTO.farm150M, venda: VENDA.farm150M, grupo: 'Farmacia' },
+    { nome: 'NR-1', custo: CUSTO.nr1, venda: 0, grupo: 'Compliance' },
+    { nome: 'Wellhub Unico', custo: wellhubPreco(pessoas, false), venda: 0, grupo: 'Terceiro' },
+    { nome: 'Wellhub Familia', custo: wellhubPreco(pessoas, true), venda: 0, grupo: 'Terceiro' }
+  ];
+  var i;
+  for (i = 0; i < PACOTES.length; i++) {
+    itens.push({ nome: PACOTES[i].nome, custo: PACOTES[i].custo, venda: PACOTES[i].venda, grupo: 'Pacote' });
+  }
+  var out = [];
+  for (i = 0; i < itens.length; i++) {
+    var it = itens[i];
+    var estimado = it.venda <= 0;
+    var tabela = estimado ? it.custo * mk : it.venda;
+    var piso = it.custo * (1 + mm / 100);
+    if (piso > tabela) { piso = tabela; }
+    var descMax = tabela > 0 ? (1 - piso / tabela) * 100 : 0;
+    out.push({
+      nome: it.nome, grupo: it.grupo, estimado: estimado,
+      tabela: tabela, piso: piso, descMax: descMax,
+      margemTabela: tabela - it.custo, margemPiso: piso - it.custo
+    });
+  }
+  return out;
+}
+
+/* Margem em agregado que este contrato precisa gerar por pessoa/mes
+   para nao dar prejuizo, em cada prazo possivel. */
+function margemNecessaria(d) {
+  var prazos = [12, 24, 36], out = [], i, k, dd;
+  for (i = 0; i < prazos.length; i++) {
+    dd = {};
+    for (k in d) { if (Object.prototype.hasOwnProperty.call(d, k)) { dd[k] = d[k]; } }
+    dd.prazo = prazos[i];
+    var s = dreCartao(dd).disponivel;
+    out.push({ prazo: prazos[i], falta: s < 0 ? -s : 0, sobra: s > 0 ? s : 0 });
+  }
+  return out;
+}
+
+function montarBrindes(teto, pessoas) {
+  var cand = [
+    { nome:'Farmacia 150 G', custo:CUSTO.farm150G, ancora:150, tipo:'face' },
+    { nome:'Telemedicina', custo:CUSTO.telemedicina, ancora:VENDA.telemedicina, tipo:'venda' },
+    { nome:'Academia Digital', custo:CUSTO.academia, ancora:VENDA.academia, tipo:'venda' },
+    { nome:'Apoio mental', custo:CUSTO.apoioMental, ancora:VENDA.apoioMental, tipo:'venda' },
+    { nome:'Farmacia 100 G', custo:CUSTO.farm100G, ancora:100, tipo:'face' },
+    { nome:'NR-1', custo:CUSTO.nr1, ancora:0, tipo:'legal' },
+    { nome:'Wellhub Unico', custo:wellhubPreco(pessoas, false), ancora:0, tipo:'terceiro' }
+  ];
+  cand.sort(function(a, b) {
+    var ra = a.ancora > 0 ? a.ancora / a.custo : 0;
+    var rb = b.ancora > 0 ? b.ancora / b.custo : 0;
+    return rb - ra;
+  });
+  var cabe = [], fora = [], usado = 0, i;
+  for (i = 0; i < cand.length; i++) {
+    if (usado + cand[i].custo <= teto + 0.0001) {
+      cabe.push(cand[i]); usado += cand[i].custo;
+    } else {
+      fora.push(cand[i]);
+    }
+  }
+  return { cabe: cabe, fora: fora, usado: usado, sobra: teto - usado };
+}
+
+function calcBeneficio(d) {
+  var encMes = economiaEncargoMensal(d.valor, d.pessoas, d.regime);
+  var patAno = deducaoPatAnual(d.regime, d.irpj);
+  var custoTurnAno = custoTurnoverAnual(d.pessoas, d.salario, d.turnover, d.reposicao);
+  var evitadoTurnAno = custoTurnAno * (d.reducaoTurnover / 100);
+  var dre = dreCartao(d);
+  var band = dre.band;
+  var teto = dre.disponivel > 0 ? dre.disponivel : 0;
+  var brindes = montarBrindes(teto, d.pessoas);
+  return {
+    bandeira: band,
+    dre: dre,
+    encargoMes: encMes,
+    patAno: patAno,
+    turnoverAno: evitadoTurnAno,
+    custoTurnAno: custoTurnAno,
+    teto: teto,
+    brindes: brindes,
+    m3: encMes * 3 + patAno * 0.25,
+    m12: encMes * 12 + patAno + evitadoTurnAno,
+    m24: encMes * 24 + patAno * 2 + evitadoTurnAno * 2
+  };
+}
+
+function calcPrivate(d) {
+  var portadores = Math.round(d.clientes * (d.adesao / 100));
+  var ticketBase = d.clientes > 0 ? d.fatLoja / d.clientes : 0;
+  var incrementoMes = portadores * ticketBase * (d.tkUp / 100);
+  var margemMes = incrementoMes * (d.margem / 100);
+  var volumeMigrado = portadores * ticketBase;
+  var economiaMdrMes = volumeMigrado * (d.mdrAdq / 100);
+  var ganhoMes = margemMes + economiaMdrMes;
+  return {
+    portadores: portadores,
+    ticketBase: ticketBase,
+    incrementoMes: incrementoMes,
+    margemMes: margemMes,
+    economiaMdrMes: economiaMdrMes,
+    ganhoMes: ganhoMes,
+    m3: ganhoMes * 3,
+    m12: ganhoMes * 12,
+    m24: ganhoMes * 24
+  };
+}
+
+function calcCobranca(d) {
+  var hoje = taxaRecuperacao(d.idade);
+  var recAtual = d.carteira * (d.recAtual / 100);
+  var recNova = d.carteira * (d.recNova / 100);
+  var bruto = recNova - recAtual;
+  var fee = recNova * (d.fee / 100);
+  var liquido = bruto - fee;
+  var daqui12 = taxaRecuperacao(d.idade + 12);
+  var perdaEnvelhecimento = d.carteira * (hoje - daqui12);
+  var custoCapitalAno = d.carteira * (d.cdi / 100);
+  return {
+    taxaHoje: hoje,
+    taxa12: daqui12,
+    recAtual: recAtual,
+    recNova: recNova,
+    fee: fee,
+    liquido: liquido,
+    perdaEnvelhecimento: perdaEnvelhecimento,
+    custoCapitalAno: custoCapitalAno,
+    m3: liquido * 0.25,
+    m12: liquido,
+    m24: liquido * 1.5
+  };
+}
+
+function recomendar(d) {
+  var recs = [], stop = [];
+  var i;
+  var cob = acharCidade(d.cidade);
+  var lojas = cob ? cob.n : 0;
+  var band = definirBandeira(d);
+
+  if (d.quem === 'func') {
+    recs.push({ role:'Ancora', nome:'Cartao Multsaldo (VA/VR/combustivel)',
+      why:'Resolve custo de folha com verba nao-salarial. Sem custo para a empresa contratante.' });
+    if (d.dor === 'nr1') {
+      recs.push({ role:'Multiplicador', nome:'NR-1 (vendido)',
+        why:'Obrigacao legal em vigor desde maio/2026 para toda empresa com CLT. Custo Escard R$ 9,50/vida.' });
+    } else if (d.dor === 'turnover' || d.dor === 'atracao') {
+      recs.push({ role:'Multiplicador', nome:'Pacote Saude ou Bem Estar (vendido)',
+        why:'Margem de R$ 26,57 a R$ 60,32 por vida/mes. Ataca retencao e atracao diretamente.' });
+    } else {
+      recs.push({ role:'Multiplicador', nome:'Combustivel e Farmacia no mesmo cartao',
+        why:'Aumenta a carga por cartao sem novo contrato, elevando o teto de brinde.' });
+    }
+    recs.push({ role:'Trava', nome:'Farmacia Rede Farmes + agregado de saude',
+      why:'Eleva o custo de troca. Beneficio usado toda semana nao se cancela com facilidade.' });
+    if (d.regime === 'simples') {
+      stop.push({ t: 'Nao vender deducao fiscal PAT: ela so existe no Lucro Real. Aqui o argumento e encargo evitado.', v: 'Nao vender deducao fiscal PAT: ela so existe no Lucro Real. Aqui o argumento e encargo evitado.' });
+    }
+    if (d.regime === 'real' && d.irpj <= 0) {
+      stop.push({ t: 'Pedir o IRPJ devido anual ao contador do cliente. Sem ele a deducao PAT nao entra no calculo.', v: 'Pedir o IRPJ devido anual ao contador do cliente. Sem ele a deducao PAT nao entra no calculo.' });
+    }
+  }
+  if (d.quem === 'cliente' || d.loja === 'sim') {
+    recs.push({ role:'Ancora', nome:'Private Label',
+      why:'Receita tarifaria fixa, fora do teto do Decreto 12.712. Risco de credito fica com o lojista.' });
+    recs.push({ role:'Multiplicador', nome:'Ticket interno para os proprios funcionarios',
+      why:'A mesma loja vira convenio. Carga circula dentro do proprio caixa.' });
+  }
+  if (d.quem === 'assoc') {
+    recs.push({ role:'Ancora', nome:'Cartao Associacao + Clube de Vantagens',
+      why:'Fortalece a marca da entidade e cria valor recorrente para o associado.' });
+    recs.push({ role:'Trava', nome:'Consignado', why:'Vinculo financeiro de longo prazo com o associado.' });
+  }
+  if (d.quem === 'revend') {
+    recs.push({ role:'Ancora', nome:'Clube de autorizacoes / credito B2B',
+      why:'Limite dedicado para a rede de revenda, com controle central.' });
+    recs.push({ role:'Multiplicador', nome:'Cartao Despesa e Corporativo',
+      why:'Elimina caixinha e reembolso. Cobrado do contratante.' });
+  }
+  if (d.dor === 'inad' || d.carteira > 0) {
+    recs.push({ role:'Multiplicador', nome:'Escard Cobranca',
+      why:'Recuperacao de credito com fee sobre resultado. Ganho cresce com a idade da carteira.' });
+  }
+  if (d.dor === 'controle') {
+    recs.push({ role:'Multiplicador', nome:'Cartao Controle e Despesa',
+      why:'Bloqueio e liberacao em tempo real, com fatura centralizada.' });
+  }
+
+  if (d.fora > d.pessoas) {
+    stop.push({ t: 'Numero de pessoas fora da sede maior que o total. Corrigir antes de apresentar.', v: 'Numero de pessoas fora da sede maior que o total. Corrigir antes de apresentar.' });
+  }
+  if (d.quem === 'func' && band.mdrEfetivo < band.mdrPropria - 0.001) {
+    stop.push({ t: 'Bandeira Elo derruba o retorno de ' + band.mdrPropria.toFixed(2) + '% para ' +
+      band.mdrEfetivo.toFixed(2) + '% efetivo. O teto de brinde cai junto: perda de ' +
+      (band.perdaVsPropria).toFixed(2) + ' por pessoa/mes.',
+      v: 'Cartao Elo comporta menos benef\u00edcio incluso. Emitir Elo apenas para quem realmente circula fora da praca.' });
+  }
+  if (d.quem === 'func' && band.mdrEfetivo > band.mdrPropria + 0.001) {
+    stop.push({ t: 'O MDR da rede propria esta menor que o retorno da Elo. Conferir a premissa antes de apresentar.', v: null });
+  }
+  if (lojas === 0) {
+    stop.push({ t: 'Cobertura de rede nao mapeada nesta praca. Confirmar aceitacao antes de assinar, ou usar produto bandeirado Elo.',
+      v: 'Cobertura de rede nao mapeada nesta praca. Confirmar aceitacao antes de assinar, ou usar cartao Elo.' });
+  } else if (lojas < 15) {
+    stop.push({ t: 'Cobertura fraca nesta cidade (' + lojas + ' lojistas). Credenciar antes de ativar, ou a base morre em 90 dias.',
+      v: 'Cobertura fraca nesta cidade (' + lojas + ' lojistas). Acionar credenciamento antes de ativar a base.' });
+  }
+  if (d.mdr <= 0) {
+    stop.push({ t: 'MDR zero: nenhum agregado gratuito e viavel. Todo brinde sai do caixa da Escard.',
+      v: 'Este perfil nao comporta benef\u00edcio incluso. Ofertar os agregados como produto vendido.' });
+  }
+  var dre = dreCartao(d);
+  if (d.quem === 'func' && dre.disponivel <= 0) {
+    stop.push({ t: 'Contrato nao se paga na escala atual: cada cartao absorve ' + dre.fixo.toFixed(2) +
+      ' de custo fixo. Precisa de ' + dre.breakEvenAtivos + ' cartoes ativos na base, ou carga de ' +
+      dre.breakEvenCarga.toFixed(2) + ' por pessoa/mes. Nenhum agregado gratuito.',
+      v: 'Este perfil nao comporta benef\u00edcio incluso. Ofertar os pacotes de sa\u00fade e bem-estar como produto vendido.' });
+  } else if (d.quem === 'func' && dre.disponivel < 5) {
+    stop.push({ t: 'Sobra de apenas ' + dre.disponivel.toFixed(2) + ' por pessoa/mes apos custos. Nao empilhar agregado.',
+      v: 'Margem apertada neste perfil. Incluir no maximo um item, nunca dois.' });
+  }
+  if (d.quem === 'func' && d.plastElo > d.plastEs && band.nElo > 0) {
+    stop.push({ t: 'Cada cartao Elo custa ' + (d.plastElo - d.plastEs).toFixed(2) + ' a mais de plastico. Emitir Elo so para quem realmente circula fora.',
+      v: 'Emitir Elo apenas para quem realmente circula fora da praca.' });
+  }
+  return { recs: recs, stop: stop, lojas: lojas, bandeira: band };
+}
+
+function motoresAtivos(d) {
+  return {
+    beneficio: d.quem === 'func' || d.quem === 'assoc',
+    privateLabel: d.quem === 'cliente' || d.quem === 'revend' || d.loja === 'sim',
+    cobranca: d.carteira > 0
+  };
+}
+/* ==CALC-END== */
+
+(function () {
+  'use strict';
+
+  /* Altere o PIN abaixo antes de distribuir para o time. */
+  var PIN_DIRETORIA = '2610';
+  var nivel = 'vendas';
+
+  function $(id) { return document.getElementById(id); }
+  function num(id) { var v = parseFloat($(id).value); return isNaN(v) ? 0 : v; }
+  function brl(v) {
+    var n = Math.round(v);
+    var s = String(Math.abs(n)), out = '', c = 0, i;
+    for (i = s.length - 1; i >= 0; i--) {
+      out = s.charAt(i) + out; c++;
+      if (c % 3 === 0 && i > 0) { out = '.' + out; }
+    }
+    return (n < 0 ? '- R$ ' : 'R$ ') + out;
+  }
+  function brl2(v) {
+    return 'R$ ' + v.toFixed(2).replace('.', ',');
+  }
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function initCidades() {
+    var sel = $('f-cidade');
+    var faixas = [
+      { rot: 'Cobertura forte (15+ lojistas)', min: 15, max: 999999 },
+      { rot: 'Cobertura media (5 a 14)', min: 5, max: 14 },
+      { rot: 'Cobertura fraca (1 a 4)', min: 1, max: 4 }
+    ];
+    var f, i, g, o, lista;
+    for (f = 0; f < faixas.length; f++) {
+      lista = [];
+      for (i = 0; i < COBERTURA.length; i++) {
+        if (COBERTURA[i].n >= faixas[f].min && COBERTURA[i].n <= faixas[f].max) { lista.push(COBERTURA[i]); }
+      }
+      if (!lista.length) { continue; }
+      lista.sort(function (a, b) { return a.c.localeCompare(b.c, 'pt-BR'); });
+      g = document.createElement('optgroup');
+      g.label = faixas[f].rot;
+      for (i = 0; i < lista.length; i++) {
+        o = document.createElement('option');
+        o.value = lista[i].c;
+        o.textContent = lista[i].c + ' \u2014 ' + lista[i].n + (lista[i].n === 1 ? ' lojista' : ' lojistas') +
+                        (lista[i].uf !== 'ES' ? ' (' + lista[i].uf + ')' : '');
+        g.appendChild(o);
+      }
+      sel.appendChild(g);
+    }
+    g = document.createElement('optgroup');
+    g.label = 'Sem lojista mapeado';
+    o = document.createElement('option'); o.value = 'Outra cidade do ES'; o.textContent = 'Outra cidade do ES'; g.appendChild(o);
+    o = document.createElement('option'); o.value = 'Fora do ES'; o.textContent = 'Fora do ES'; g.appendChild(o);
+    sel.appendChild(g);
+    sel.value = 'Vit\u00f3ria';
+  }
+
+  function coletar() {
+    return {
+      nome: $('f-nome').value || 'Cliente',
+      fone: $('f-fone').value || '',
+      quem: $('f-quem').value,
+      regime: $('f-regime').value,
+      pessoas: Math.max(1, num('f-pessoas')),
+      fora: Math.max(0, num('f-fora')),
+      valor: num('f-valor'),
+      salario: num('f-salario'),
+      cidade: $('f-cidade').value,
+      dor: $('f-dor').value,
+      loja: $('f-loja').value,
+      fatLoja: num('f-fatloja'),
+      clientes: num('f-clientes'),
+      carteira: num('f-carteira'),
+      idade: num('f-idade'),
+      mdr: num('p-mdr'),
+      mdrElo: num('p-mdrelo'),
+      margemMin: num('p-margemin'),
+      markup: num('p-markup') > 1 ? num('p-markup') : 3,
+      plastEs: num('p-plast-es'),
+      plastElo: num('p-plast-elo'),
+      logistica: num('p-log'),
+      processamento: num('p-proc'),
+      prazo: Math.max(1, parseInt($('p-prazo').value, 10) || 24),
+      imposto: num('p-imposto'),
+      fixoMes: num('p-fixomes'),
+      ativos: Math.max(1, num('p-ativos')),
+      alocFixo: num('p-aloc'),
+      lucroAlvo: num('p-lucro'),
+      turnover: num('p-turnover'),
+      reducaoTurnover: num('p-redturn'),
+      reposicao: num('p-reposicao'),
+      irpj: num('p-irpj'),
+      adesao: num('p-adesao'),
+      tkUp: num('p-tkup'),
+      margem: num('p-margem'),
+      mdrAdq: num('p-mdradq'),
+      recAtual: num('p-recatual'),
+      recNova: num('p-recnova'),
+      fee: num('p-fee'),
+      cdi: num('p-cdi')
+    };
+  }
+
+  function linha(label, valor, hint) {
+    return '<tr><td>' + esc(label) + (hint ? '<br><span class="field__note">' + esc(hint) + '</span>' : '') +
+           '</td><td class="num">' + valor + '</td></tr>';
+  }
+
+  function blocoTotais(m3, m12, m24) {
+    function cls(v) { return v < 0 ? ' big__value--neg' : ''; }
+    return '<div class="big">' +
+      '<div class="big__item"><div class="big__label">3 meses</div><div class="big__value' + cls(m3) + '">' + brl(m3) + '</div></div>' +
+      '<div class="big__item"><div class="big__label">12 meses</div><div class="big__value' + cls(m12) + '">' + brl(m12) + '</div></div>' +
+      '<div class="big__item"><div class="big__label">24 meses</div><div class="big__value' + cls(m24) + '">' + brl(m24) + '</div></div>' +
+      '</div>';
+  }
+
+  function barra(labels, valores, cor) {
+    var maxv = 0, i;
+    for (i = 0; i < valores.length; i++) { if (valores[i] > maxv) { maxv = valores[i]; } }
+    if (maxv <= 0) { maxv = 1; }
+    var W = 600, rowH = 52, padL = 92, padR = 8;
+    var H = valores.length * rowH + 12;
+    var s = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Ganho acumulado">';
+    for (i = 0; i < valores.length; i++) {
+      var y = i * rowH + 8;
+      var w = Math.max(2, (valores[i] / maxv) * (W - padL - padR - 130));
+      s += '<text x="0" y="' + (y + 22) + '" font-size="14" font-weight="700" fill="#4a5a75">' + labels[i] + '</text>';
+      s += '<rect x="' + padL + '" y="' + y + '" width="' + w.toFixed(1) + '" height="30" rx="6" fill="' + cor + '"></rect>';
+      s += '<text x="' + (padL + w + 10).toFixed(1) + '" y="' + (y + 21) + '" font-size="15" font-weight="700" fill="#12203a">' + brl(valores[i]) + '</text>';
+    }
+    s += '</svg>';
+    return s;
+  }
+
+  function corpoApresentacao(d) {
+    var r = recomendar(d);
+    var mot = motoresAtivos(d);
+    var h = '', i, m3 = 0, m12 = 0, m24 = 0;
+    var b = null, p = null, c = null;
+    var hoje = new Date();
+    var dataStr = ('0' + hoje.getDate()).slice(-2) + '/' + ('0' + (hoje.getMonth() + 1)).slice(-2) + '/' + hoje.getFullYear();
+
+    if (mot.beneficio) { b = calcBeneficio(d); m3 += b.m3; m12 += b.m12; m24 += b.m24; }
+    if (mot.privateLabel && d.clientes > 0 && d.fatLoja > 0) { p = calcPrivate(d); m3 += p.m3; m12 += p.m12; m24 += p.m24; }
+    if (mot.cobranca) { c = calcCobranca(d); m3 += c.m3; m12 += c.m12; m24 += c.m24; }
+
+    h += '<section class="pres__hero">';
+    h += '<p class="pres__eyebrow">Proposta de valor · ' + dataStr + '</p>';
+    h += '<h2 class="pres__h">' + esc(d.nome) + '</h2>';
+    h += '<p class="pres__lead">O que a sua empresa ganha ao estruturar o programa com a Escard.</p>';
+    h += '<div class="hero__nums">' +
+      '<div class="hero__item"><div class="hero__label">Em 3 meses</div><div class="hero__value">' + brl(m3) + '</div></div>' +
+      '<div class="hero__item"><div class="hero__label">Em 12 meses</div><div class="hero__value">' + brl(m12) + '</div></div>' +
+      '<div class="hero__item"><div class="hero__label">Em 24 meses</div><div class="hero__value">' + brl(m24) + '</div></div>' +
+      '</div></section>';
+
+    h += '<section class="pres"><p class="pres__eyebrow">Sua operação hoje</p>';
+    h += '<h3 class="pres__h">' + esc(d.pessoas) + ' pessoas · ' + brl2(d.valor) + ' por pessoa/mês</h3>';
+    h += '<table style="margin-top:12px"><tbody>';
+    h += linha('Valor investido no benefício', brl(d.valor * d.pessoas) + ' /mês');
+    if (b) {
+      h += linha('Custo se o mesmo valor fosse pago em folha', brl(d.valor * d.pessoas + b.encargoMes) + ' /mês');
+      h += linha('Custo anual da rotatividade atual', brl(b.custoTurnAno) + ' /ano');
+    }
+    h += '</tbody></table></section>';
+
+    h += '<section class="pres"><p class="pres__eyebrow">O que recomendamos</p>';
+    h += '<h3 class="pres__h">Solução desenhada para a sua operação</h3>';
+    var rot = { 'Ancora': 'Solução principal', 'Multiplicador': 'Complemento', 'Trava': 'Diferencial' };
+    for (i = 0; i < r.recs.length; i++) {
+      h += '<div class="step"><div class="step__n">' + (i + 1) + '</div><div>' +
+           '<p class="step__t">' + esc(r.recs[i].nome) + '</p>' +
+           '<p class="step__d"><strong>' + (rot[r.recs[i].role] || esc(r.recs[i].role)) + '.</strong> ' + esc(r.recs[i].why) + '</p>' +
+           '</div></div>';
+    }
+    if (b && b.brindes.cabe.length) {
+      h += '<p class="pres__lead" style="margin-top:16px"><strong>Incluído sem custo adicional para a empresa:</strong></p><div class="incl">';
+      for (i = 0; i < b.brindes.cabe.length; i++) {
+        h += '<span class="incl__i">' + esc(b.brindes.cabe[i].nome) + '</span>';
+      }
+      h += '</div>';
+    }
+    h += '</section>';
+
+    h += '<section class="pres"><p class="pres__eyebrow">Ganho acumulado</p>';
+    h += '<h3 class="pres__h">Quanto isso representa ao longo do contrato</h3>';
+    h += barra(['3 meses', '12 meses', '24 meses'], [m3, m12, m24], '#12306b');
+    h += '</section>';
+
+    if (b) {
+      h += '<section class="pres"><p class="pres__eyebrow">De onde vem o ganho</p>';
+      h += '<h3 class="pres__h">Benefício ao colaborador</h3>';
+      h += '<table><thead><tr><th>Origem</th><th class="num">Por mês</th><th class="num">Por ano</th></tr></thead><tbody>';
+      h += '<tr><td>Encargos que deixam de incidir<br><span class="field__note">Verba não salarial: sem INSS, FGTS, 13º e férias sobre o valor</span></td>' +
+           '<td class="num">' + brl(b.encargoMes) + '</td><td class="num">' + brl(b.encargoMes * 12) + '</td></tr>';
+      if (b.patAno > 0) {
+        h += '<tr><td>Dedução fiscal do PAT<br><span class="field__note">4% do IRPJ devido, no Lucro Real</span></td>' +
+             '<td class="num">' + brl(b.patAno / 12) + '</td><td class="num">' + brl(b.patAno) + '</td></tr>';
+      }
+      if (b.turnoverAno > 0) {
+        h += '<tr><td>Rotatividade evitada<br><span class="field__note">Estimativa conservadora de redução de turnover</span></td>' +
+             '<td class="num">' + brl(b.turnoverAno / 12) + '</td><td class="num">' + brl(b.turnoverAno) + '</td></tr>';
+      }
+      h += '<tr class="total"><td>Total</td><td class="num">' + brl(b.m12 / 12) + '</td><td class="num">' + brl(b.m12) + '</td></tr>';
+      h += '</tbody></table></section>';
+    }
+
+    if (p) {
+      h += '<section class="pres"><p class="pres__eyebrow">De onde vem o ganho</p>';
+      h += '<h3 class="pres__h">Cartão próprio da sua loja</h3>';
+      h += '<table><thead><tr><th>Origem</th><th class="num">Por mês</th><th class="num">Por ano</th></tr></thead><tbody>';
+      h += '<tr><td>Margem sobre venda incremental<br><span class="field__note">' + esc(p.portadores) + ' portadores com ticket médio maior</span></td>' +
+           '<td class="num">' + brl(p.margemMes) + '</td><td class="num">' + brl(p.margemMes * 12) + '</td></tr>';
+      h += '<tr><td>Taxa de cartão que deixa de ser paga<br><span class="field__note">Volume que sai da bandeira e passa para o cartão da loja</span></td>' +
+           '<td class="num">' + brl(p.economiaMdrMes) + '</td><td class="num">' + brl(p.economiaMdrMes * 12) + '</td></tr>';
+      h += '<tr class="total"><td>Total</td><td class="num">' + brl(p.ganhoMes) + '</td><td class="num">' + brl(p.ganhoMes * 12) + '</td></tr>';
+      h += '</tbody></table>';
+      h += '<div class="note" style="margin-top:12px"><strong>Além do dinheiro:</strong> você passa a saber o que cada cliente compra e com que frequência, reduz a dependência de bandeira e ganha uma base própria para campanha.</div>';
+      h += '</section>';
+    }
+
+    if (c) {
+      h += '<section class="pres"><p class="pres__eyebrow">De onde vem o ganho</p>';
+      h += '<h3 class="pres__h">Recuperação da carteira</h3>';
+      h += barra(['Hoje', 'Com a Escard'], [c.recAtual, c.recNova - c.fee], '#0f7a4d');
+      h += '<div class="note note--bad" style="margin-top:12px"><strong>O custo de não agir</strong><br>' +
+           'Hoje a chance de recuperar é de ' + Math.round(c.taxaHoje * 100) + '%. Em mais 12 meses cai para ' +
+           Math.round(c.taxa12 * 100) + '%. Isso representa <strong>' + brl(c.perdaEnvelhecimento) +
+           '</strong> que deixam de ser recuperáveis, mais <strong>' + brl(c.custoCapitalAno) +
+           '</strong> por ano de capital parado.</div></section>';
+    }
+
+    h += '<section class="pres"><p class="pres__eyebrow">Próximos passos</p>';
+    h += '<h3 class="pres__h">Como começa</h3>';
+    h += '<div class="step"><div class="step__n">1</div><div><p class="step__t">Assinatura e cadastro</p><p class="step__d">Envio da relação de pessoas. Sem custo de adesão.</p></div></div>';
+    h += '<div class="step"><div class="step__n">2</div><div><p class="step__t">Cartões entregues em até 7 dias úteis</p><p class="step__d">Primeira via sem custo, entrega incluída.</p></div></div>';
+    h += '<div class="step"><div class="step__n">3</div><div><p class="step__t">Primeira carga em até 24 horas</p><p class="step__d">Pix ou boleto. Aplicativo liberado no mesmo dia.</p></div></div>';
+    h += '<div class="step"><div class="step__n">4</div><div><p class="step__t">Acompanhamento</p><p class="step__d">Atendimento 24h, 7 dias por semana, e painel de uso do benefício.</p></div></div>';
+    h += '</section>';
+
+    h += '<p class="foot">Valores estimados a partir das informações fornecidas nesta reunião. Não constituem garantia contratual.</p>';
+    return h;
+  }
+
+  function render() {
+    var d = coletar();
+    var r = recomendar(d);
+    var mot = motoresAtivos(d);
+    var h = '';
+    var i, totM3 = 0, totM12 = 0, totM24 = 0;
+
+    h += '<section class="card"><h2 class="card__title">Recomendacao para ' + esc(d.nome) + '</h2>';
+    h += '<p class="card__hint">' + esc(d.pessoas) + ' pessoas &middot; ' + brl2(d.valor) + ' por pessoa/mes &middot; ' + esc(d.cidade) + '</p>';
+    for (i = 0; i < r.recs.length; i++) {
+      h += '<div class="rec"><div class="rec__role">' + esc(r.recs[i].role) + '</div>' +
+           '<div class="rec__name">' + esc(r.recs[i].nome) + '</div>' +
+           '<p class="rec__why">' + esc(r.recs[i].why) + '</p></div>';
+    }
+    var visiveis = [];
+    for (i = 0; i < r.stop.length; i++) {
+      var txt = (nivel === 'diretoria') ? r.stop[i].t : r.stop[i].v;
+      if (txt) { visiveis.push(txt); }
+    }
+    if (visiveis.length) {
+      h += '<div class="note note--warn"><strong>Aten&ccedil;&atilde;o</strong><ul class="list">';
+      for (i = 0; i < visiveis.length; i++) { h += '<li>' + esc(visiveis[i]) + '</li>'; }
+      h += '</ul></div>';
+    }
+    h += '</section>';
+
+    if (mot.beneficio) {
+      var b = calcBeneficio(d);
+      totM3 += b.m3; totM12 += b.m12; totM24 += b.m24;
+      h += '<section class="card"><h2 class="card__title">Ganho do cliente &mdash; Beneficio</h2>';
+      h += '<p class="card__hint">Nao ha cobranca da empresa contratante em VA, VR e combustivel. O ganho abaixo e integral.</p>';
+      h += '<table><thead><tr><th>Origem do ganho</th><th class="num">Valor</th></tr></thead><tbody>';
+      h += linha('Encargo evitado (mensal)', brl(b.encargoMes),
+            'Verba nao-salarial: sem INSS/FGTS/13o/ferias sobre o valor');
+      h += linha('Deducao PAT (anual)', brl(b.patAno),
+            b.patAno > 0 ? '4% do IRPJ devido' : 'Nao aplicavel neste regime, ou IRPJ nao informado');
+      h += linha('Custo de turnover hoje (anual)', brl(b.custoTurnAno),
+            d.turnover + '% de giro x ' + d.reposicao + ' salarios de reposicao');
+      h += linha('Turnover evitado (anual)', brl(b.turnoverAno),
+            'Premissa de ' + d.reducaoTurnover + '% de reducao atribuivel ao programa');
+      h += '</tbody></table>';
+      h += blocoTotais(b.m3, b.m12, b.m24);
+      var bd = b.bandeira;
+      h += '<div class="note note--ok"><strong>Bandeira recomendada: ' + esc(bd.tipo) + '</strong><br>' + esc(bd.why) + '</div>';
+      if (nivel === 'diretoria') {
+      h += '<table style="margin-top:12px"><thead><tr><th>Bandeira</th><th class="num">Cartoes</th><th class="num">MDR</th></tr></thead><tbody>';
+      h += '<tr><td>Escard (rede propria)</td><td class="num">' + bd.nSede + '</td><td class="num">' + bd.mdrPropria.toFixed(2) + '%</td></tr>';
+      h += '<tr><td>Elo (intercambio)</td><td class="num">' + bd.nElo + '</td><td class="num">' + bd.mdrElo.toFixed(2) + '%</td></tr>';
+      h += '<tr class="total"><td>MDR efetivo ponderado</td><td class="num">' + d.pessoas + '</td><td class="num">' + bd.mdrEfetivo.toFixed(2) + '%</td></tr>';
+      h += '</tbody></table>';
+      if (bd.perdaVsPropria > 0.001) {
+        h += '<div class="note note--warn" style="margin-top:8px">Cada cartao em Elo reduz o teto de brinde. Perda: <strong>' +
+             brl2(bd.perdaVsPropria) + ' por pessoa/mes</strong> em relacao a 100% rede propria.</div>';
+      }
+      var dre = b.dre;
+      if (nivel === 'diretoria') {
+      h += '<h3 style="margin:20px 0 4px;font-size:16px">DRE por cartao/mes</h3>';
+      h += '<table><tbody>';
+      h += '<tr><td>Receita bruta<br><span class="field__note">' + brl2(d.valor) + ' x ' + bd.mdrEfetivo.toFixed(2) + '% de MDR efetivo</span></td><td class="num">' + brl2(dre.receita) + '</td></tr>';
+      h += '<tr><td>(-) Impostos sobre receita<br><span class="field__note">' + d.imposto + '% no Lucro Presumido</span></td><td class="num">- ' + brl2(dre.imposto) + '</td></tr>';
+      h += '<tr><td>(-) Processamento</td><td class="num">- ' + brl2(dre.processamento) + '</td></tr>';
+      h += '<tr><td>(-) Plastico e logistica amortizados<br><span class="field__note">' + brl2(dre.plasticoMedio) + ' medio + ' + brl2(d.logistica) + ' diluidos em ' + d.prazo + ' meses</span></td><td class="num">- ' + brl2(dre.amortizacao) + '</td></tr>';
+      h += '<tr class="total"><td>= Margem de contribuicao</td><td class="num">' + brl2(dre.margemContribuicao) +
+           ' <span class="field__note">(' + (dre.receita > 0 ? (100 * dre.margemContribuicao / dre.receita).toFixed(1) : '0') + '%)</span></td></tr>';
+      h += '<tr><td>(-) Rateio de custo fixo<br><span class="field__note">' + brl(dre.fixoMes * d.alocFixo / 100) + '/mes diluido em ' + dre.ativos + ' cartoes ativos</span></td><td class="num">- ' + brl2(dre.fixo) + '</td></tr>';
+      h += '<tr><td>(-) Margem de lucro alvo<br><span class="field__note">' + d.lucroAlvo + '% da receita</span></td><td class="num">- ' + brl2(dre.lucro) + '</td></tr>';
+      h += '<tr class="total"><td>Sobra para agregado gratuito</td><td class="num">' + brl2(dre.disponivel) + '</td></tr>';
+      h += '</tbody></table>';
+      var pp = tetoPorPrazo(d), ppi;
+      h += '<table style="margin-top:12px"><thead><tr><th>Prazo do contrato</th><th class="num">Sobra por cartao/mes</th><th class="num">O que cabe</th></tr></thead><tbody>';
+      for (ppi = 0; ppi < pp.length; ppi++) {
+        var cabeP = montarBrindes(pp[ppi].teto > 0 ? pp[ppi].teto : 0, d.pessoas).cabe;
+        var nomes = [];
+        for (var q = 0; q < cabeP.length; q++) { nomes.push(cabeP[q].nome); }
+        h += '<tr' + (pp[ppi].prazo === d.prazo ? ' style="background:#f0f3f9"' : '') + '>' +
+             '<td>' + pp[ppi].prazo + ' meses' + (pp[ppi].prazo === d.prazo ? ' <span class="tag tag--info">atual</span>' : '') + '</td>' +
+             '<td class="num">' + brl2(pp[ppi].teto) + '</td>' +
+             '<td class="num">' + (nomes.length ? esc(nomes.join(', ')) : 'nada') + '</td></tr>';
+      }
+      h += '</tbody></table>';
+      var alvos = [
+        { nome: 'fechar no zero', v: 0 },
+        { nome: 'Apoio mental (4,99)', v: CUSTO.apoioMental },
+        { nome: 'Telemedicina (5,99)', v: CUSTO.telemedicina },
+        { nome: 'Farmacia 150 G (11,90)', v: CUSTO.farm150G }
+      ];
+      h += '<h3 style="margin:20px 0 4px;font-size:16px">Escala necessaria</h3>';
+      h += '<table><thead><tr><th>Para</th><th class="num">Cartoes ativos na base</th></tr></thead><tbody>';
+      for (var ai = 0; ai < alvos.length; ai++) {
+        var need = dre.ativosPara(alvos[ai].v);
+        h += '<tr><td>' + esc(alvos[ai].nome) + '</td><td class="num">' +
+             (need > 0 ? need.toLocaleString('pt-BR') + (need <= dre.ativos ? ' <span class="tag tag--ok">ja tem</span>' : ' <span class="tag tag--bad">falta ' + (need - dre.ativos).toLocaleString('pt-BR') + '</span>') : '<span class="tag tag--bad">inviavel em qualquer escala</span>') +
+             '</td></tr>';
+      }
+      h += '</tbody></table>';
+      if (dre.disponivel <= 0) {
+        h += '<div class="note note--bad" style="margin-top:8px"><strong>Este contrato nao se paga na escala atual.</strong><br>' +
+             'Com ' + dre.ativos + ' cartoes ativos, cada cartao absorve ' + brl2(dre.fixo) + ' de custo fixo e a margem de contribuicao e de ' + brl2(dre.margemContribuicao) + '.<br>' +
+             'Para fechar no zero: <strong>' + dre.breakEvenAtivos.toLocaleString('pt-BR') + ' cartoes ativos</strong> ou carga de <strong>' + brl2(dre.breakEvenCarga) + ' por pessoa/mes</strong>.<br>' +
+             'Nenhum agregado gratuito. A margem tem que vir de produto vendido.</div>';
+      } else {
+        h += '<div class="note" style="margin-top:8px"><strong>Teto de brinde: ' + brl2(dre.disponivel) + ' por pessoa/mes</strong><br>' +
+             'Ja liquido de imposto, processamento, plastico, rateio e lucro alvo. Break-even da carga: ' + brl2(dre.breakEvenCarga) + '.</div>';
+      }
+      }
+      }
+      if (nivel === 'vendas') {
+        var podeInc = [], vender = [];
+        for (i = 0; i < b.brindes.cabe.length; i++) { podeInc.push(b.brindes.cabe[i].nome); }
+        for (i = 0; i < b.brindes.fora.length; i++) { vender.push(b.brindes.fora[i].nome); }
+        h += '<div class="note ' + (podeInc.length ? 'note--ok' : 'note--warn') + '" style="margin-top:12px">' +
+             '<strong>Pode incluir sem custo para o cliente:</strong><br>' +
+             (podeInc.length ? esc(podeInc.join(' &middot; ')) : 'Nenhum item neste perfil.') + '</div>';
+        h += '<div class="note" style="margin-top:8px"><strong>Ofertar como produto vendido:</strong><br>' +
+             esc(vender.join(' &middot; ')) + '</div>';
+      } else {
+      h += '<table style="margin-top:12px"><thead><tr><th>Agregado</th><th class="num">Custo</th><th class="num">Cabe?</th></tr></thead><tbody>';
+      for (i = 0; i < b.brindes.cabe.length; i++) {
+        h += '<tr><td>' + esc(b.brindes.cabe[i].nome) + '</td><td class="num">' + brl2(b.brindes.cabe[i].custo) +
+             '</td><td class="num"><span class="tag tag--ok">cabe</span></td></tr>';
+      }
+      for (i = 0; i < b.brindes.fora.length; i++) {
+        h += '<tr><td>' + esc(b.brindes.fora[i].nome) + '</td><td class="num">' + brl2(b.brindes.fora[i].custo) +
+             '</td><td class="num"><span class="tag tag--bad">vender</span></td></tr>';
+      }
+      h += '<tr class="total"><td>Usado / sobra</td><td class="num">' + brl2(b.brindes.usado) +
+           '</td><td class="num">' + brl2(b.brindes.sobra) + '</td></tr>';
+      h += '</tbody></table>';
+      h += '<p class="field__note" style="margin-top:8px">Marcados como <em>vender</em> nao cabem no teto. Ofertar como produto pago &mdash; a margem por vida chega a R$ 60,32 no Pacote Bem Estar.</p>';
+      }
+      h += '</section>';
+
+      var tv = tabelaVenda(d), mn = margemNecessaria(d), ti, mi, faltaAtual = 0;
+      for (mi = 0; mi < mn.length; mi++) { if (mn[mi].prazo === d.prazo) { faltaAtual = mn[mi].falta; } }
+
+      h += '<section class="card"><h2 class="card__title">Tabela de venda e desconto maximo</h2>';
+      h += '<p class="card__hint">' + d.pessoas + ' pessoas &middot; contrato de ' + d.prazo + ' meses. Precos por pessoa/mes.</p>';
+      if (faltaAtual > 0) {
+        h += '<div class="note note--warn"><strong>Margem necessaria neste contrato: ' + brl2(faltaAtual) + ' por pessoa/mes.</strong><br>' +
+             'A soma das margens dos produtos vendidos precisa alcancar esse valor para o contrato nao dar prejuizo. ' +
+             'Abaixo disso, so fecha com aprovacao da diretoria.</div>';
+      } else {
+        h += '<div class="note note--ok"><strong>Este contrato ja se sustenta sem venda adicional.</strong><br>' +
+             'Qualquer agregado vendido entra como margem liquida.</div>';
+      }
+      h += '<table style="margin-top:12px"><thead><tr><th>Produto</th><th class="num">Preco de tabela</th><th class="num">Preco minimo</th><th class="num">Desconto max.</th></tr></thead><tbody>';
+      var grupoAtual = '';
+      for (ti = 0; ti < tv.length; ti++) {
+        if (tv[ti].grupo !== grupoAtual) {
+          grupoAtual = tv[ti].grupo;
+          h += '<tr><td colspan="4" style="background:#f0f3f9;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.05em">' + esc(grupoAtual) + '</td></tr>';
+        }
+        h += '<tr><td>' + esc(tv[ti].nome) + (tv[ti].estimado ? ' <span class="tag tag--warn">preco estimado</span>' : '') + '</td>' +
+             '<td class="num">' + brl2(tv[ti].tabela) + '</td>' +
+             '<td class="num">' + brl2(tv[ti].piso) + '</td>' +
+             '<td class="num"><span class="tag ' + (tv[ti].descMax >= 40 ? 'tag--ok' : (tv[ti].descMax >= 20 ? 'tag--info' : 'tag--warn')) + '">' + tv[ti].descMax.toFixed(0) + '%</span></td></tr>';
+      }
+      h += '</tbody></table>';
+      h += '<h3 style="margin:20px 0 4px;font-size:16px">Efeito do prazo</h3>';
+      h += '<table><thead><tr><th>Prazo</th><th class="num">Margem necessaria por pessoa/mes</th></tr></thead><tbody>';
+      for (mi = 0; mi < mn.length; mi++) {
+        h += '<tr' + (mn[mi].prazo === d.prazo ? ' style="background:#f0f3f9"' : '') + '><td>' + mn[mi].prazo + ' meses' +
+             (mn[mi].prazo === d.prazo ? ' <span class="tag tag--info">atual</span>' : '') + '</td><td class="num">' +
+             (mn[mi].falta > 0 ? brl2(mn[mi].falta) : '<span class="tag tag--ok">nao precisa</span>') + '</td></tr>';
+      }
+      h += '</tbody></table>';
+      h += '<div class="note" style="margin-top:12px"><strong>Como usar:</strong> nunca feche abaixo do preco minimo. ' +
+           'Entre o preco minimo e o de tabela o consultor decide sozinho. ' +
+           'O desconto maximo ja protege a margem minima de ' + d.margemMin + '%.</div>';
+      h += '</section>';
+    }
+
+    if (mot.privateLabel && d.clientes > 0 && d.fatLoja > 0) {
+      var p = calcPrivate(d);
+      totM3 += p.m3; totM12 += p.m12; totM24 += p.m24;
+      h += '<section class="card"><h2 class="card__title">Ganho do cliente &mdash; Private Label</h2>';
+      h += '<table><thead><tr><th>Origem do ganho</th><th class="num">Valor</th></tr></thead><tbody>';
+      h += linha('Portadores estimados', String(p.portadores), d.adesao + '% de adesao sobre a base de clientes');
+      h += linha('Ticket medio atual', brl2(p.ticketBase), 'Faturamento dividido pela base de clientes');
+      h += linha('Venda incremental (mensal)', brl(p.incrementoMes), d.tkUp + '% de aumento de ticket nos portadores');
+      h += linha('Margem sobre o incremento (mensal)', brl(p.margemMes), d.margem + '% de margem bruta');
+      h += linha('MDR de adquirente economizado (mensal)', brl(p.economiaMdrMes),
+            'Volume que sai da bandeira a ' + d.mdrAdq + '% e passa para o cartao proprio');
+      h += '<tr class="total"><td>Ganho mensal</td><td class="num">' + brl(p.ganhoMes) + '</td></tr>';
+      h += '</tbody></table>';
+      h += blocoTotais(p.m3, p.m12, p.m24);
+      h += '<div class="note"><strong>Bonus nao monetizados acima:</strong> dados de consumo do cliente (o que compra, com que frequencia), reducao de dependencia de bandeira, base propria para campanha e limite dedicado que prioriza a loja.</div>';
+      h += '</section>';
+    } else if (mot.privateLabel) {
+      h += '<section class="card"><h2 class="card__title">Private Label</h2>' +
+           '<div class="note note--warn">Preencha <strong>faturamento mensal da loja</strong> e <strong>clientes ativos</strong> em &ldquo;Dados extras&rdquo; para calcular o ganho. Sem isso nao ha numero para apresentar.</div></section>';
+    }
+
+    if (mot.cobranca) {
+      var c = calcCobranca(d);
+      totM3 += c.m3; totM12 += c.m12; totM24 += c.m24;
+      h += '<section class="card"><h2 class="card__title">Ganho do cliente &mdash; Cobranca</h2>';
+      h += '<table><thead><tr><th>Origem do ganho</th><th class="num">Valor</th></tr></thead><tbody>';
+      h += linha('Recuperacao no ritmo atual', brl(c.recAtual), d.recAtual + '% da carteira');
+      h += linha('Recuperacao com a plataforma', brl(c.recNova), d.recNova + '% da carteira (premissa)');
+      h += linha('Success fee Escard', '- ' + brl(c.fee), d.fee + '% sobre o recuperado');
+      h += '<tr class="total"><td>Ganho liquido</td><td class="num">' + brl(c.liquido) + '</td></tr>';
+      h += '</tbody></table>';
+      h += blocoTotais(c.m3, c.m12, c.m24);
+      h += '<div class="note note--bad"><strong>Prejuizo que se acumula sem agir</strong><br>' +
+           'Com ' + d.idade + ' meses, a chance de recuperar e de ' + Math.round(c.taxaHoje * 100) + '%. ' +
+           'Em mais 12 meses cai para ' + Math.round(c.taxa12 * 100) + '%. ' +
+           'Perda por envelhecimento: <strong>' + brl(c.perdaEnvelhecimento) + '</strong>.<br>' +
+           'Custo de oportunidade do capital parado a ' + d.cdi + '% ao ano: <strong>' + brl(c.custoCapitalAno) + '</strong>.</div>';
+      h += '</section>';
+    }
+
+    h += '<section class="card"><h2 class="card__title">Total consolidado para o cliente</h2>';
+    h += blocoTotais(totM3, totM12, totM24);
+    h += '<div class="note">Some tudo o que foi calculado acima. Numeros de encargo e MDR sao mecanicos. Turnover, adesao e recuperacao sao premissas &mdash; ajuste com o cliente antes de apresentar.</div>';
+    h += '</section>';
+
+    $('out').innerHTML = h;
+    $('out').scrollIntoView({ block: 'start' });
+  }
+
+  function cssApresentacao() {
+    var i, out = '', regras = document.styleSheets;
+    var el = document.getElementById('estilo-base');
+    if (el) { out = el.textContent; }
+    return out;
+  }
+
+  /* Normaliza telefone para o formato do wa.me: so digitos, com DDI 55. */
+  function soFone(v) {
+    var s = String(v || '').replace(/[^0-9]/g, '');
+    if (!s) { return ''; }
+    if (s.length === 10 || s.length === 11) { return '55' + s; }
+    if (s.length === 12 || s.length === 13) { return (s.charAt(0) === '5' && s.charAt(1) === '5') ? s : '55' + s; }
+    return s;
+  }
+
+  function abrirApresentacao() {
+    var d = coletar();
+    var corpo = corpoApresentacao(d);
+    var doc = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8">' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">' +
+      '<title>Escard — ' + esc(d.nome) + '</title><style>' + cssApresentacao() +
+      '.edit-bar{position:sticky;top:0;z-index:9;background:var(--c-surface);border-bottom:1px solid var(--c-line);' +
+      'padding:10px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}' +
+      '.edit-bar__hint{font-size:12px;color:var(--c-ink-2);flex:1 1 100%}' +
+      '@media(min-width:640px){.edit-bar__hint{flex:1}}' +
+      '.edit-bar .btn{width:auto;padding:9px 14px;min-height:40px;font-size:13px}' +
+      '[contenteditable="true"]:focus{outline:2px dashed #9db4e8;outline-offset:3px;border-radius:4px}' +
+      '@media print{.edit-bar{display:none}}' +
+      '</style></head><body><div class="edit-bar no-print">' +
+      '<button class="btn btn--ghost" id="p-voltar" type="button">&larr; Voltar</button>' +
+      '<button class="btn btn--primary" id="p-print" type="button">Imprimir / PDF</button>' +
+      '<button class="btn btn--ghost" id="p-save" type="button">Baixar arquivo</button>' +
+      '<button class="btn btn--ghost" id="p-wa" type="button">Enviar por WhatsApp</button>' +
+      '<button class="btn btn--ghost" id="p-lock" type="button">Travar edicao</button>' +
+      '<span class="edit-bar__hint">Clique em qualquer texto para editar. Para enviar: baixe o arquivo e anexe na conversa.</span>' +
+      '</div><div class="wrap"><div id="doc" contenteditable="true">' + corpo + '</div></div>' +
+      '<scr' + 'ipt>(function(){' +
+      'var e=document.getElementById("doc");' +
+      'var CLI=' + JSON.stringify(d.nome) + ';' +
+      'var FONE=' + JSON.stringify(soFone(d.fone)) + ';' +
+      'var CSS=document.querySelector("style").textContent;' +
+      'function arquivo(){return "<!DOCTYPE html><html lang=\'pt-BR\'><head><meta charset=\'utf-8\'>"+' +
+      '"<meta name=\'viewport\' content=\'width=device-width, initial-scale=1\'>"+' +
+      '"<title>Escard - "+CLI+"</title><style>"+CSS+"</style></head><body><div class=\'wrap\'>"+' +
+      'e.innerHTML+"</div></body></html>";}' +
+      'function nomeArq(){var dt=new Date();' +
+      'var s=CLI.replace(/[^a-zA-Z0-9]+/g,"-").replace(/^-|-$/g,"");' +
+      'return "Escard-Proposta-"+(s||"Cliente")+"-"+dt.getFullYear()+("0"+(dt.getMonth()+1)).slice(-2)+("0"+dt.getDate()).slice(-2)+".html";}' +
+      'function baixar(){try{' +
+      'var blob=new Blob([arquivo()],{type:"text/html;charset=utf-8"});' +
+      'var url=URL.createObjectURL(blob);var a=document.createElement("a");' +
+      'a.href=url;a.download=nomeArq();document.body.appendChild(a);a.click();' +
+      'document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(url)},4000);return true;' +
+      '}catch(err){window.alert("Nao foi possivel baixar neste navegador. Use Imprimir e salve como PDF.");return false;}}' +
+      'document.getElementById("p-print").onclick=function(){window.print()};' +
+      'document.getElementById("p-save").onclick=baixar;' +
+      'document.getElementById("p-voltar").onclick=function(){' +
+      'if(window.opener&&!window.opener.closed){window.opener.focus()}window.close()};' +
+      'document.getElementById("p-wa").onclick=function(){baixar();' +
+      'var msg="Ola! Segue a proposta da Escard para "+CLI+". O arquivo esta em anexo, basta abrir no navegador.";' +
+      'var base=FONE?"https://wa.me/"+FONE+"?text=":"https://wa.me/?text=";' +
+      'window.open(base+encodeURIComponent(msg),"_blank");};' +
+      'var b=document.getElementById("p-lock");b.onclick=function(){' +
+      'var on=e.getAttribute("contenteditable")==="true";' +
+      'e.setAttribute("contenteditable",on?"false":"true");' +
+      'b.textContent=on?"Liberar edicao":"Travar edicao"};' +
+      '})();<\/script>' +
+      '</body></html>';
+    var w = window.open('', '_blank');
+    if (!w) {
+      $('out').innerHTML = '<section class="card"><div class="note note--warn">O navegador bloqueou a nova janela. ' +
+        'Libere pop-ups para este site e clique novamente em &ldquo;Abrir apresentação do cliente&rdquo;.</div></section>' + $('out').innerHTML;
+      return;
+    }
+    w.document.open();
+    w.document.write(doc);
+    w.document.close();
+  }
+
+  function gerar() {
+    $('switch').className = 'switch no-print';
+    render();
+  }
+
+  function aplicarNivel() {
+    var dir = nivel === 'diretoria';
+    $('nivel-tag').textContent = dir ? 'Diretoria' : 'Vendas';
+    $('nivel-tag').className = 'nivel__tag' + (dir ? ' nivel__tag--dir' : '');
+    $('btn-nivel').textContent = dir ? 'Sair do modo diretoria' : 'Acesso diretoria';
+    $('box-premissas').className = dir ? '' : 'hidden';
+    if ($('out').innerHTML) { render(); }
+  }
+
+  function alternarNivel() {
+    if (nivel === 'diretoria') { nivel = 'vendas'; aplicarNivel(); return; }
+    var p = window.prompt('PIN de acesso da diretoria');
+    if (p === null) { return; }
+    if (p === PIN_DIRETORIA) {
+      nivel = 'diretoria';
+      aplicarNivel();
+    } else {
+      window.alert('PIN incorreto.');
+    }
+  }
+
+  function boot() {
+    try {
+      initCidades();
+      aplicarNivel();
+      $('btn-nivel').addEventListener('click', alternarNivel);
+      $('btn-calc').addEventListener('click', gerar);
+      $('btn-cliente').addEventListener('click', abrirApresentacao);
+      $('btn-print').addEventListener('click', function () { window.print(); });
+    } catch (e) {
+      $('out').innerHTML = '<section class="card"><div class="note note--bad">Erro ao iniciar a ferramenta. Recarregue a pagina.</div></section>';
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+</body>
+</html>
