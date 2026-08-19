@@ -311,6 +311,91 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible{
     outline:2px solid var(--primary); outline-offset:1px;
   }
+
+  /* ============================================================
+     Fase 4 — Aba Relatórios. Tudo escopado sob #page-relatorios e
+     prefixado rel- para não colidir com .btn/.field/.panel existentes.
+     ============================================================ */
+  #page-relatorios{
+    --primary-soft:#eef2ff;
+    --warn:#b45309;
+    --warn-bg:#fffbeb;
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px;
+  }
+  #page-relatorios .rel-header{display:flex; flex-wrap:wrap; gap:var(--sp-3); justify-content:space-between; align-items:flex-end; margin-bottom:var(--sp-4);}
+  #page-relatorios .rel-header h2{font-size:20px; font-weight:700;}
+  #page-relatorios .rel-header p{color:var(--text-muted); font-size:13px;}
+  #page-relatorios .rel-filters{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:var(--sp-3); margin-bottom:var(--sp-4); box-shadow:var(--shadow); display:flex; flex-wrap:wrap; gap:var(--sp-3); align-items:flex-end;}
+  #page-relatorios .rel-field{display:flex; flex-direction:column; gap:var(--sp-1); min-width:0;}
+  #page-relatorios .rel-field label{font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em;}
+  #page-relatorios .rel-field select, #page-relatorios .rel-field input{font:inherit; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); min-width:150px;}
+  #page-relatorios .rel-spacer{flex:1;}
+  #page-relatorios .rel-btn{font:inherit; font-size:13px; padding:9px 14px; border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:8px; cursor:pointer;}
+  #page-relatorios .rel-btn:hover{background:var(--bg);}
+  #page-relatorios .rel-btn--primary{background:var(--primary); border-color:var(--primary); color:#fff;}
+  #page-relatorios .rel-btn--primary:hover{background:var(--primary-hover); border-color:var(--primary-hover);}
+  #page-relatorios .rel-tabs{display:flex; gap:var(--sp-1); border-bottom:1px solid var(--border); margin-bottom:var(--sp-4); overflow-x:auto;}
+  #page-relatorios .rel-tab{font:inherit; font-size:13px; font-weight:600; padding:10px 14px; border:none; background:none; color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent; white-space:nowrap;}
+  #page-relatorios .rel-tab:hover{color:var(--text);}
+  #page-relatorios .rel-tab[aria-selected="true"]{color:var(--primary); border-bottom-color:var(--primary);}
+  #page-relatorios .rel-kpis{display:grid; grid-template-columns:repeat(auto-fill, minmax(190px,1fr)); gap:var(--sp-3); margin-bottom:var(--sp-4);}
+  #page-relatorios .rel-kpi{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:var(--sp-4); box-shadow:var(--shadow);}
+  #page-relatorios .rel-kpi__label{font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; margin-bottom:var(--sp-2);}
+  #page-relatorios .rel-kpi__value{font-size:26px; font-weight:700; letter-spacing:-.02em; line-height:1.15;}
+  #page-relatorios .rel-kpi__foot{margin-top:var(--sp-2); font-size:12px; color:var(--text-muted);}
+  #page-relatorios .rel-kpi__value--bad{color:var(--lost);}
+  #page-relatorios .rel-kpi__value--good{color:var(--won);}
+  #page-relatorios .rel-grid-2{display:grid; grid-template-columns:1fr; gap:var(--sp-3);}
+  @media(min-width:900px){ #page-relatorios .rel-grid-2{grid-template-columns:1.4fr 1fr;} }
+  #page-relatorios .rel-panel{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:var(--sp-4); box-shadow:var(--shadow); margin-bottom:var(--sp-3); min-width:0;}
+  #page-relatorios .rel-panel__head{display:flex; justify-content:space-between; align-items:baseline; gap:var(--sp-2); margin-bottom:var(--sp-4); flex-wrap:wrap;}
+  #page-relatorios .rel-panel h3{font-size:14px; font-weight:700;}
+  #page-relatorios .rel-hint{font-size:12px; color:var(--text-muted);}
+  #page-relatorios .rel-bar-row{display:grid; grid-template-columns:minmax(84px,1fr) 2.6fr auto; gap:var(--sp-3); align-items:center; margin-bottom:var(--sp-3); font-size:13px;}
+  #page-relatorios .rel-bar-row__label{color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  #page-relatorios .rel-bar-row__track{background:var(--bg); border-radius:6px; height:22px; overflow:hidden;}
+  #page-relatorios .rel-bar-row__fill{height:100%; border-radius:6px; background:var(--primary);}
+  #page-relatorios .rel-bar-row__value{font-weight:700; font-variant-numeric:tabular-nums; min-width:44px; text-align:right;}
+  #page-relatorios .rel-stage{margin-bottom:var(--sp-2);}
+  #page-relatorios .rel-stage__top{display:flex; justify-content:space-between; font-size:13px; margin-bottom:var(--sp-1);}
+  #page-relatorios .rel-stage__name{font-weight:600;}
+  #page-relatorios .rel-stage__count{color:var(--text-muted); font-variant-numeric:tabular-nums;}
+  #page-relatorios .rel-stage__track{background:var(--bg); border-radius:6px; height:26px; overflow:hidden;}
+  #page-relatorios .rel-stage__fill{height:100%; border-radius:6px; background:var(--primary);}
+  #page-relatorios .rel-stage__conv{font-size:11px; color:var(--text-muted); padding:2px 0 6px 2px;}
+  #page-relatorios .rel-table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  #page-relatorios table.rel-table{width:100%; border-collapse:collapse; font-size:13px; min-width:560px;}
+  #page-relatorios .rel-table th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); padding:0 var(--sp-3) var(--sp-2); border-bottom:1px solid var(--border); white-space:nowrap;}
+  #page-relatorios .rel-table td{padding:var(--sp-3); border-bottom:1px solid var(--border); vertical-align:top;}
+  #page-relatorios .rel-table tbody tr:last-child td{border-bottom:none;}
+  #page-relatorios .rel-num{text-align:right; font-variant-numeric:tabular-nums;}
+  #page-relatorios .rel-mono{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px;}
+  #page-relatorios .rel-tag{display:inline-block; font-size:11px; font-weight:700; padding:2px 7px; border-radius:99px; white-space:nowrap;}
+  #page-relatorios .rel-tag--ins{background:var(--won-bg); color:var(--won);}
+  #page-relatorios .rel-tag--upd{background:var(--primary-soft); color:var(--primary);}
+  #page-relatorios .rel-tag--del{background:var(--lost-bg); color:var(--lost);}
+  #page-relatorios .rel-tag--sys{background:#f1f5f9; color:#475569;}
+  #page-relatorios .rel-tag--warn{background:var(--warn-bg); color:var(--warn);}
+  #page-relatorios .rel-diff{display:block; margin-bottom:2px;}
+  #page-relatorios .rel-diff__old{color:var(--lost); text-decoration:line-through;}
+  #page-relatorios .rel-diff__new{color:var(--won); font-weight:600;}
+  #page-relatorios .rel-empty{padding:var(--sp-5); text-align:center; color:var(--text-muted); font-size:13px;}
+  #page-relatorios .rel-note{font-size:12px; color:var(--text-muted); margin-top:var(--sp-3); line-height:1.6;}
+  #page-relatorios .rel-state{padding:var(--sp-5); text-align:center; font-size:13px; color:var(--text-muted);}
+  #page-relatorios .rel-state--err{color:var(--lost);}
+  #page-relatorios svg{display:block; width:100%; height:auto;}
+  #page-relatorios .rel-legend{display:flex; gap:var(--sp-4); flex-wrap:wrap; font-size:12px; color:var(--text-muted); margin-top:var(--sp-2);}
+  #page-relatorios .rel-legend span::before{content:""; display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:-1px;}
+  #page-relatorios .rel-lg-total::before{background:var(--primary);}
+  #page-relatorios .rel-lg-media::before{background:#cbd5e1;}
+  #page-relatorios .rel-legend--dyn span::before{background:var(--c);}
+  #page-relatorios .rel-audit-filtros{display:flex; flex-wrap:wrap; gap:var(--sp-3); margin-bottom:var(--sp-4);}
+  #page-relatorios .rel-audit-filtros .rel-field select{font:inherit; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); min-width:150px;}
+  #page-relatorios .rel-pager{display:flex; gap:var(--sp-2); align-items:center; justify-content:flex-end; margin-top:var(--sp-3); font-size:13px; color:var(--text-muted);}
+  @media(max-width:400px){
+    #page-relatorios .rel-kpi__value{font-size:22px;}
+    #page-relatorios .rel-bar-row{grid-template-columns:minmax(70px,1fr) 1.8fr auto;}
+  }
 </style>
 </head>
 <body>
@@ -410,6 +495,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
       <button class="nav-btn" data-page="companies">🏢 Empresas</button>
       <button class="nav-btn" data-page="contacts">👤 Pessoas</button>
       <button class="nav-btn hidden" data-page="admin" id="nav-admin">⚙️ Administração</button>
+      <button class="nav-btn" data-page="relatorios" id="nav-relatorios">📈 Relatórios</button>
       <a class="nav-btn" href="https://calendar.app.google/FR8pcbgFZgs5S3rv8" target="_blank" rel="noopener noreferrer">📅 Agenda</a>
       <a class="nav-btn" href="/consultor.html" target="_blank" rel="noopener noreferrer">💡 Consultor</a>
     </nav>
@@ -543,6 +629,182 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
         <h3>Usuários</h3>
         <div id="admin-users-list"></div>
       </div>
+    </section>
+
+    <!-- ============ FASE 4 — RELATÓRIOS (aditivo, isolado) ============ -->
+    <section id="page-relatorios" class="hidden">
+      <header class="rel-header">
+        <div>
+          <h2 id="rel-titulo">Relatórios</h2>
+          <p id="rel-subtitulo">Visão consolidada da equipe comercial</p>
+        </div>
+        <button class="rel-btn hidden" id="rel-btn-exportar" type="button">↓ Exportar XLSX</button>
+      </header>
+
+      <section class="rel-filters" aria-label="Filtros do relatório">
+        <div class="rel-field">
+          <label for="rel-periodo">Período</label>
+          <select id="rel-periodo">
+            <option value="7">Últimos 7 dias</option>
+            <option value="30" selected>Últimos 30 dias</option>
+            <option value="90">Últimos 90 dias</option>
+            <option value="custom">Personalizado</option>
+          </select>
+        </div>
+        <div class="rel-field hidden" id="rel-campo-de">
+          <label for="rel-de">De</label>
+          <input type="date" id="rel-de">
+        </div>
+        <div class="rel-field hidden" id="rel-campo-ate">
+          <label for="rel-ate">Até</label>
+          <input type="date" id="rel-ate">
+        </div>
+        <div class="rel-field hidden" id="rel-campo-vendedor">
+          <label for="rel-vendedor">Vendedor</label>
+          <select id="rel-vendedor"><option value="">Toda a equipe</option></select>
+        </div>
+        <div class="rel-spacer"></div>
+        <button class="rel-btn rel-btn--primary" id="rel-aplicar" type="button">Aplicar</button>
+      </section>
+
+      <nav class="rel-tabs" role="tablist" aria-label="Seções do relatório">
+        <button class="rel-tab" role="tab" id="rel-tab-visao" aria-selected="true" aria-controls="rel-aba-visao" data-aba="visao">Visão geral</button>
+        <button class="rel-tab" role="tab" id="rel-tab-produtividade" aria-selected="false" aria-controls="rel-aba-produtividade" data-aba="produtividade">Produtividade</button>
+        <button class="rel-tab" role="tab" id="rel-tab-funil" aria-selected="false" aria-controls="rel-aba-funil" data-aba="funil">Funil</button>
+        <button class="rel-tab hidden" role="tab" id="rel-tab-auditoria" aria-selected="false" aria-controls="rel-aba-auditoria" data-aba="auditoria">Auditoria</button>
+      </nav>
+
+      <!-- Visão geral -->
+      <section id="rel-aba-visao" role="tabpanel" aria-labelledby="rel-tab-visao">
+        <div class="rel-kpis" id="rel-kpis"></div>
+        <div class="rel-panel">
+          <div class="rel-panel__head">
+            <h3>Atividades registradas por dia</h3>
+            <span class="rel-hint">Contatos e notas registrados</span>
+          </div>
+          <div id="rel-serie"></div>
+          <div class="rel-legend" id="rel-serie-legend">
+            <span class="rel-lg-total">Atividades no período</span>
+            <span class="rel-lg-media">Média diária</span>
+          </div>
+        </div>
+        <div class="rel-panel">
+          <div class="rel-panel__head">
+            <h3>Precisa de atenção</h3>
+            <span class="rel-hint">Regras de higiene do funil</span>
+          </div>
+          <div id="rel-alertas"></div>
+        </div>
+      </section>
+
+      <!-- Produtividade -->
+      <section id="rel-aba-produtividade" class="hidden" role="tabpanel" aria-labelledby="rel-tab-produtividade">
+        <div class="rel-panel">
+          <div class="rel-panel__head">
+            <h3 id="rel-titulo-ranking">Comparativo da equipe</h3>
+            <span class="rel-hint">Esforço, higiene e resultado lado a lado</span>
+          </div>
+          <div class="rel-table-wrap">
+            <table class="rel-table">
+              <thead>
+                <tr>
+                  <th>Vendedor</th>
+                  <th class="rel-num">Trabalhados</th>
+                  <th class="rel-num">Cobertura</th>
+                  <th class="rel-num">Conversão</th>
+                  <th class="rel-num">Ganho</th>
+                </tr>
+              </thead>
+              <tbody id="rel-ranking"></tbody>
+            </table>
+          </div>
+          <p class="rel-note" id="rel-nota-ranking"></p>
+        </div>
+        <div class="rel-grid-2">
+          <div class="rel-panel">
+            <div class="rel-panel__head"><h3>Atividades por canal</h3></div>
+            <div id="rel-canal"></div>
+          </div>
+          <div class="rel-panel">
+            <div class="rel-panel__head"><h3>Desfecho dos contatos</h3></div>
+            <div id="rel-desfecho"></div>
+          </div>
+        </div>
+        <div class="rel-panel">
+          <div class="rel-panel__head"><h3>Municípios com mais leads</h3></div>
+          <div id="rel-municipios"></div>
+        </div>
+      </section>
+
+      <!-- Funil -->
+      <section id="rel-aba-funil" class="hidden" role="tabpanel" aria-labelledby="rel-tab-funil">
+        <div class="rel-grid-2">
+          <div class="rel-panel">
+            <div class="rel-panel__head">
+              <h3>Funil por etapa</h3>
+              <span class="rel-hint">Conversão de uma etapa para a seguinte</span>
+            </div>
+            <div id="rel-funil"></div>
+          </div>
+          <div class="rel-panel">
+            <div class="rel-panel__head"><h3>Motivos de perda</h3></div>
+            <div id="rel-perda"></div>
+            <p class="rel-note">Perda sem motivo preenchido é falha de processo, não de venda — vale virar campo obrigatório na etapa.</p>
+          </div>
+        </div>
+        <div class="rel-panel">
+          <div class="rel-panel__head">
+            <h3>Tempo médio parado em cada etapa</h3>
+            <span class="rel-hint">Dias entre a entrada na etapa e a saída</span>
+          </div>
+          <div id="rel-aging"></div>
+        </div>
+      </section>
+
+      <!-- Auditoria (admin) -->
+      <section id="rel-aba-auditoria" class="hidden" role="tabpanel" aria-labelledby="rel-tab-auditoria">
+        <div class="rel-panel">
+          <div class="rel-panel__head">
+            <h3>Trilha de alterações</h3>
+            <span class="rel-hint">Registro imutável — não pode ser editado nem apagado por ninguém</span>
+          </div>
+          <div class="rel-audit-filtros">
+            <div class="rel-field">
+              <label for="rel-audit-tabela">Tabela</label>
+              <select id="rel-audit-tabela">
+                <option value="">Todas as tabelas</option>
+                <option value="deals">deals</option>
+                <option value="profiles">profiles</option>
+                <option value="companies">companies</option>
+                <option value="contacts">contacts</option>
+                <option value="deal_activities">deal_activities</option>
+                <option value="deal_notes">deal_notes</option>
+                <option value="pipeline_stages">pipeline_stages</option>
+              </select>
+            </div>
+            <div class="rel-field">
+              <label for="rel-audit-autor">Autor</label>
+              <select id="rel-audit-autor"><option value="">Todos os autores</option></select>
+            </div>
+          </div>
+          <div class="rel-table-wrap">
+            <table class="rel-table">
+              <thead>
+                <tr>
+                  <th>Quando</th>
+                  <th>Quem</th>
+                  <th>Ação</th>
+                  <th>Registro</th>
+                  <th>O que mudou</th>
+                </tr>
+              </thead>
+              <tbody id="rel-auditoria"></tbody>
+            </table>
+          </div>
+          <div class="rel-pager" id="rel-audit-pager"></div>
+          <p class="rel-note">Importações em massa aparecem colapsadas em uma linha por lote. Alterações por integração entram com autor <strong>Sistema</strong>, porque não há usuário logado na operação.</p>
+        </div>
+      </section>
     </section>
   </main>
 </div>
@@ -1101,6 +1363,8 @@ async function loadProfileAndInit(){
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('sidebar-name').textContent = currentProfile.full_name;
   document.getElementById('sidebar-role').textContent = currentProfile.role;
+  var navRel = document.getElementById('nav-relatorios');
+  if(navRel) navRel.textContent = isAdmin() ? '📈 Relatórios' : '📈 Meu desempenho';
 
   if(isAdmin()){
     document.getElementById('nav-admin').classList.remove('hidden');
@@ -1132,6 +1396,7 @@ document.querySelectorAll('.nav-btn[data-page]').forEach(btn=>{
     if(btn.dataset.page === 'companies') renderCompanies();
     if(btn.dataset.page === 'contacts') renderContacts();
     if(btn.dataset.page === 'followup') abrirFollowup();
+    if(btn.dataset.page === 'relatorios') relatoriosInit();
   });
 });
 
@@ -2741,6 +3006,743 @@ async function criarProspeccaoDeContato(contactId){
   await loadDeals(); renderAll();
 }
 
+</script>
+
+<!-- ============ FASE 4 — RELATÓRIOS (script isolado, ES5-safe) ============ -->
+<script>
+(function(){
+  "use strict";
+
+  var iniciado = false;   // listeners ligados uma única vez
+  var carregado = false;  // já carregou dados ao menos uma vez
+  var AUDIT_LIMIT = 50;
+  var auditPagina = 0;
+  var ultimo = { produtividade:null, serie:null, funil:null, ranking:null };
+
+  // ---------- helpers básicos ----------
+  function el(id){ return document.getElementById(id); }
+
+  function escapar(txt){
+    if(txt === null || txt === undefined) return "";
+    return String(txt)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+      .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+  }
+
+  function ehAdminRel(){ return typeof isAdmin === "function" && isAdmin(); }
+
+  function numOuTraco(v){ return (v === null || v === undefined) ? "—" : String(v); }
+  function pct(v){ return (v === null || v === undefined) ? "—" : (v + "%"); }
+  function horas(v){ return (v === null || v === undefined) ? "—" : (v + "h"); }
+  function moeda(v){
+    if(v === null || v === undefined) return "—";
+    return "R$ " + Number(v).toLocaleString("pt-BR", { minimumFractionDigits:0, maximumFractionDigits:0 });
+  }
+
+  function pad2(n){ return (n < 10 ? "0" : "") + n; }
+  function iso(d){ return d.getFullYear() + "-" + pad2(d.getMonth()+1) + "-" + pad2(d.getDate()); }
+  function formatarData(s){
+    if(!s) return "—";
+    var d = new Date(s);
+    if(isNaN(d.getTime())) return String(s);
+    return pad2(d.getDate()) + "/" + pad2(d.getMonth()+1) + " " + pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+  }
+
+  function intervalo(){
+    var per = el("rel-periodo").value;
+    if(per === "custom"){
+      return { de: el("rel-de").value || null, ate: el("rel-ate").value || null };
+    }
+    var ate = new Date();
+    var de = new Date();
+    de.setDate(de.getDate() - (parseInt(per, 10) - 1));
+    return { de: iso(de), ate: iso(ate) };
+  }
+
+  function ownerParam(){
+    if(!ehAdminRel()) return null;      // servidor ignora p/ vendedor; manda null
+    var v = el("rel-vendedor").value;
+    return v ? v : null;
+  }
+
+  // ---------- estados de painel ----------
+  function estadoTexto(alvo, texto){
+    el(alvo).innerHTML = '<div class="rel-state">' + escapar(texto) + '</div>';
+  }
+  function botaoRetry(){
+    var b = document.createElement("button");
+    b.className = "rel-btn"; b.type = "button"; b.textContent = "Tentar novamente";
+    b.addEventListener("click", function(){ carregarTudo(); });
+    return b;
+  }
+  function estadoErro(alvo){
+    var c = el(alvo);
+    c.innerHTML = '<div class="rel-state rel-state--err">Não foi possível carregar este bloco. </div>';
+    c.firstChild.appendChild(botaoRetry());
+  }
+  function estadoTbody(alvo, cols, texto){
+    el(alvo).innerHTML = '<tr><td colspan="' + cols + '"><div class="rel-state">' + escapar(texto) + '</div></td></tr>';
+  }
+  function estadoErroTbody(alvo, cols){
+    var tr = document.createElement("tr");
+    var td = document.createElement("td");
+    td.setAttribute("colspan", cols);
+    var d = document.createElement("div");
+    d.className = "rel-state rel-state--err";
+    d.appendChild(document.createTextNode("Não foi possível carregar. "));
+    d.appendChild(botaoRetry());
+    td.appendChild(d); tr.appendChild(td);
+    var body = el(alvo); body.innerHTML = ""; body.appendChild(tr);
+  }
+
+  // ==========================================================
+  // GRÁFICO DE LINHA (SVG puro — reaproveitado do mockup)
+  // ==========================================================
+  function desenharLinha(pontos){
+    var w = 720, h = 200, padL = 34, padR = 10, padT = 12, padB = 26;
+    var n = pontos.length;
+    if(n < 2) return "";
+    var max = 0, soma = 0, i;
+    for(i = 0; i < n; i++){ if(pontos[i] > max) max = pontos[i]; soma += pontos[i]; }
+    if(max === 0) max = 1;
+    var teto = Math.ceil(max * 1.15);
+    var media = soma / n;
+    var largura = w - padL - padR;
+    var altura = h - padT - padB;
+
+    function px(i){ return padL + (i * largura) / (n - 1); }
+    function py(v){ return padT + altura - (v / teto) * altura; }
+
+    var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Atividades registradas por dia no período">';
+
+    var linhas = 4, gy, rotulo;
+    for(i = 0; i <= linhas; i++){
+      gy = padT + (altura * i) / linhas;
+      rotulo = Math.round(teto - (teto * i) / linhas);
+      svg += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (w - padR) + '" y2="' + gy + '" stroke="#e2e5ea" stroke-width="1"/>';
+      svg += '<text x="' + (padL - 6) + '" y="' + (gy + 4) + '" text-anchor="end" font-size="10" fill="#6b7280">' + rotulo + '</text>';
+    }
+
+    var d = "M " + px(0) + " " + py(pontos[0]);
+    for(i = 1; i < n; i++){ d += " L " + px(i) + " " + py(pontos[i]); }
+    var area = d + " L " + px(n - 1) + " " + (padT + altura) + " L " + px(0) + " " + (padT + altura) + " Z";
+    svg += '<path d="' + area + '" fill="#2a2f8f" fill-opacity="0.10"/>';
+    svg += '<path d="' + d + '" fill="none" stroke="#2a2f8f" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+
+    svg += '<line x1="' + padL + '" y1="' + py(media) + '" x2="' + (w - padR) + '" y2="' + py(media) +
+           '" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="5 4"/>';
+
+    var passo = Math.max(1, Math.round(n / 6));
+    for(i = 0; i < n; i += passo){
+      svg += '<text x="' + px(i) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="10" fill="#6b7280">D-' + (n - i) + '</text>';
+    }
+
+    svg += "</svg>";
+    return svg;
+  }
+
+  // Paleta de séries (multi-linha). Cores distintas, light-mode.
+  var COR_SERIE = ["#2a2f8f", "#16a34a", "#dc2626", "#b45309", "#0891b2", "#7c3aed", "#db2777", "#4b5563"];
+
+  // Gráfico multi-linha: uma linha por série, sem área nem média (a legenda identifica).
+  function desenharLinhaMulti(series, cores){
+    var w = 720, h = 200, padL = 34, padR = 10, padT = 12, padB = 26;
+    var n = 0, i, j;
+    for(i = 0; i < series.length; i++){ if(series[i].length > n) n = series[i].length; }
+    if(n < 2) return "";
+    var max = 0;
+    for(i = 0; i < series.length; i++){ for(j = 0; j < series[i].length; j++){ if(series[i][j] > max) max = series[i][j]; } }
+    if(max === 0) max = 1;
+    var teto = Math.ceil(max * 1.15);
+    var largura = w - padL - padR;
+    var altura = h - padT - padB;
+    function px(k){ return padL + (k * largura) / (n - 1); }
+    function py(v){ return padT + altura - (v / teto) * altura; }
+    var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Atividades por dia por vendedor">';
+    var linhasGrade = 4, gy, rotulo;
+    for(i = 0; i <= linhasGrade; i++){
+      gy = padT + (altura * i) / linhasGrade;
+      rotulo = Math.round(teto - (teto * i) / linhasGrade);
+      svg += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (w - padR) + '" y2="' + gy + '" stroke="#e2e5ea" stroke-width="1"/>';
+      svg += '<text x="' + (padL - 6) + '" y="' + (gy + 4) + '" text-anchor="end" font-size="10" fill="#6b7280">' + rotulo + '</text>';
+    }
+    for(i = 0; i < series.length; i++){
+      var pts = series[i];
+      if(pts.length < 2) continue;
+      var d = "M " + px(0) + " " + py(pts[0]);
+      for(j = 1; j < pts.length; j++){ d += " L " + px(j) + " " + py(pts[j]); }
+      svg += '<path d="' + d + '" fill="none" stroke="' + cores[i] + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+    }
+    var passo = Math.max(1, Math.round(n / 6));
+    for(i = 0; i < n; i += passo){
+      svg += '<text x="' + px(i) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="10" fill="#6b7280">D-' + (n - i) + '</text>';
+    }
+    svg += "</svg>";
+    return svg;
+  }
+
+  // Vendedores ativos (perfil vendedor), para as séries por pessoa.
+  function vendedoresAtivos(){
+    var out = [], i;
+    if(typeof profiles === "undefined" || !profiles) return out;
+    for(i = 0; i < profiles.length; i++){
+      if(profiles[i].role !== "vendedor") continue;
+      if(profiles[i].active === false) continue;
+      out.push(profiles[i]);
+    }
+    return out;
+  }
+
+  function legendaSeriePadrao(){
+    var host = el("rel-serie-legend");
+    if(!host) return;
+    host.className = "rel-legend";
+    host.innerHTML = '<span class="rel-lg-total">Atividades no período</span><span class="rel-lg-media">Média diária</span>';
+  }
+
+  function legendaSerieVendedores(nomes, cores){
+    var host = el("rel-serie-legend");
+    if(!host) return;
+    host.className = "rel-legend rel-legend--dyn";
+    var html = "", i;
+    for(i = 0; i < nomes.length; i++){
+      html += '<span style="--c:' + cores[i] + ';">' + escapar(nomes[i]) + '</span>';
+    }
+    host.innerHTML = html;
+  }
+
+  // Soma total/efetivas por dia entre as séries dos vendedores (para o export).
+  function agregarSeries(todas){
+    if(!todas.length) return [];
+    var base = todas[0], out = [], i, j;
+    for(i = 0; i < base.length; i++){ out.push({ dia: base[i].dia, total: 0, efetivas: 0 }); }
+    for(i = 0; i < todas.length; i++){
+      for(j = 0; j < todas[i].length && j < out.length; j++){
+        out[j].total += Number(todas[i][j].total) || 0;
+        out[j].efetivas += Number(todas[i][j].efetivas) || 0;
+      }
+    }
+    return out;
+  }
+
+  // ==========================================================
+  // BARRAS (reaproveitado do mockup, classes rel-)
+  // ==========================================================
+  function desenharBarras(alvo, itens){
+    var max = 0, i;
+    for(i = 0; i < itens.length; i++){ if(itens[i].valor > max) max = itens[i].valor; }
+    if(max === 0) max = 1;
+    var html = "";
+    for(i = 0; i < itens.length; i++){
+      var pctBar = Math.max(3, Math.round((itens[i].valor / max) * 100));
+      var cor = itens[i].cor ? itens[i].cor : "var(--primary)";
+      var texto = itens[i].texto !== undefined ? itens[i].texto : String(itens[i].valor);
+      html += '<div class="rel-bar-row">'
+            +   '<span class="rel-bar-row__label" title="' + escapar(itens[i].rotulo) + '">' + escapar(itens[i].rotulo) + '</span>'
+            +   '<span class="rel-bar-row__track"><span class="rel-bar-row__fill" style="width:' + pctBar + '%; background:' + cor + ';"></span></span>'
+            +   '<span class="rel-bar-row__value">' + escapar(texto) + '</span>'
+            + '</div>';
+    }
+    el(alvo).innerHTML = html;
+  }
+
+  function objItens(obj, labelMap, corFn){
+    var arr = [], k;
+    if(!obj) return arr;
+    for(k in obj){
+      if(Object.prototype.hasOwnProperty.call(obj, k)){
+        var rot = (labelMap && labelMap[k]) ? labelMap[k] : k;
+        var it = { rotulo: rot, valor: Number(obj[k]) || 0, texto: String(obj[k]) };
+        if(corFn){ var c = corFn(k); if(c) it.cor = c; }
+        arr.push(it);
+      }
+    }
+    arr.sort(function(a, b){ return b.valor - a.valor; });
+    return arr;
+  }
+
+  // ==========================================================
+  // RENDER — KPIs e alertas
+  // ==========================================================
+  function corCobertura(v){ if(v === null || v === undefined) return ""; if(v < 50) return "rel-kpi__value--bad"; if(v > 70) return "rel-kpi__value--good"; return ""; }
+  function corPrimeiro(v){ if(v === null || v === undefined) return ""; if(v > 12) return "rel-kpi__value--bad"; if(v < 6) return "rel-kpi__value--good"; return ""; }
+
+  function renderKpis(p){
+    var cards = [
+      { rotulo:"Leads trabalhados", valor:numOuTraco(p.trabalhados), foot:"de " + numOuTraco(p.carteira) + " na carteira" },
+      { rotulo:"Cobertura da carteira", valor:pct(p.cobertura_pct), foot:"receberam ao menos 1 contato", classe:corCobertura(p.cobertura_pct) },
+      { rotulo:"Tempo até 1º contato", valor:horas(p.primeiro_contato_h), foot:"média do lead novo", classe:corPrimeiro(p.primeiro_contato_h) },
+      { rotulo:"Follow-ups em dia", valor:pct(p.followup_em_dia_pct), foot:"agendados e cumpridos no prazo" },
+      { rotulo:"Leads dormentes", valor:numOuTraco(p.dormentes), foot:"sem atividade há mais de " + numOuTraco(p.dormentes_dias) + " dias" },
+      { rotulo:"Taxa de conversão", valor:pct(p.conversao_pct), foot:"ganhos ÷ (ganhos + perdidos)" },
+      { rotulo:"Valor ganho", valor:moeda(p.valor_ganho), foot:"fechado no período" }
+    ];
+    var html = "", i, cls;
+    for(i = 0; i < cards.length; i++){
+      cls = cards[i].classe ? " " + cards[i].classe : "";
+      html += '<article class="rel-kpi">'
+            +   '<h3 class="rel-kpi__label">' + escapar(cards[i].rotulo) + '</h3>'
+            +   '<p class="rel-kpi__value' + cls + '">' + escapar(cards[i].valor) + '</p>'
+            +   '<p class="rel-kpi__foot">' + escapar(cards[i].foot) + '</p>'
+            + '</article>';
+    }
+    el("rel-kpis").innerHTML = html;
+  }
+
+  function renderAlertas(p){
+    var motivosNP = 0;
+    if(p.motivos_perda && Object.prototype.hasOwnProperty.call(p.motivos_perda, "(não preenchido)")){
+      motivosNP = Number(p.motivos_perda["(não preenchido)"]) || 0;
+    }
+    var linhas = [
+      { situacao:"Leads dormentes", valor:numOuTraco(p.dormentes), obs:"sem atividade há mais de " + numOuTraco(p.dormentes_dias) + " dias" },
+      { situacao:"Follow-ups em dia", valor:pct(p.followup_em_dia_pct), obs:"quanto maior, melhor" },
+      { situacao:"Contatos inválidos", valor:numOuTraco(p.contatos_invalidos), obs:"telefone/e-mail que não completam contato" },
+      { situacao:"Perdas sem motivo preenchido", valor:String(motivosNP), obs:"cega a análise de perda" }
+    ];
+    var html = '<div class="rel-table-wrap"><table class="rel-table"><thead><tr><th>Situação</th><th class="rel-num">Valor</th><th>Observação</th></tr></thead><tbody>';
+    var i;
+    for(i = 0; i < linhas.length; i++){
+      html += '<tr><td>' + escapar(linhas[i].situacao) + '</td>'
+            + '<td class="rel-num"><strong>' + escapar(linhas[i].valor) + '</strong></td>'
+            + '<td style="color:var(--text-muted);">' + escapar(linhas[i].obs) + '</td></tr>';
+    }
+    html += '</tbody></table></div>';
+    el("rel-alertas").innerHTML = html;
+  }
+
+  function renderDistribuicoes(p){
+    var canal = objItens(p.por_canal, { telefone:"Telefone", whatsapp:"WhatsApp", email:"E-mail" }, null);
+    if(canal.length) desenharBarras("rel-canal", canal); else estadoTexto("rel-canal", "Nenhuma atividade registrada neste período.");
+
+    var desf = objItens(p.por_desfecho, { atendeu:"Atendeu", nao_atendeu:"Não atendeu" }, null);
+    if(desf.length) desenharBarras("rel-desfecho", desf); else estadoTexto("rel-desfecho", "Nenhum contato registrado neste período.");
+
+    var perda = objItens(p.motivos_perda, null, function(k){ return k === "(não preenchido)" ? "var(--warn)" : "var(--lost)"; });
+    if(perda.length) desenharBarras("rel-perda", perda); else estadoTexto("rel-perda", "Nenhuma perda registrada neste período.");
+
+    var muni = [], i;
+    if(p.top_municipios){
+      for(i = 0; i < p.top_municipios.length; i++){
+        muni.push({ rotulo: p.top_municipios[i].city || "—", valor: Number(p.top_municipios[i].leads) || 0, texto: String(p.top_municipios[i].leads) });
+      }
+    }
+    if(muni.length) desenharBarras("rel-municipios", muni); else estadoTexto("rel-municipios", "Nenhum lead com município neste período.");
+  }
+
+  // ==========================================================
+  // RENDER — ranking, funil, aging
+  // ==========================================================
+  function renderRanking(linhas){
+    if(!linhas || !linhas.length){ estadoTbody("rel-ranking", 5, "Nenhum vendedor com atividade neste período."); return; }
+    var html = "", i, r, corCob, nome;
+    for(i = 0; i < linhas.length; i++){
+      r = linhas[i];
+      corCob = "";
+      if(r.cobertura !== null && r.cobertura !== undefined){
+        if(r.cobertura < 50) corCob = ' style="color:var(--lost);font-weight:700;"';
+        else if(r.cobertura > 70) corCob = ' style="color:var(--won);font-weight:700;"';
+      }
+      nome = escapar(r.nome) + (r.e_voce ? ' <strong>(você)</strong>' : '');
+      html += '<tr>'
+            +   '<td' + (r.e_voce ? ' style="font-weight:700;"' : '') + '>' + nome + '</td>'
+            +   '<td class="rel-num">' + numOuTraco(r.trabalhados) + '</td>'
+            +   '<td class="rel-num"' + corCob + '>' + pct(r.cobertura) + '</td>'
+            +   '<td class="rel-num">' + pct(r.conversao) + '</td>'
+            +   '<td class="rel-num">' + moeda(r.valor_ganho) + '</td>'
+            + '</tr>';
+    }
+    el("rel-ranking").innerHTML = html;
+  }
+
+  function renderFunil(linhas){
+    linhas = linhas.slice().sort(function(a, b){ return a.order_index - b.order_index; });
+    var max = 0, i, q;
+    for(i = 0; i < linhas.length; i++){ q = Number(linhas[i].leads_agora) || 0; if(q > max) max = q; }
+    if(max === 0) max = 1;
+    var html = "", cor, entAtual, entProx, conv;
+    for(i = 0; i < linhas.length; i++){
+      cor = "var(--primary)";
+      if(linhas[i].is_won) cor = "var(--won)";
+      if(linhas[i].is_lost) cor = "var(--lost)";
+      q = Number(linhas[i].leads_agora) || 0;
+      html += '<div class="rel-stage">'
+            +   '<div class="rel-stage__top"><span class="rel-stage__name">' + escapar(linhas[i].etapa) + '</span>'
+            +   '<span class="rel-stage__count">' + q + ' leads</span></div>'
+            +   '<div class="rel-stage__track"><div class="rel-stage__fill" style="width:' + Math.max(3, Math.round((q / max) * 100)) + '%; background:' + cor + ';"></div></div>'
+            + '</div>';
+      if(i < linhas.length - 1 && !linhas[i].is_won && !linhas[i].is_lost && !linhas[i+1].is_won && !linhas[i+1].is_lost){
+        entAtual = Number(linhas[i].entradas) || 0;
+        entProx = Number(linhas[i+1].entradas) || 0;
+        conv = entAtual > 0 ? Math.round((entProx / entAtual) * 100) : 0;
+        html += '<p class="rel-stage__conv">↳ ' + conv + '% avançam para ' + escapar(linhas[i+1].etapa) + '</p>';
+      }
+    }
+    el("rel-funil").innerHTML = html;
+  }
+
+  function renderAging(linhas){
+    var itens = [], i, d;
+    for(i = 0; i < linhas.length; i++){
+      if(linhas[i].is_won || linhas[i].is_lost) continue;
+      d = linhas[i].dias_medio;
+      if(d === null || d === undefined) continue;
+      d = Number(d);
+      itens.push({ rotulo: linhas[i].etapa, valor: d, texto: (Math.round(d * 10) / 10) + " d", cor: d > 12 ? "var(--warn)" : "var(--primary)" });
+    }
+    if(!itens.length){ estadoTexto("rel-aging", "Sem saídas de etapa registradas neste período."); return; }
+    desenharBarras("rel-aging", itens);
+  }
+
+  // ==========================================================
+  // RENDER — auditoria
+  // ==========================================================
+  function classeAcao(a){ if(a === "INSERT") return "rel-tag--ins"; if(a === "DELETE") return "rel-tag--del"; return "rel-tag--upd"; }
+  function formatarValor(v){ if(v === null || v === undefined) return ""; if(typeof v === "object") return JSON.stringify(v); return String(v); }
+
+  function renderCampos(campos){
+    if(!campos) return '<span style="color:var(--text-muted);">—</span>';
+    var out = "", k, v;
+    for(k in campos){
+      if(Object.prototype.hasOwnProperty.call(campos, k)){
+        v = campos[k];
+        out += '<span class="rel-diff"><strong>' + escapar(k) + ':</strong> ';
+        if(v && v.de !== null && v.de !== undefined){ out += '<span class="rel-diff__old">' + escapar(formatarValor(v.de)) + '</span> → '; }
+        if(v && v.para !== null && v.para !== undefined){ out += '<span class="rel-diff__new">' + escapar(formatarValor(v.para)) + '</span>'; }
+        else { out += '<span class="rel-diff__old">removido</span>'; }
+        out += '</span>';
+      }
+    }
+    return out || '<span style="color:var(--text-muted);">—</span>';
+  }
+
+  function renderAuditoria(linhas){
+    if(!linhas.length){ estadoTbody("rel-auditoria", 5, "Nenhuma alteração registrada neste período."); return; }
+    var html = "", i, r, vistosTxid = {}, autor, registro;
+    for(i = 0; i < linhas.length; i++){
+      r = linhas[i];
+      if(r.no_lote && r.no_lote > 1){
+        if(vistosTxid[r.txid]) continue;
+        vistosTxid[r.txid] = true;
+      }
+      autor = escapar(r.autor || "—");
+      if(r.autor === "Sistema"){ autor += ' <span class="rel-tag rel-tag--sys">integração</span>'; }
+      registro = escapar(r.rotulo || "—");
+      if(r.no_lote && r.no_lote > 1){ registro += ' <span class="rel-tag rel-tag--warn">lote de ' + r.no_lote + ' registros</span>'; }
+      html += '<tr>'
+            +   '<td class="rel-mono" style="white-space:nowrap;">' + escapar(formatarData(r.created_at)) + '</td>'
+            +   '<td>' + autor + '</td>'
+            +   '<td><span class="rel-tag ' + classeAcao(r.acao) + '">' + escapar(r.acao) + '</span></td>'
+            +   '<td>' + registro + '<br><span class="rel-mono" style="color:var(--text-muted);">' + escapar(r.tabela) + '</span></td>'
+            +   '<td style="font-size:12px;">' + renderCampos(r.campos) + '</td>'
+            + '</tr>';
+    }
+    el("rel-auditoria").innerHTML = html;
+  }
+
+  function renderPager(qtd){
+    var pg = el("rel-audit-pager");
+    pg.innerHTML = "";
+    var temPrev = auditPagina > 0;
+    var temNext = qtd >= AUDIT_LIMIT;
+    if(!temPrev && !temNext) return;
+    var span = document.createElement("span");
+    span.textContent = "Página " + (auditPagina + 1);
+    var bPrev = document.createElement("button");
+    bPrev.className = "rel-btn"; bPrev.type = "button"; bPrev.textContent = "‹ Anterior"; bPrev.disabled = !temPrev;
+    bPrev.addEventListener("click", function(){ if(auditPagina > 0){ auditPagina--; carregarAuditoria(intervalo()); } });
+    var bNext = document.createElement("button");
+    bNext.className = "rel-btn"; bNext.type = "button"; bNext.textContent = "Próxima ›"; bNext.disabled = !temNext;
+    bNext.addEventListener("click", function(){ auditPagina++; carregarAuditoria(intervalo()); });
+    pg.appendChild(span); pg.appendChild(bPrev); pg.appendChild(bNext);
+  }
+
+  // ==========================================================
+  // CARGA — cada bloco com seu try/catch e seu estado
+  // ==========================================================
+  async function carregarProdutividade(per, owner){
+    estadoTexto("rel-kpis", "Carregando indicadores…");
+    estadoTexto("rel-alertas", "Carregando…");
+    estadoTexto("rel-canal", "Carregando…"); estadoTexto("rel-desfecho", "Carregando…");
+    estadoTexto("rel-municipios", "Carregando…"); estadoTexto("rel-perda", "Carregando…");
+    try {
+      var r = await db.rpc("relatorio_produtividade", { p_de: per.de, p_ate: per.ate, p_owner: owner });
+      if(r.error) throw r.error;
+      var p = r.data;
+      if(!p){ estadoTexto("rel-kpis", "Nenhuma atividade registrada neste período."); return; }
+      ultimo.produtividade = p;
+      renderKpis(p);
+      renderAlertas(p);
+      renderDistribuicoes(p);
+    } catch(e){
+      estadoErro("rel-kpis"); estadoErro("rel-alertas");
+      estadoErro("rel-canal"); estadoErro("rel-desfecho");
+      estadoErro("rel-municipios"); estadoErro("rel-perda");
+    }
+  }
+
+  async function carregarSerie(per, owner){
+    estadoTexto("rel-serie", "Carregando…");
+    // Multi-linha só para admin em "Toda a equipe" (owner null) e havendo vendedores ativos.
+    var ativos = (ehAdminRel() && owner === null) ? vendedoresAtivos() : [];
+    try {
+      if(ativos.length){
+        var promessas = [], k;
+        for(k = 0; k < ativos.length; k++){
+          promessas.push(db.rpc("serie_atividades", { p_de: per.de, p_ate: per.ate, p_owner: ativos[k].id }));
+        }
+        var resultados = await Promise.all(promessas);
+        var series = [], nomes = [], cores = [], todas = [], soma = 0, i, j, linhasV, pts, t;
+        for(i = 0; i < resultados.length; i++){
+          if(resultados[i].error) throw resultados[i].error;
+          linhasV = resultados[i].data || [];
+          todas.push(linhasV);
+          pts = [];
+          for(j = 0; j < linhasV.length; j++){ t = Number(linhasV[j].total) || 0; pts.push(t); soma += t; }
+          series.push(pts);
+          nomes.push(ativos[i].full_name);
+          cores.push(COR_SERIE[i % COR_SERIE.length]);
+        }
+        ultimo.serie = agregarSeries(todas);   // export usa o agregado da equipe
+        if(soma === 0){ estadoTexto("rel-serie", "Nenhuma atividade registrada neste período."); legendaSeriePadrao(); return; }
+        el("rel-serie").innerHTML = desenharLinhaMulti(series, cores);
+        legendaSerieVendedores(nomes, cores);
+      } else {
+        var r = await db.rpc("serie_atividades", { p_de: per.de, p_ate: per.ate, p_owner: owner });
+        if(r.error) throw r.error;
+        var linhas = r.data || [];
+        ultimo.serie = linhas;
+        var pontos = [], soma2 = 0, i2, t2;
+        for(i2 = 0; i2 < linhas.length; i2++){ t2 = Number(linhas[i2].total) || 0; pontos.push(t2); soma2 += t2; }
+        if(!linhas.length || soma2 === 0){ estadoTexto("rel-serie", "Nenhuma atividade registrada neste período."); legendaSeriePadrao(); return; }
+        el("rel-serie").innerHTML = desenharLinha(pontos);
+        legendaSeriePadrao();
+      }
+    } catch(e){ estadoErro("rel-serie"); }
+  }
+
+  async function carregarFunil(per, owner){
+    estadoTexto("rel-funil", "Carregando…");
+    estadoTexto("rel-aging", "Carregando…");
+    try {
+      var r = await db.rpc("funil_periodo", { p_de: per.de, p_ate: per.ate, p_owner: owner });
+      if(r.error) throw r.error;
+      var linhas = r.data || [];
+      ultimo.funil = linhas;
+      if(!linhas.length){ estadoTexto("rel-funil", "Nenhuma etapa com movimento neste período."); estadoTexto("rel-aging", "Sem dados neste período."); return; }
+      renderFunil(linhas);
+      renderAging(linhas);
+    } catch(e){ estadoErro("rel-funil"); estadoErro("rel-aging"); }
+  }
+
+  async function carregarRanking(per){
+    estadoTbody("rel-ranking", 5, "Carregando…");
+    try {
+      var r = await db.rpc("ranking_equipe", { p_de: per.de, p_ate: per.ate });
+      if(r.error) throw r.error;
+      var linhas = r.data || [];
+      ultimo.ranking = linhas;
+      renderRanking(linhas);
+    } catch(e){ estadoErroTbody("rel-ranking", 5); }
+  }
+
+  async function carregarAuditoria(per){
+    estadoTbody("rel-auditoria", 5, "Carregando…");
+    el("rel-audit-pager").innerHTML = "";
+    var selTab = el("rel-audit-tabela");
+    var selAut = el("rel-audit-autor");
+    var pTabela = (selTab && selTab.value) ? selTab.value : null;
+    var pActor = (selAut && selAut.value) ? selAut.value : null;
+    try {
+      var r = await db.rpc("auditoria_consulta", {
+        p_de: per.de, p_ate: per.ate, p_tabela: pTabela, p_actor: pActor,
+        p_limit: AUDIT_LIMIT, p_offset: auditPagina * AUDIT_LIMIT
+      });
+      if(r.error) throw r.error;
+      var linhas = r.data || [];
+      renderAuditoria(linhas);
+      renderPager(linhas.length);
+    } catch(e){ estadoErroTbody("rel-auditoria", 5); }
+  }
+
+  function carregarTudo(){
+    var per = intervalo();
+    if(!per.de || !per.ate){
+      el("rel-kpis").innerHTML = '<div class="rel-state rel-state--err">Selecione as datas De e Até para o período personalizado.</div>';
+      return;
+    }
+    if(per.ate < per.de){   // ISO YYYY-MM-DD: comparação lexicográfica = cronológica
+      el("rel-kpis").innerHTML = '<div class="rel-state rel-state--err">A data final (Até) deve ser maior ou igual à inicial (De).</div>';
+      return;
+    }
+    carregado = true;
+    var owner = ownerParam();
+    carregarProdutividade(per, owner);
+    carregarSerie(per, owner);
+    carregarFunil(per, owner);
+    carregarRanking(per);
+    if(ehAdminRel()){ carregarAuditoria(per); }
+  }
+
+  // ==========================================================
+  // EXPORTAÇÃO (admin) — registra evento ANTES do download (LGPD)
+  // ==========================================================
+  async function exportar(){
+    if(!ehAdminRel()) return;
+    var per = intervalo();
+    if(!per.de || !per.ate){ window.alert("Defina o período antes de exportar."); return; }
+    try {
+      var ev = await db.rpc("registrar_evento", {
+        p_event_type: "export", p_entidade: "relatorio",
+        p_metadata: { formato: (typeof XLSX !== "undefined" ? "xlsx" : "csv"), de: per.de, ate: per.ate }
+      });
+      if(ev.error) throw ev.error;
+    } catch(e){
+      window.alert("Não foi possível registrar a exportação (exigência de LGPD). O download foi cancelado.");
+      return;
+    }
+    try {
+      if(typeof XLSX === "undefined"){ exportarCsv(per); return; }
+      var wb = XLSX.utils.book_new();
+      var p = ultimo.produtividade || {};
+      var kpiAoa = [
+        ["Indicador", "Valor"],
+        ["Leads trabalhados", p.trabalhados], ["Carteira", p.carteira],
+        ["Cobertura %", p.cobertura_pct], ["1o contato (h)", p.primeiro_contato_h],
+        ["Follow-up em dia %", p.followup_em_dia_pct], ["Dormentes", p.dormentes],
+        ["Conversao %", p.conversao_pct], ["Valor ganho", p.valor_ganho]
+      ];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(kpiAoa), "KPIs");
+
+      var rk = ultimo.ranking || [], rkAoa = [["Vendedor", "Trabalhados", "Cobertura", "Conversao", "Valor ganho"]], i;
+      for(i = 0; i < rk.length; i++){ rkAoa.push([rk[i].nome, rk[i].trabalhados, rk[i].cobertura, rk[i].conversao, rk[i].valor_ganho]); }
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rkAoa), "Ranking");
+
+      var fn = ultimo.funil || [], fnAoa = [["Etapa", "Leads agora", "Entradas", "Saidas", "Dias medio"]];
+      for(i = 0; i < fn.length; i++){ fnAoa.push([fn[i].etapa, fn[i].leads_agora, fn[i].entradas, fn[i].saidas, fn[i].dias_medio]); }
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(fnAoa), "Funil");
+
+      var se = ultimo.serie || [], seAoa = [["Dia", "Total", "Efetivas"]];
+      for(i = 0; i < se.length; i++){ seAoa.push([se[i].dia, se[i].total, se[i].efetivas]); }
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(seAoa), "Serie diaria");
+
+      XLSX.writeFile(wb, "relatorio_" + per.de + "_" + per.ate + ".xlsx");
+    } catch(e){
+      window.alert("Falha ao gerar a planilha.");
+    }
+  }
+
+  function exportarCsv(per){
+    var p = ultimo.produtividade || {};
+    var linhas = [
+      "Indicador;Valor",
+      "Leads trabalhados;" + (p.trabalhados != null ? p.trabalhados : ""),
+      "Cobertura %;" + (p.cobertura_pct != null ? p.cobertura_pct : ""),
+      "Conversao %;" + (p.conversao_pct != null ? p.conversao_pct : ""),
+      "Valor ganho;" + (p.valor_ganho != null ? p.valor_ganho : "")
+    ];
+    var blob = new Blob([linhas.join("\n")], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "relatorio_" + per.de + "_" + per.ate + ".csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // ==========================================================
+  // SUB-ABAS, PAPEL, LISTENERS
+  // ==========================================================
+  function trocarAba(nome){
+    var botoes = document.querySelectorAll("#page-relatorios .rel-tab");
+    var i;
+    for(i = 0; i < botoes.length; i++){
+      botoes[i].setAttribute("aria-selected", botoes[i].getAttribute("data-aba") === nome ? "true" : "false");
+    }
+    var abas = ["visao", "produtividade", "funil", "auditoria"];
+    for(i = 0; i < abas.length; i++){
+      el("rel-aba-" + abas[i]).classList.toggle("hidden", abas[i] !== nome);
+    }
+  }
+
+  function aplicarPapel(){
+    var admin = ehAdminRel();
+    el("rel-tab-auditoria").classList.toggle("hidden", !admin);
+    el("rel-campo-vendedor").classList.toggle("hidden", !admin);
+    el("rel-btn-exportar").classList.toggle("hidden", !admin);
+    el("rel-titulo").textContent = admin ? "Relatórios" : "Meu desempenho";
+    el("rel-subtitulo").textContent = admin
+      ? "Visão consolidada da equipe comercial"
+      : "Seus números e sua posição em relação à equipe";
+    var sel = document.querySelector('#page-relatorios .rel-tab[aria-selected="true"]');
+    if(!admin && sel && sel.getAttribute("data-aba") === "auditoria"){ trocarAba("visao"); }
+  }
+
+  function popularVendedores(){
+    var sel = el("rel-vendedor");
+    if(!sel) return;
+    if(typeof profiles === "undefined" || !profiles) return;
+    var html = '<option value="">Toda a equipe</option>', i, prf;
+    for(i = 0; i < profiles.length; i++){
+      prf = profiles[i];
+      if(prf.active === false) continue;
+      html += '<option value="' + escapar(prf.id) + '">' + escapar(prf.full_name) + '</option>';
+    }
+    sel.innerHTML = html;
+  }
+
+  // Autores da trilha: todos os perfis (inclui inativos — ações passadas podem ser deles).
+  function popularAutores(){
+    var sel = el("rel-audit-autor");
+    if(!sel) return;
+    if(typeof profiles === "undefined" || !profiles) return;
+    var html = '<option value="">Todos os autores</option>', i, prf;
+    for(i = 0; i < profiles.length; i++){
+      prf = profiles[i];
+      html += '<option value="' + escapar(prf.id) + '">' + escapar(prf.full_name) + '</option>';
+    }
+    sel.innerHTML = html;
+  }
+
+  function recarregarAuditoria(){
+    var per = intervalo();
+    if(!per.de || !per.ate || per.ate < per.de) return;
+    auditPagina = 0;
+    carregarAuditoria(per);
+  }
+
+  function ligarListeners(){
+    if(iniciado) return;
+    iniciado = true;
+    el("rel-periodo").addEventListener("change", function(){
+      var custom = el("rel-periodo").value === "custom";
+      el("rel-campo-de").classList.toggle("hidden", !custom);
+      el("rel-campo-ate").classList.toggle("hidden", !custom);
+    });
+    el("rel-aplicar").addEventListener("click", function(){ auditPagina = 0; carregarTudo(); });
+    el("rel-btn-exportar").addEventListener("click", exportar);
+    var selTab = el("rel-audit-tabela");
+    if(selTab){ selTab.addEventListener("change", recarregarAuditoria); }
+    var selAut = el("rel-audit-autor");
+    if(selAut){ selAut.addEventListener("change", recarregarAuditoria); }
+    var botoes = document.querySelectorAll("#page-relatorios .rel-tab");
+    var b;
+    for(b = 0; b < botoes.length; b++){
+      botoes[b].addEventListener("click", function(ev){ trocarAba(ev.currentTarget.getAttribute("data-aba")); });
+    }
+  }
+
+  // ==========================================================
+  // PONTO DE ENTRADA — chamado pelo handler de navegação
+  // ==========================================================
+  function relatoriosInit(){
+    ligarListeners();
+    aplicarPapel();
+    popularVendedores();
+    popularAutores();
+    if(!carregado){ carregarTudo(); }
+  }
+  window.relatoriosInit = relatoriosInit;
+})();
 </script>
 </body>
 </html>
