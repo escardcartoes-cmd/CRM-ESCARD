@@ -103,6 +103,9 @@ pelo Roberto. Não contorne. Não sugira contornar.
 
 10. **Todo `async` com erro tratado.** Falha silenciosa em produção é pior que erro visível.
 
+11. **Nunca execute `git commit` ou `git push`.** Alterações são commitadas pelo Roberto,
+    após teste manual. Deixe sempre o working tree modificado e informe o que mudou.
+
 ---
 
 ## Armadilhas conhecidas deste código

@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM · Produtividade e Auditoria (mockup)</title>
+<meta name="description" content="Mockup de validacao do painel de produtividade comercial e trilha de auditoria do CRM Funil de Vendas.">
+<meta property="og:title" content="CRM · Produtividade e Auditoria (mockup)">
+<meta property="og:description" content="Mockup de validacao — dados ficticios.">
+<meta property="og:type" content="website">
+<style>
+  :root{
+    /* tokens herdados do CRM em producao — nao inventar paleta nova */
+    --bg:#f5f6f8;
+    --surface:#ffffff;
+    --border:#e2e5ea;
+    --text:#1c2230;
+    --text-muted:#6b7280;
+    --primary:#2a2f8f;
+    --primary-soft:#eef2ff;
+    --won:#16a34a;
+    --won-bg:#ecfdf3;
+    --lost:#dc2626;
+    --lost-bg:#fef2f2;
+    --warn:#b45309;
+    --warn-bg:#fffbeb;
+    --radius:10px;
+    --shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 8px rgba(0,0,0,.04);
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px;
+    font-family:-apple-system, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; font-size:14px; line-height:1.5;}
+  .hidden{display:none !important;}
+
+  /* ---------- barra de demo ---------- */
+  .demo-bar{
+    background:var(--warn-bg); border-bottom:1px solid #fde68a; color:var(--warn);
+    padding:var(--sp-2) var(--sp-4); font-size:12px;
+    display:flex; flex-wrap:wrap; align-items:center; gap:var(--sp-3); justify-content:space-between;
+  }
+  .demo-bar__label{font-weight:600;}
+  .demo-bar__controls{display:flex; align-items:center; gap:var(--sp-2);}
+  .demo-bar select{font:inherit; padding:4px 8px; border:1px solid #fde68a; border-radius:6px; background:#fff; color:var(--text);}
+
+  /* ---------- shell ---------- */
+  .shell{max-width:1180px; margin:0 auto; padding:var(--sp-5) var(--sp-4) var(--sp-6);}
+  .page-header{display:flex; flex-wrap:wrap; gap:var(--sp-3); justify-content:space-between; align-items:flex-end; margin-bottom:var(--sp-4);}
+  .page-header h1{font-size:20px; font-weight:700;}
+  .page-header p{color:var(--text-muted); font-size:13px;}
+
+  /* ---------- filtros ---------- */
+  .filters{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:var(--sp-3); margin-bottom:var(--sp-4); box-shadow:var(--shadow);
+    display:flex; flex-wrap:wrap; gap:var(--sp-3); align-items:flex-end;
+  }
+  .field{display:flex; flex-direction:column; gap:var(--sp-1); min-width:0;}
+  .field label{font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em;}
+  .field select, .field input{
+    font:inherit; padding:8px 10px; border:1px solid var(--border); border-radius:8px;
+    background:var(--surface); color:var(--text); min-width:150px;
+  }
+  .field select:focus-visible, .field input:focus-visible, button:focus-visible{
+    outline:2px solid var(--primary); outline-offset:2px;
+  }
+  .filters__spacer{flex:1;}
+  .btn{
+    font:inherit; font-size:13px; padding:9px 14px; border:1px solid var(--border);
+    background:var(--surface); color:var(--text); border-radius:8px; cursor:pointer;
+  }
+  .btn:hover{background:var(--bg);}
+  .btn--primary{background:var(--primary); border-color:var(--primary); color:#fff;}
+  .btn--primary:hover{background:#1f2470;}
+
+  /* ---------- abas ---------- */
+  .tabs{display:flex; gap:var(--sp-1); border-bottom:1px solid var(--border); margin-bottom:var(--sp-4); overflow-x:auto;}
+  .tabs__btn{
+    font:inherit; font-size:13px; font-weight:600; padding:10px 14px; border:none; background:none;
+    color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent; white-space:nowrap;
+  }
+  .tabs__btn:hover{color:var(--text);}
+  .tabs__btn[aria-selected="true"]{color:var(--primary); border-bottom-color:var(--primary);}
+
+  /* ---------- cards de KPI ---------- */
+  .kpis{display:grid; grid-template-columns:repeat(auto-fill, minmax(190px,1fr)); gap:var(--sp-3); margin-bottom:var(--sp-4);}
+  .kpi{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:var(--sp-4); box-shadow:var(--shadow);}
+  .kpi__label{font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; margin-bottom:var(--sp-2);}
+  .kpi__value{font-size:26px; font-weight:700; letter-spacing:-.02em; line-height:1.15;}
+  .kpi__foot{margin-top:var(--sp-2); font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+  .delta{font-weight:700; font-size:12px;}
+  .delta--up{color:var(--won);}
+  .delta--down{color:var(--lost);}
+  .delta--flat{color:var(--text-muted);}
+
+  /* ---------- paineis ---------- */
+  .grid-2{display:grid; grid-template-columns:1fr; gap:var(--sp-3);}
+  @media(min-width:900px){ .grid-2{grid-template-columns:1.4fr 1fr;} }
+  .panel{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:var(--sp-4); box-shadow:var(--shadow); margin-bottom:var(--sp-3); min-width:0;}
+  .panel__head{display:flex; justify-content:space-between; align-items:baseline; gap:var(--sp-2); margin-bottom:var(--sp-4); flex-wrap:wrap;}
+  .panel h2{font-size:14px; font-weight:700;}
+  .panel__hint{font-size:12px; color:var(--text-muted);}
+
+  /* ---------- barras ---------- */
+  .bar-row{display:grid; grid-template-columns:minmax(84px,1fr) 2.6fr auto; gap:var(--sp-3); align-items:center; margin-bottom:var(--sp-3); font-size:13px;}
+  .bar-row__label{color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .bar-row__track{background:var(--bg); border-radius:6px; height:22px; overflow:hidden;}
+  .bar-row__fill{height:100%; border-radius:6px; background:var(--primary); transition:width .4s ease;}
+  .bar-row__value{font-weight:700; font-variant-numeric:tabular-nums; min-width:44px; text-align:right;}
+
+  /* ---------- funil ---------- */
+  .stage{margin-bottom:var(--sp-2);}
+  .stage__top{display:flex; justify-content:space-between; font-size:13px; margin-bottom:var(--sp-1);}
+  .stage__name{font-weight:600;}
+  .stage__count{color:var(--text-muted); font-variant-numeric:tabular-nums;}
+  .stage__track{background:var(--bg); border-radius:6px; height:26px; overflow:hidden;}
+  .stage__fill{height:100%; border-radius:6px; background:var(--primary);}
+  .stage__conv{font-size:11px; color:var(--text-muted); padding:2px 0 6px 2px;}
+
+  /* ---------- tabelas ---------- */
+  .table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  table{width:100%; border-collapse:collapse; font-size:13px; min-width:560px;}
+  th{
+    text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em;
+    color:var(--text-muted); padding:0 var(--sp-3) var(--sp-2); border-bottom:1px solid var(--border); white-space:nowrap;
+  }
+  td{padding:var(--sp-3); border-bottom:1px solid var(--border); vertical-align:top;}
+  tbody tr:last-child td{border-bottom:none;}
+  .num{text-align:right; font-variant-numeric:tabular-nums;}
+  .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px;}
+
+  .tag{display:inline-block; font-size:11px; font-weight:700; padding:2px 7px; border-radius:99px; white-space:nowrap;}
+  .tag--ins{background:var(--won-bg); color:var(--won);}
+  .tag--upd{background:var(--primary-soft); color:var(--primary);}
+  .tag--del{background:var(--lost-bg); color:var(--lost);}
+  .tag--sys{background:#f1f5f9; color:#475569;}
+  .tag--warn{background:var(--warn-bg); color:var(--warn);}
+
+  .diff{display:block; margin-bottom:2px;}
+  .diff__old{color:var(--lost); text-decoration:line-through;}
+  .diff__new{color:var(--won); font-weight:600;}
+
+  .empty{padding:var(--sp-5); text-align:center; color:var(--text-muted); font-size:13px;}
+  .note{font-size:12px; color:var(--text-muted); margin-top:var(--sp-3); line-height:1.6;}
+
+  svg{display:block; width:100%; height:auto;}
+  .chart-legend{display:flex; gap:var(--sp-4); flex-wrap:wrap; font-size:12px; color:var(--text-muted); margin-top:var(--sp-2);}
+  .chart-legend span::before{content:""; display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:-1px;}
+  .lg-total::before{background:var(--primary);}
+  .lg-meta::before{background:#cbd5e1;}
+
+  @media(max-width:400px){
+    .kpi__value{font-size:22px;}
+    .bar-row{grid-template-columns:minmax(70px,1fr) 1.8fr auto;}
+  }
+  @media(prefers-reduced-motion:reduce){
+    *{transition:none !important; animation:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<div class="demo-bar" role="note">
+  <span class="demo-bar__label">Mockup de validação · todos os números são fictícios</span>
+  <div class="demo-bar__controls">
+    <label for="perfil-select">Visualizar como</label>
+    <select id="perfil-select">
+      <option value="admin">Admin (Roberto)</option>
+      <option value="vendedor">Vendedor (Heloísa)</option>
+    </select>
+  </div>
+</div>
+
+<main class="shell">
+
+  <header class="page-header">
+    <div>
+      <h1 id="titulo-pagina">Produtividade e Auditoria</h1>
+      <p id="subtitulo-pagina">Visão consolidada da equipe comercial</p>
+    </div>
+    <button class="btn" id="btn-exportar" type="button">↓ Exportar XLSX</button>
+  </header>
+
+  <section class="filters" aria-label="Filtros do relatório">
+    <div class="field">
+      <label for="filtro-periodo">Período</label>
+      <select id="filtro-periodo">
+        <option value="7">Últimos 7 dias</option>
+        <option value="30" selected>Últimos 30 dias</option>
+        <option value="90">Últimos 90 dias</option>
+      </select>
+    </div>
+    <div class="field" id="campo-vendedor">
+      <label for="filtro-vendedor">Vendedor</label>
+      <select id="filtro-vendedor">
+        <option value="todos">Toda a equipe</option>
+        <option value="v1">Heloísa Martins</option>
+        <option value="v2">Priscila Rocha</option>
+        <option value="v3">Tiago Alves (inativo)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="filtro-origem">Origem do lead</label>
+      <select id="filtro-origem">
+        <option value="todas">Todas</option>
+        <option value="indicacao">Indicação</option>
+        <option value="site">Site</option>
+        <option value="whatsapp">WhatsApp</option>
+        <option value="importacao">Importação</option>
+      </select>
+    </div>
+    <div class="filters__spacer"></div>
+    <button class="btn btn--primary" id="btn-aplicar" type="button">Aplicar</button>
+  </section>
+
+  <nav class="tabs" role="tablist" aria-label="Seções do relatório">
+    <button class="tabs__btn" role="tab" id="tab-visao" aria-selected="true" data-aba="visao">Visão geral</button>
+    <button class="tabs__btn" role="tab" id="tab-produtividade" aria-selected="false" data-aba="produtividade">Produtividade</button>
+    <button class="tabs__btn" role="tab" id="tab-funil" aria-selected="false" data-aba="funil">Funil</button>
+    <button class="tabs__btn" role="tab" id="tab-auditoria" aria-selected="false" data-aba="auditoria">Auditoria</button>
+    <button class="tabs__btn" role="tab" id="tab-acessos" aria-selected="false" data-aba="acessos">Acessos</button>
+  </nav>
+
+  <!-- ============ VISÃO GERAL ============ -->
+  <section id="aba-visao" role="tabpanel" aria-labelledby="tab-visao">
+    <div class="kpis" id="kpis"></div>
+
+    <div class="panel">
+      <div class="panel__head">
+        <h2>Atividades registradas por dia</h2>
+        <span class="panel__hint" id="hint-serie">Contatos, notas e movimentações de etapa</span>
+      </div>
+      <div id="grafico-serie"></div>
+      <div class="chart-legend">
+        <span class="lg-total">Atividades no período</span>
+        <span class="lg-meta">Média diária</span>
+      </div>
+    </div>
+
+    <div class="panel" id="painel-alertas">
+      <div class="panel__head">
+        <h2>Precisa de atenção</h2>
+        <span class="panel__hint">Gerado a partir das regras de higiene do funil</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Situação</th><th class="num">Leads</th><th>Responsável</th><th>Impacto</th></tr>
+          </thead>
+          <tbody id="tbody-alertas"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PRODUTIVIDADE ============ -->
+  <section id="aba-produtividade" class="hidden" role="tabpanel" aria-labelledby="tab-produtividade">
+    <div class="panel" id="painel-ranking">
+      <div class="panel__head">
+        <h2 id="titulo-ranking">Comparativo da equipe</h2>
+        <span class="panel__hint">Esforço, higiene e resultado lado a lado</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Vendedor</th>
+              <th class="num">Leads trabalhados</th>
+              <th class="num">Cobertura</th>
+              <th class="num">1º contato</th>
+              <th class="num">Follow-up em dia</th>
+              <th class="num">Conversão</th>
+              <th class="num">Ganho</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-ranking"></tbody>
+        </table>
+      </div>
+      <p class="note" id="nota-ranking"></p>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel__head"><h2>Atividades por tipo</h2></div>
+        <div id="barras-tipo"></div>
+      </div>
+      <div class="panel">
+        <div class="panel__head"><h2>Origem dos leads trabalhados</h2></div>
+        <div id="barras-origem"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FUNIL ============ -->
+  <section id="aba-funil" class="hidden" role="tabpanel" aria-labelledby="tab-funil">
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel__head">
+          <h2>Funil por etapa</h2>
+          <span class="panel__hint">Conversão de uma etapa para a seguinte</span>
+        </div>
+        <div id="funil"></div>
+      </div>
+      <div class="panel">
+        <div class="panel__head"><h2>Motivos de perda</h2></div>
+        <div id="barras-perda"></div>
+        <p class="note">Perda sem motivo preenchido é falha de processo, não de venda — vale virar campo obrigatório na etapa.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel__head">
+        <h2>Tempo médio parado em cada etapa</h2>
+        <span class="panel__hint">Dias entre a entrada na etapa e a saída</span>
+      </div>
+      <div id="barras-aging"></div>
+    </div>
+  </section>
+
+  <!-- ============ AUDITORIA ============ -->
+  <section id="aba-auditoria" class="hidden" role="tabpanel" aria-labelledby="tab-auditoria">
+    <div class="panel">
+      <div class="panel__head">
+        <h2>Trilha de alterações</h2>
+        <span class="panel__hint">Registro imutável — não pode ser editado nem apagado por ninguém</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Quando</th>
+              <th>Quem</th>
+              <th>Ação</th>
+              <th>Registro</th>
+              <th>O que mudou</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-auditoria"></tbody>
+        </table>
+      </div>
+      <p class="note">
+        Importações em massa aparecem colapsadas em uma linha por lote. Alterações feitas por integração
+        (webhook do SDR, por exemplo) entram com autor <strong>Sistema</strong>, porque não há usuário logado na operação.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============ ACESSOS ============ -->
+  <section id="aba-acessos" class="hidden" role="tabpanel" aria-labelledby="tab-acessos">
+    <div class="panel">
+      <div class="panel__head">
+        <h2>Uso do sistema por pessoa</h2>
+        <span class="panel__hint">Presença não é produtividade — leia junto com a aba Produtividade</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Usuário</th>
+              <th class="num">Dias ativos</th>
+              <th class="num">Sessões</th>
+              <th class="num">Ações</th>
+              <th>Janela típica</th>
+              <th>Último acesso</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-acessos"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel__head">
+        <h2>Eventos sensíveis</h2>
+        <span class="panel__hint">Exportação, importação e troca de senha</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Quando</th><th>Quem</th><th>Evento</th><th>Detalhe</th></tr>
+          </thead>
+          <tbody id="tbody-eventos"></tbody>
+        </table>
+      </div>
+      <p class="note">Exportar a base é tratado como evento sensível por exigência de LGPD: precisa ser rastreável quem levou dado pessoal para fora do sistema.</p>
+    </div>
+  </section>
+
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  // ==========================================================
+  // DADOS FICTÍCIOS — substituídos pelas RPCs na implementação
+  // ==========================================================
+  var VENDEDORES = [
+    { id:"v1", nome:"Heloísa Martins", ativo:true },
+    { id:"v2", nome:"Priscila Rocha", ativo:true },
+    { id:"v3", nome:"Tiago Alves", ativo:false }
+  ];
+
+  var BASE = {
+    v1:{ carteira:186, trabalhados:141, cobertura:76, primeiroContato:3.4, followupEmDia:88, conversao:24, ganho:96400, dormentes:12, criados:38 },
+    v2:{ carteira:204, trabalhados:118, cobertura:58, primeiroContato:11.2, followupEmDia:61, conversao:17, ganho:71200, dormentes:41, criados:44 },
+    v3:{ carteira:92,  trabalhados:19,  cobertura:21, primeiroContato:26.5, followupEmDia:24, conversao:11, ganho:12800, dormentes:58, criados:6 }
+  };
+
+  var TIPOS_ATIVIDADE = [
+    { rotulo:"WhatsApp", peso:0.41 },
+    { rotulo:"Ligação", peso:0.27 },
+    { rotulo:"E-mail", peso:0.16 },
+    { rotulo:"Anotação", peso:0.11 },
+    { rotulo:"Visita", peso:0.05 }
+  ];
+
+  var ORIGENS = [
+    { rotulo:"Indicação", peso:0.34 },
+    { rotulo:"WhatsApp", peso:0.28 },
+    { rotulo:"Site", peso:0.21 },
+    { rotulo:"Importação", peso:0.17 }
+  ];
+
+  var ETAPAS = [
+    { nome:"Novo lead", base:212 },
+    { nome:"Contato feito", base:148 },
+    { nome:"Proposta enviada", base:74 },
+    { nome:"Negociação", base:41 },
+    { nome:"Ganho", base:23, tipo:"won" },
+    { nome:"Perdido", base:31, tipo:"lost" }
+  ];
+
+  var AGING = [
+    { rotulo:"Novo lead", dias:2.1 },
+    { rotulo:"Contato feito", dias:6.8 },
+    { rotulo:"Proposta enviada", dias:14.3 },
+    { rotulo:"Negociação", dias:9.6 }
+  ];
+
+  var MOTIVOS_PERDA = [
+    { rotulo:"Sem resposta", qtd:12 },
+    { rotulo:"Preço alto", qtd:7 },
+    { rotulo:"Foi para concorrente", qtd:5 },
+    { rotulo:"Sem motivo preenchido", qtd:4 },
+    { rotulo:"Fora do perfil", qtd:3 }
+  ];
+
+  var AUDITORIA = [
+    { quando:"18/08 16:42", quem:"Priscila Rocha", acao:"UPDATE", tabela:"deals", registro:"Transportes Vitória Ltda",
+      diffs:[{campo:"valor", de:"R$ 18.000,00", para:"R$ 12.400,00"},{campo:"etapa", de:"Proposta enviada", para:"Negociação"}] },
+    { quando:"18/08 15:07", quem:"Heloísa Martins", acao:"INSERT", tabela:"deal_activities", registro:"Padaria São Jorge",
+      diffs:[{campo:"tipo", de:null, para:"Ligação"},{campo:"resumo", de:null, para:"Cliente pediu retorno na sexta"}] },
+    { quando:"18/08 11:58", quem:"Roberto Cassiano", acao:"UPDATE", tabela:"profiles", registro:"Tiago Alves",
+      diffs:[{campo:"ativo", de:"true", para:"false"}] },
+    { quando:"18/08 11:58", quem:"Roberto Cassiano", acao:"UPDATE", tabela:"deals", registro:"92 registros (lote)",
+      diffs:[{campo:"responsável", de:"Tiago Alves", para:"Heloísa Martins"}], lote:true },
+    { quando:"17/08 19:23", quem:"Priscila Rocha", acao:"DELETE", tabela:"deals", registro:"Mercado Central ME",
+      diffs:[{campo:"registro removido", de:"R$ 4.900,00 · Negociação", para:null}] },
+    { quando:"17/08 09:14", quem:"Sistema", acao:"INSERT", tabela:"deals", registro:"37 registros (webhook SDR)",
+      diffs:[{campo:"origem", de:null, para:"SDR SIX"}], sistema:true, lote:true },
+    { quando:"16/08 14:35", quem:"Heloísa Martins", acao:"UPDATE", tabela:"deals", registro:"Auto Peças Serra",
+      diffs:[{campo:"telefone", de:"(27) 99812-4410", para:"(27) 99745-2280"}] }
+  ];
+
+  var ACESSOS = [
+    { quem:"Heloísa Martins", dias:21, sessoes:47, acoes:612, janela:"08h12 – 18h05", ultimo:"hoje, 17:41" },
+    { quem:"Priscila Rocha", dias:18, sessoes:33, acoes:388, janela:"09h30 – 17h20", ultimo:"hoje, 16:02" },
+    { quem:"Tiago Alves", dias:4, sessoes:6, acoes:41, janela:"10h50 – 15h10", ultimo:"há 23 dias" },
+    { quem:"Roberto Cassiano", dias:26, sessoes:71, acoes:244, janela:"07h05 – 22h40", ultimo:"agora" }
+  ];
+
+  var EVENTOS = [
+    { quando:"18/08 17:12", quem:"Roberto Cassiano", evento:"Exportação", detalhe:"Relatório de produtividade · 30 dias · XLSX", tag:"warn" },
+    { quando:"18/08 11:58", quem:"Roberto Cassiano", evento:"Transferência em lote", detalhe:"92 leads · Tiago → Heloísa", tag:"warn" },
+    { quando:"17/08 09:14", quem:"Sistema", evento:"Importação", detalhe:"37 leads via webhook SDR SIX", tag:"sys" },
+    { quando:"15/08 08:40", quem:"Priscila Rocha", evento:"Senha redefinida", detalhe:"Link solicitado pelo próprio usuário", tag:"sys" },
+    { quando:"12/08 21:33", quem:"Priscila Rocha", evento:"Exportação", detalhe:"Lista de leads · filtro Negociação · CSV", tag:"warn" }
+  ];
+
+  // ==========================================================
+  // ESTADO
+  // ==========================================================
+  var estado = {
+    perfil:"admin",
+    periodo:30,
+    vendedor:"todos",
+    origem:"todas"
+  };
+
+  var VENDEDOR_LOGADO = "v1"; // no CRM real vem de currentProfile.id
+
+  // ==========================================================
+  // HELPERS
+  // ==========================================================
+  function el(id){ return document.getElementById(id); }
+
+  function escapar(txt){
+    if(txt === null || txt === undefined) return "";
+    return String(txt)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+      .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+  }
+
+  function moeda(v){
+    return "R$ " + Number(v).toLocaleString("pt-BR", { minimumFractionDigits:0, maximumFractionDigits:0 });
+  }
+
+  function fatorPeriodo(){
+    if(estado.periodo === 7) return 0.24;
+    if(estado.periodo === 90) return 2.85;
+    return 1;
+  }
+
+  // Agrega as metricas dos vendedores dentro do escopo atual.
+  function escopoAtual(){
+    var ids = [];
+    if(estado.perfil === "vendedor"){
+      ids = [VENDEDOR_LOGADO];
+    } else if(estado.vendedor === "todos"){
+      ids = ["v1","v2","v3"];
+    } else {
+      ids = [estado.vendedor];
+    }
+    return ids;
+  }
+
+  function metricasAgregadas(){
+    var ids = escopoAtual();
+    var f = fatorPeriodo();
+    var carteira = 0, trabalhados = 0, ganho = 0, dormentes = 0, criados = 0;
+    var somaCobertura = 0, somaPrimeiro = 0, somaFollow = 0, somaConv = 0;
+    var i, m;
+    for(i = 0; i < ids.length; i++){
+      m = BASE[ids[i]];
+      carteira    += m.carteira;
+      trabalhados += Math.round(m.trabalhados * f);
+      ganho       += Math.round(m.ganho * f);
+      dormentes   += m.dormentes;
+      criados     += Math.round(m.criados * f);
+      somaCobertura += m.cobertura;
+      somaPrimeiro  += m.primeiroContato;
+      somaFollow    += m.followupEmDia;
+      somaConv      += m.conversao;
+    }
+    var n = ids.length;
+    return {
+      carteira:carteira,
+      trabalhados:Math.min(trabalhados, carteira),
+      ganho:ganho,
+      dormentes:dormentes,
+      criados:criados,
+      cobertura:Math.round(somaCobertura / n),
+      primeiroContato:Math.round((somaPrimeiro / n) * 10) / 10,
+      followupEmDia:Math.round(somaFollow / n),
+      conversao:Math.round(somaConv / n)
+    };
+  }
+
+  // Variacao simulada contra o periodo anterior (deterministica).
+  function variacao(chave){
+    var mapa = { trabalhados:9, cobertura:-4, primeiroContato:-18, followupEmDia:6, dormentes:14, conversao:2, ganho:11 };
+    var v = mapa[chave];
+    if(v === undefined) return 0;
+    if(estado.perfil === "vendedor" && chave === "cobertura") return 5;
+    return v;
+  }
+
+  // Para tempo de resposta e leads dormentes, cair e bom.
+  function classeDelta(chave, v){
+    var menorEhMelhor = (chave === "primeiroContato" || chave === "dormentes");
+    if(v === 0) return "delta--flat";
+    var bom = menorEhMelhor ? (v < 0) : (v > 0);
+    return bom ? "delta--up" : "delta--down";
+  }
+
+  function textoDelta(v){
+    if(v === 0) return "estável";
+    return (v > 0 ? "▲ " : "▼ ") + Math.abs(v) + "%";
+  }
+
+  // ==========================================================
+  // GRÁFICO DE LINHA (SVG puro — sem dependência externa)
+  // ==========================================================
+  function serieDiaria(){
+    var m = metricasAgregadas();
+    var dias = estado.periodo;
+    var media = (m.trabalhados * 2.6) / dias;
+    var pontos = [];
+    var i, dow, valor;
+    for(i = 0; i < dias; i++){
+      dow = (i + 3) % 7;
+      valor = media;
+      if(dow === 5) valor = media * 0.35;   // sábado
+      if(dow === 6) valor = media * 0.08;   // domingo
+      // oscilação determinística, sem Math.random
+      valor = valor * (0.82 + ((i * 37) % 41) / 100);
+      pontos.push(Math.max(0, Math.round(valor)));
+    }
+    return pontos;
+  }
+
+  function desenharLinha(pontos){
+    var w = 720, h = 200, padL = 34, padR = 10, padT = 12, padB = 26;
+    var n = pontos.length;
+    if(n < 2) return "";
+    var max = 0, soma = 0, i;
+    for(i = 0; i < n; i++){
+      if(pontos[i] > max) max = pontos[i];
+      soma += pontos[i];
+    }
+    if(max === 0) max = 1;
+    var teto = Math.ceil(max * 1.15);
+    var media = soma / n;
+    var largura = w - padL - padR;
+    var altura = h - padT - padB;
+
+    function px(i){ return padL + (i * largura) / (n - 1); }
+    function py(v){ return padT + altura - (v / teto) * altura; }
+
+    var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Atividades registradas por dia no período">';
+
+    // grade + eixo Y
+    var linhas = 4, gy, rotulo;
+    for(i = 0; i <= linhas; i++){
+      gy = padT + (altura * i) / linhas;
+      rotulo = Math.round(teto - (teto * i) / linhas);
+      svg += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (w - padR) + '" y2="' + gy + '" stroke="#e2e5ea" stroke-width="1"/>';
+      svg += '<text x="' + (padL - 6) + '" y="' + (gy + 4) + '" text-anchor="end" font-size="10" fill="#6b7280">' + rotulo + '</text>';
+    }
+
+    // área
+    var d = "M " + px(0) + " " + py(pontos[0]);
+    for(i = 1; i < n; i++){ d += " L " + px(i) + " " + py(pontos[i]); }
+    var area = d + " L " + px(n - 1) + " " + (padT + altura) + " L " + px(0) + " " + (padT + altura) + " Z";
+    svg += '<path d="' + area + '" fill="#2a2f8f" fill-opacity="0.10"/>';
+    svg += '<path d="' + d + '" fill="none" stroke="#2a2f8f" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+
+    // média
+    svg += '<line x1="' + padL + '" y1="' + py(media) + '" x2="' + (w - padR) + '" y2="' + py(media) +
+           '" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="5 4"/>';
+
+    // rótulos do eixo X
+    var passo = Math.max(1, Math.round(n / 6));
+    for(i = 0; i < n; i += passo){
+      svg += '<text x="' + px(i) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="10" fill="#6b7280">D-' + (n - i) + '</text>';
+    }
+
+    svg += "</svg>";
+    return svg;
+  }
+
+  // ==========================================================
+  // BARRAS
+  // ==========================================================
+  function desenharBarras(alvo, itens, sufixo){
+    var max = 0, i;
+    for(i = 0; i < itens.length; i++){ if(itens[i].valor > max) max = itens[i].valor; }
+    if(max === 0) max = 1;
+    var html = "";
+    for(i = 0; i < itens.length; i++){
+      var pct = Math.max(3, Math.round((itens[i].valor / max) * 100));
+      var cor = itens[i].cor ? itens[i].cor : "var(--primary)";
+      html += '<div class="bar-row">'
+            +   '<span class="bar-row__label" title="' + escapar(itens[i].rotulo) + '">' + escapar(itens[i].rotulo) + '</span>'
+            +   '<span class="bar-row__track"><span class="bar-row__fill" style="width:' + pct + '%; background:' + cor + ';"></span></span>'
+            +   '<span class="bar-row__value">' + escapar(itens[i].texto !== undefined ? itens[i].texto : (itens[i].valor + (sufixo || ""))) + '</span>'
+            + '</div>';
+    }
+    el(alvo).innerHTML = html;
+  }
+
+  // ==========================================================
+  // RENDER — KPIs
+  // ==========================================================
+  function renderKpis(){
+    var m = metricasAgregadas();
+    var cards = [
+      { chave:"trabalhados", rotulo:"Leads trabalhados", valor:m.trabalhados, rodape:"de " + m.carteira + " na carteira" },
+      { chave:"cobertura", rotulo:"Cobertura da carteira", valor:m.cobertura + "%", rodape:"receberam ao menos 1 contato" },
+      { chave:"primeiroContato", rotulo:"Tempo até 1º contato", valor:m.primeiroContato + "h", rodape:"média do lead novo" },
+      { chave:"followupEmDia", rotulo:"Follow-ups em dia", valor:m.followupEmDia + "%", rodape:"agendados e cumpridos no prazo" },
+      { chave:"dormentes", rotulo:"Leads dormentes", valor:m.dormentes, rodape:"sem atividade há mais de 14 dias" },
+      { chave:"conversao", rotulo:"Taxa de conversão", valor:m.conversao + "%", rodape:"ganhos ÷ (ganhos + perdidos)" },
+      { chave:"ganho", rotulo:"Valor ganho", valor:moeda(m.ganho), rodape:"fechado no período" }
+    ];
+    var html = "", i, d;
+    for(i = 0; i < cards.length; i++){
+      d = variacao(cards[i].chave);
+      html += '<article class="kpi">'
+            +   '<h3 class="kpi__label">' + escapar(cards[i].rotulo) + '</h3>'
+            +   '<p class="kpi__value">' + escapar(cards[i].valor) + '</p>'
+            +   '<p class="kpi__foot">'
+            +     '<span class="delta ' + classeDelta(cards[i].chave, d) + '">' + textoDelta(d) + '</span>'
+            +     '<span>' + escapar(cards[i].rodape) + '</span>'
+            +   '</p>'
+            + '</article>';
+    }
+    el("kpis").innerHTML = html;
+  }
+
+  // ==========================================================
+  // RENDER — alertas
+  // ==========================================================
+  function renderAlertas(){
+    var linhas;
+    if(estado.perfil === "vendedor"){
+      linhas = [
+        { situacao:"Sem contato há mais de 14 dias", qtd:12, quem:"Você", impacto:"R$ 38.700 parados" },
+        { situacao:"Sem follow-up agendado", qtd:9, quem:"Você", impacto:"risco de esquecimento" },
+        { situacao:"Proposta enviada há mais de 10 dias sem retorno", qtd:4, quem:"Você", impacto:"R$ 22.100 esfriando" }
+      ];
+    } else {
+      linhas = [
+        { situacao:"Sem contato há mais de 14 dias", qtd:111, quem:"Tiago (58) · Priscila (41) · Heloísa (12)", impacto:"R$ 274.300 parados" },
+        { situacao:"Sem follow-up agendado", qtd:63, quem:"Priscila (38) · Tiago (19) · Heloísa (6)", impacto:"risco de esquecimento" },
+        { situacao:"Lead novo sem 1º contato há mais de 24h", qtd:27, quem:"Priscila (21) · Tiago (6)", impacto:"maior causa isolada de perda" },
+        { situacao:"Perdido sem motivo preenchido", qtd:4, quem:"Priscila (3) · Tiago (1)", impacto:"cega a análise de perda" }
+      ];
+    }
+    var html = "", i;
+    for(i = 0; i < linhas.length; i++){
+      html += "<tr>"
+            +   "<td>" + escapar(linhas[i].situacao) + "</td>"
+            +   '<td class="num"><strong>' + linhas[i].qtd + "</strong></td>"
+            +   "<td>" + escapar(linhas[i].quem) + "</td>"
+            +   '<td style="color:var(--text-muted);">' + escapar(linhas[i].impacto) + "</td>"
+            + "</tr>";
+    }
+    el("tbody-alertas").innerHTML = html;
+  }
+
+  // ==========================================================
+  // RENDER — ranking / comparativo
+  // ==========================================================
+  function renderRanking(){
+    var f = fatorPeriodo();
+    var html = "", i, v, m;
+
+    if(estado.perfil === "vendedor"){
+      // Vendedor ve o proprio numero e a media da equipe — nunca o numero do colega.
+      m = BASE[VENDEDOR_LOGADO];
+      var mediaEquipe = {
+        trabalhados:Math.round(((BASE.v1.trabalhados + BASE.v2.trabalhados + BASE.v3.trabalhados) / 3) * f),
+        cobertura:Math.round((BASE.v1.cobertura + BASE.v2.cobertura + BASE.v3.cobertura) / 3),
+        primeiroContato:Math.round(((BASE.v1.primeiroContato + BASE.v2.primeiroContato + BASE.v3.primeiroContato) / 3) * 10) / 10,
+        followupEmDia:Math.round((BASE.v1.followupEmDia + BASE.v2.followupEmDia + BASE.v3.followupEmDia) / 3),
+        conversao:Math.round((BASE.v1.conversao + BASE.v2.conversao + BASE.v3.conversao) / 3),
+        ganho:Math.round(((BASE.v1.ganho + BASE.v2.ganho + BASE.v3.ganho) / 3) * f)
+      };
+      html += linhaRanking("Você", m, f, true);
+      html += linhaRanking("Média da equipe", mediaEquipe, 1, false, true);
+      el("titulo-ranking").textContent = "Você em relação à equipe";
+      el("nota-ranking").textContent = "Você está em 1º lugar de 3 em cobertura de carteira. Os números individuais dos seus colegas não são exibidos.";
+    } else {
+      for(i = 0; i < VENDEDORES.length; i++){
+        v = VENDEDORES[i];
+        html += linhaRanking(v.nome + (v.ativo ? "" : " (inativo)"), BASE[v.id], f, false);
+      }
+      el("titulo-ranking").textContent = "Comparativo da equipe";
+      el("nota-ranking").textContent = "Leitura: alta atividade com baixa cobertura indica que o vendedor está trabalhando só os leads fáceis. Alta cobertura com baixa conversão aponta problema de abordagem ou de qualidade de lead — não de esforço.";
+    }
+    el("tbody-ranking").innerHTML = html;
+  }
+
+  function linhaRanking(nome, m, f, destaque, suave){
+    var estiloNome = destaque ? "font-weight:700;" : (suave ? "color:var(--text-muted);" : "");
+    var trab = m.trabalhados;
+    if(f !== 1) trab = Math.round(m.trabalhados * f);
+    var ganho = m.ganho;
+    if(f !== 1) ganho = Math.round(m.ganho * f);
+    var corPrimeiro = m.primeiroContato > 12 ? "color:var(--lost);font-weight:700;" : (m.primeiroContato < 6 ? "color:var(--won);font-weight:700;" : "");
+    var corCob = m.cobertura < 50 ? "color:var(--lost);font-weight:700;" : (m.cobertura >= 70 ? "color:var(--won);font-weight:700;" : "");
+    return "<tr>"
+      +   '<td style="' + estiloNome + '">' + escapar(nome) + "</td>"
+      +   '<td class="num">' + trab + "</td>"
+      +   '<td class="num" style="' + corCob + '">' + m.cobertura + "%</td>"
+      +   '<td class="num" style="' + corPrimeiro + '">' + m.primeiroContato + "h</td>"
+      +   '<td class="num">' + m.followupEmDia + "%</td>"
+      +   '<td class="num">' + m.conversao + "%</td>"
+      +   '<td class="num">' + moeda(ganho) + "</td>"
+      + "</tr>";
+  }
+
+  // ==========================================================
+  // RENDER — funil, tipos, origens, perda, aging
+  // ==========================================================
+  function renderFunil(){
+    var f = fatorPeriodo();
+    var ids = escopoAtual();
+    var proporcao = ids.length / 3;
+    var html = "", i, qtd, qtdProx, conv, cor, max = 0, valores = [];
+
+    for(i = 0; i < ETAPAS.length; i++){
+      qtd = Math.round(ETAPAS[i].base * f * proporcao);
+      valores.push(qtd);
+      if(qtd > max) max = qtd;
+    }
+    if(max === 0) max = 1;
+
+    for(i = 0; i < ETAPAS.length; i++){
+      cor = "var(--primary)";
+      if(ETAPAS[i].tipo === "won") cor = "var(--won)";
+      if(ETAPAS[i].tipo === "lost") cor = "var(--lost)";
+      qtd = valores[i];
+      html += '<div class="stage">'
+            +   '<div class="stage__top"><span class="stage__name">' + escapar(ETAPAS[i].nome) + '</span>'
+            +   '<span class="stage__count">' + qtd + ' leads</span></div>'
+            +   '<div class="stage__track"><div class="stage__fill" style="width:' + Math.max(3, Math.round((qtd / max) * 100)) + '%; background:' + cor + ';"></div></div>'
+            + '</div>';
+      // conversao para a proxima etapa (apenas no trecho linear do funil)
+      if(i < 3){
+        qtdProx = valores[i + 1];
+        conv = qtd > 0 ? Math.round((qtdProx / qtd) * 100) : 0;
+        html += '<p class="stage__conv">↳ ' + conv + '% avançam para ' + escapar(ETAPAS[i + 1].nome) + '</p>';
+      }
+    }
+    el("funil").innerHTML = html;
+  }
+
+  function renderDistribuicoes(){
+    var m = metricasAgregadas();
+    var totalAtiv = Math.round(m.trabalhados * 2.6);
+    var itensTipo = [], i, qtd;
+    for(i = 0; i < TIPOS_ATIVIDADE.length; i++){
+      qtd = Math.round(totalAtiv * TIPOS_ATIVIDADE[i].peso);
+      itensTipo.push({ rotulo:TIPOS_ATIVIDADE[i].rotulo, valor:qtd, texto:String(qtd) });
+    }
+    desenharBarras("barras-tipo", itensTipo);
+
+    var itensOrigem = [];
+    for(i = 0; i < ORIGENS.length; i++){
+      qtd = Math.round(m.trabalhados * ORIGENS[i].peso);
+      itensOrigem.push({ rotulo:ORIGENS[i].rotulo, valor:qtd, texto:String(qtd) });
+    }
+    desenharBarras("barras-origem", itensOrigem);
+
+    var itensPerda = [];
+    for(i = 0; i < MOTIVOS_PERDA.length; i++){
+      itensPerda.push({
+        rotulo:MOTIVOS_PERDA[i].rotulo,
+        valor:MOTIVOS_PERDA[i].qtd,
+        texto:String(MOTIVOS_PERDA[i].qtd),
+        cor:MOTIVOS_PERDA[i].rotulo === "Sem motivo preenchido" ? "var(--warn)" : "var(--lost)"
+      });
+    }
+    desenharBarras("barras-perda", itensPerda);
+
+    var itensAging = [];
+    for(i = 0; i < AGING.length; i++){
+      itensAging.push({
+        rotulo:AGING[i].rotulo,
+        valor:AGING[i].dias,
+        texto:AGING[i].dias + " d",
+        cor:AGING[i].dias > 12 ? "var(--warn)" : "var(--primary)"
+      });
+    }
+    desenharBarras("barras-aging", itensAging);
+  }
+
+  // ==========================================================
+  // RENDER — auditoria e acessos
+  // ==========================================================
+  function classeAcao(acao){
+    if(acao === "INSERT") return "tag--ins";
+    if(acao === "DELETE") return "tag--del";
+    return "tag--upd";
+  }
+
+  function renderAuditoria(){
+    var html = "", i, j, r, diffs;
+    for(i = 0; i < AUDITORIA.length; i++){
+      r = AUDITORIA[i];
+      diffs = "";
+      for(j = 0; j < r.diffs.length; j++){
+        diffs += '<span class="diff"><strong>' + escapar(r.diffs[j].campo) + ':</strong> ';
+        if(r.diffs[j].de !== null && r.diffs[j].de !== undefined){
+          diffs += '<span class="diff__old">' + escapar(r.diffs[j].de) + "</span> → ";
+        }
+        if(r.diffs[j].para !== null && r.diffs[j].para !== undefined){
+          diffs += '<span class="diff__new">' + escapar(r.diffs[j].para) + "</span>";
+        } else {
+          diffs += '<span class="diff__old">removido</span>';
+        }
+        diffs += "</span>";
+      }
+      html += "<tr>"
+            +   '<td class="mono" style="white-space:nowrap;">' + escapar(r.quando) + "</td>"
+            +   "<td>" + escapar(r.quem) + (r.sistema ? ' <span class="tag tag--sys">integração</span>' : "") + "</td>"
+            +   '<td><span class="tag ' + classeAcao(r.acao) + '">' + escapar(r.acao) + "</span></td>"
+            +   "<td>" + escapar(r.registro) + '<br><span class="mono" style="color:var(--text-muted);">' + escapar(r.tabela) + "</span>"
+            +     (r.lote ? ' <span class="tag tag--warn">lote</span>' : "") + "</td>"
+            +   '<td style="font-size:12px;">' + diffs + "</td>"
+            + "</tr>";
+    }
+    el("tbody-auditoria").innerHTML = html;
+  }
+
+  function renderAcessos(){
+    var html = "", i, r;
+    for(i = 0; i < ACESSOS.length; i++){
+      r = ACESSOS[i];
+      html += "<tr>"
+            +   "<td>" + escapar(r.quem) + "</td>"
+            +   '<td class="num">' + r.dias + " / " + estado.periodo + "</td>"
+            +   '<td class="num">' + r.sessoes + "</td>"
+            +   '<td class="num">' + r.acoes + "</td>"
+            +   '<td class="mono">' + escapar(r.janela) + "</td>"
+            +   "<td>" + escapar(r.ultimo) + "</td>"
+            + "</tr>";
+    }
+    el("tbody-acessos").innerHTML = html;
+
+    var htmlEv = "", j, e;
+    for(j = 0; j < EVENTOS.length; j++){
+      e = EVENTOS[j];
+      htmlEv += "<tr>"
+              +   '<td class="mono" style="white-space:nowrap;">' + escapar(e.quando) + "</td>"
+              +   "<td>" + escapar(e.quem) + "</td>"
+              +   '<td><span class="tag tag--' + escapar(e.tag) + '">' + escapar(e.evento) + "</span></td>"
+              +   '<td style="color:var(--text-muted);">' + escapar(e.detalhe) + "</td>"
+              + "</tr>";
+    }
+    el("tbody-eventos").innerHTML = htmlEv;
+  }
+
+  // ==========================================================
+  // PERFIL E ABAS
+  // ==========================================================
+  function aplicarPerfil(){
+    var ehAdmin = (estado.perfil === "admin");
+    el("tab-auditoria").classList.toggle("hidden", !ehAdmin);
+    el("tab-acessos").classList.toggle("hidden", !ehAdmin);
+    el("campo-vendedor").classList.toggle("hidden", !ehAdmin);
+    el("btn-exportar").classList.toggle("hidden", !ehAdmin);
+    el("titulo-pagina").textContent = ehAdmin ? "Produtividade e Auditoria" : "Meu desempenho";
+    el("subtitulo-pagina").textContent = ehAdmin
+      ? "Visão consolidada da equipe comercial"
+      : "Seus números e sua posição em relação à equipe";
+
+    // se estava numa aba restrita, volta para a visao geral
+    if(!ehAdmin){
+      var atual = document.querySelector('.tabs__btn[aria-selected="true"]');
+      if(atual && (atual.dataset.aba === "auditoria" || atual.dataset.aba === "acessos")){
+        trocarAba("visao");
+      }
+    }
+  }
+
+  function trocarAba(nome){
+    var botoes = document.querySelectorAll(".tabs__btn");
+    var i;
+    for(i = 0; i < botoes.length; i++){
+      botoes[i].setAttribute("aria-selected", botoes[i].dataset.aba === nome ? "true" : "false");
+    }
+    var abas = ["visao","produtividade","funil","auditoria","acessos"];
+    for(i = 0; i < abas.length; i++){
+      el("aba-" + abas[i]).classList.toggle("hidden", abas[i] !== nome);
+    }
+  }
+
+  function renderTudo(){
+    try {
+      renderKpis();
+      el("grafico-serie").innerHTML = desenharLinha(serieDiaria());
+      renderAlertas();
+      renderRanking();
+      renderFunil();
+      renderDistribuicoes();
+      renderAuditoria();
+      renderAcessos();
+    } catch(e){
+      el("kpis").innerHTML = '<p class="empty">Não foi possível montar o relatório. Recarregue a página.</p>';
+    }
+  }
+
+  // ==========================================================
+  // EVENTOS
+  // ==========================================================
+  el("perfil-select").addEventListener("change", function(ev){
+    estado.perfil = ev.target.value;
+    if(estado.perfil === "vendedor") estado.vendedor = "todos";
+    aplicarPerfil();
+    renderTudo();
+  });
+
+  el("filtro-periodo").addEventListener("change", function(ev){
+    estado.periodo = parseInt(ev.target.value, 10);
+    renderTudo();
+  });
+
+  el("filtro-vendedor").addEventListener("change", function(ev){
+    estado.vendedor = ev.target.value;
+    renderTudo();
+  });
+
+  el("filtro-origem").addEventListener("change", function(ev){
+    estado.origem = ev.target.value;
+    renderTudo();
+  });
+
+  el("btn-aplicar").addEventListener("click", renderTudo);
+
+  el("btn-exportar").addEventListener("click", function(){
+    window.alert("No sistema real: gera o XLSX e registra um evento de exportação na trilha de auditoria (exigência de LGPD).");
+  });
+
+  var botoesAba = document.querySelectorAll(".tabs__btn");
+  for(var b = 0; b < botoesAba.length; b++){
+    botoesAba[b].addEventListener("click", function(ev){
+      trocarAba(ev.currentTarget.dataset.aba);
+    });
+  }
+
+  // ==========================================================
+  // INÍCIO
+  // ==========================================================
+  aplicarPerfil();
+  trocarAba("visao");
+  renderTudo();
+})();
+</script>
+</body>
+</html>
