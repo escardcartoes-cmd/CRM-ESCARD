@@ -237,6 +237,16 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   .metas-grid .metas-ind{font-weight:600;}
   .metas-grid input{width:96px; font:inherit; padding:6px 8px; border:1px solid var(--border); border-radius:6px; text-align:right;}
 
+  /* ===== Importador B2B (Fase 8) ===== */
+  .import-radio{display:flex; gap:8px; align-items:flex-start; font-size:13px; font-weight:400; margin-top:6px; cursor:pointer;}
+  .import-radio input{margin-top:3px; flex:none;}
+  .import-prev{width:100%; border-collapse:collapse; font-size:12px; margin:6px 0;}
+  .import-prev td{padding:3px 8px; border-bottom:1px solid var(--border); vertical-align:top;}
+  .import-prev td:first-child{color:var(--text-muted); white-space:nowrap; width:130px;}
+  .import-maptag{display:inline-block; background:var(--bg); border-radius:4px; padding:1px 6px; margin:2px 3px 0 0; font-size:11px;}
+  .import-maptag--ok{color:var(--won);}
+  .import-maptag--off{color:var(--text-muted); text-decoration:line-through;}
+
   /* ===== Modal ===== */
   .modal-overlay{
     position:fixed; inset:0; background:rgba(0,0,0,.4); display:flex; align-items:center;
@@ -1021,14 +1031,21 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
     </p>
 
     <div style="background:var(--bg); border-radius:8px; padding:12px; margin-bottom:14px; font-size:12px;">
-      <strong style="display:block; margin-bottom:6px;">Colunas reconhecidas (use estes títulos):</strong>
-      <code style="font-size:11px; line-height:1.8;">nome</code> (obrigatório), <code style="font-size:11px;">contato</code>, <code style="font-size:11px;">telefone</code>, <code style="font-size:11px;">whatsapp</code>, <code style="font-size:11px;">cnpj</code>, <code style="font-size:11px;">email</code>, <code style="font-size:11px;">valor</code>, <code style="font-size:11px;">origem</code>, <code style="font-size:11px;">data</code> (AAAA-MM-DD)
+      <strong style="display:block; margin-bottom:6px;">Reconhecimento automático de colunas</strong>
+      Reconhece os títulos comuns (<code style="font-size:11px;">nome</code>, <code style="font-size:11px;">razão social</code>, <code style="font-size:11px;">cnpj</code>, <code style="font-size:11px;">telefone</code>, <code style="font-size:11px;">whatsapp</code>, <code style="font-size:11px;">email</code>, <code style="font-size:11px;">sócios</code>, <code style="font-size:11px;">município</code>, <code style="font-size:11px;">cnae</code>, <code style="font-size:11px;">porte</code>…) mesmo com acento, maiúsculas ou underscore. Colunas desconhecidas são ignoradas.
       <button type="button" id="download-modelo" class="btn" style="margin-top:10px; width:100%; font-size:12px;">↓ Baixar planilha modelo</button>
     </div>
 
     <div class="field">
       <label>Etapa do funil para os leads importados</label>
       <select id="import-stage"></select>
+    </div>
+
+    <div class="field hidden" id="import-title-choice-field">
+      <label>Como nomear o lead</label>
+      <label class="import-radio"><input type="radio" name="import-title-mode" value="fantasia" checked> Nome fantasia, com razão social quando não houver</label>
+      <label class="import-radio"><input type="radio" name="import-title-mode" value="razao"> Razão social sempre</label>
+      <label class="import-radio"><input type="radio" name="import-title-mode" value="razao_fantasia"> Razão social, com nome fantasia quando não houver</label>
     </div>
 
     <div class="field hidden" id="import-owner-field">
@@ -1042,6 +1059,15 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
     </div>
 
     <div id="import-preview" style="font-size:12px; color:var(--text-muted); margin-bottom:10px;"></div>
+
+    <div class="hidden" id="import-dedup" style="font-size:12px; margin-bottom:10px;"></div>
+
+    <div class="hidden" id="import-progress" style="margin-bottom:10px;">
+      <div style="background:var(--bg); border-radius:6px; height:10px; overflow:hidden;">
+        <div id="import-progress-bar" style="height:100%; width:0%; background:var(--primary); transition:width .2s ease;"></div>
+      </div>
+      <div id="import-progress-text" style="font-size:12px; color:var(--text-muted); margin-top:4px;"></div>
+    </div>
 
     <div class="modal-actions">
       <div></div>
@@ -1921,7 +1947,8 @@ async function openDealModal(dealId){
     document.getElementById('deal-cnpj').value = deal.cnpj || '';
     document.getElementById('deal-value').value = deal.value || '';
     document.getElementById('deal-close-date').value = deal.expected_close_date || '';
-    document.getElementById('deal-source').value = deal.source || '';
+    // Origem: lê deals.origem; cai para o legado deals.source quando origem é null.
+    document.getElementById('deal-source').value = (deal.origem != null ? deal.origem : deal.source) || '';
     document.getElementById('deal-stage').value = deal.stage_id;
     document.getElementById('deal-followup').value = deal.next_followup_date || '';
     document.getElementById('deal-loss-reason').value = deal.loss_reason || '';
@@ -2157,7 +2184,7 @@ dealForm.addEventListener('submit', async (e)=>{
     cnpj: document.getElementById('deal-cnpj').value.trim() || null,
     value: document.getElementById('deal-value').value || 0,
     expected_close_date: document.getElementById('deal-close-date').value || null,
-    source: document.getElementById('deal-source').value.trim() || null,
+    origem: document.getElementById('deal-source').value.trim() || null,
     stage_id: document.getElementById('deal-stage').value,
     next_followup_date: document.getElementById('deal-followup').value || null,
     loss_reason: document.getElementById('deal-loss-reason').value || null,
@@ -2944,6 +2971,10 @@ document.getElementById('import-btn').addEventListener('click', async ()=>{
 
   document.getElementById('import-file').value = '';
   document.getElementById('import-preview').textContent = '';
+  document.getElementById('import-dedup').classList.add('hidden');
+  document.getElementById('import-progress').classList.add('hidden');
+  document.getElementById('import-title-choice-field').classList.add('hidden');
+  importRegistros = [];
   importModal.classList.remove('hidden');
 });
 
@@ -2964,22 +2995,328 @@ document.getElementById('download-modelo').addEventListener('click', ()=>{
   URL.revokeObjectURL(url);
 });
 
-// Mapeia os títulos da planilha para os campos do sistema (aceita variações comuns)
-function mapearColuna(titulo){
-  const t = (titulo||'').toString().trim().toLowerCase();
-  if(['nome','empresa','lead','cliente','razao social','razão social'].includes(t)) return 'title';
-  if(['contato','nome do contato','responsavel','responsável'].includes(t)) return 'contact_name';
-  if(['telefone','fone','celular','tel'].includes(t)) return 'contact_phone';
-  if(['whatsapp','whats','zap'].includes(t)) return 'whatsapp';
-  if(['cnpj','cnpj/cpf','documento'].includes(t)) return 'cnpj';
-  if(['email','e-mail','mail'].includes(t)) return 'contact_email';
-  if(['valor','valor do negocio','valor do negócio','preco','preço','r$'].includes(t)) return 'value';
-  if(['origem','fonte','source'].includes(t)) return 'source';
-  if(['data','data prevista','fechamento','data de fechamento','previsao','previsão'].includes(t)) return 'expected_close_date';
+// ============================================================
+// IMPORTADOR B2B (Fase 8) — reconhecimento por sinônimo + transformação
+// ============================================================
+// Normaliza título de coluna: minúsculo, sem acento, sem espaço, sem underscore.
+function normalizarTitulo(t){
+  return (t == null ? '' : String(t))
+    .toLowerCase()
+    .normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]', 'g'), '')
+    .replace(/[\s_]+/g, '');
+}
+
+// Sinônimos normalizados -> campo. Superset dos títulos antigos (zero regressão).
+// Telefone/WhatsApp NÃO entram aqui: o número final é decidido pela lógica 2.3.
+var IMPORT_SINONIMOS = {
+  nome:'title', nomefantasia:'title', fantasia:'title', empresa:'title', nomeempresa:'title', lead:'title', cliente:'title',
+  razaosocial:'razao_social', razao:'razao_social', socialname:'razao_social',
+  cnpj:'cnpj', cnpjcpf:'cnpj', documento:'cnpj',
+  contato:'contact_name', nomedocontato:'contact_name', responsavel:'contact_name', representante:'contact_name',
+  email:'contact_email', emails:'contact_email', contatoemail:'contact_email', mail:'contact_email',
+  municipio:'city', cidade:'city',
+  bairro:'bairro',
+  cnaeprincipal:'cnae', cnae:'cnae', atividade:'cnae', atividadeprincipal:'cnae',
+  porte:'porte',
+  faixafaturamento:'faixa_faturamento', faturamento:'faixa_faturamento', receita:'faixa_faturamento',
+  socios:'socios', socio:'socios', quadrosocietario:'socios',
+  valor:'value', valordonegocio:'value', preco:'value',
+  origem:'origem', fonte:'origem', source:'origem',
+  data:'expected_close_date', dataprevista:'expected_close_date', fechamento:'expected_close_date',
+  datadefechamento:'expected_close_date', previsao:'expected_close_date'
+};
+var IMPORT_TEL_FONTES = { telefone:1, telefone1:1, telefone2:1, telefonefixo:1, telefonecelular:1, fone:1, tel:1, celular:1, whatsapp:1, whats:1, zap:1, outrostelefones:1 };
+
+function mapearColuna(titulo){ return IMPORT_SINONIMOS[normalizarTitulo(titulo)] || null; }
+function ehColunaTelefone(titulo){ return !!IMPORT_TEL_FONTES[normalizarTitulo(titulo)]; }
+
+// Município: mesma regra da 0003. Minúsculo em tudo, 1ª letra de cada palavra
+// maiúscula, EXCETO de/do/da/dos/das/e quando não são a primeira palavra.
+var IMPORT_MINUSC = { de:1, do:1, da:1, dos:1, das:1, e:1 };
+function normalizarMunicipio(s){
+  if(s == null) return null;
+  var txt = String(s).trim();
+  if(!txt) return null;
+  var palavras = txt.toLowerCase().split(/\s+/), out = [], i, w;
+  for(i = 0; i < palavras.length; i++){
+    w = palavras[i];
+    if(!w) continue;
+    if(i > 0 && IMPORT_MINUSC[w]) out.push(w);
+    else out.push(w.charAt(0).toUpperCase() + w.slice(1));
+  }
+  return out.join(' ');
+}
+
+function soDigitos(s){ return (s == null ? '' : String(s)).replace(/\D/g, ''); }
+
+function primeiroEmail(s){
+  if(!s) return null;
+  var e = String(s).split(',')[0].trim();
+  return e || null;
+}
+
+// Telefone/WhatsApp (2.3): junta telefone_1/2/outros, dedup, classifica.
+function extrairTelefones(row, titulos){
+  var brutos = [], i, k, v, partes;
+  for(i = 0; i < titulos.length; i++){
+    if(!ehColunaTelefone(titulos[i])) continue;
+    v = row[titulos[i]];
+    if(v == null || v === '') continue;
+    partes = String(v).split(',');
+    for(k = 0; k < partes.length; k++) brutos.push(soDigitos(partes[k]));
+  }
+  var vistos = {}, nums = [], d;
+  for(i = 0; i < brutos.length; i++){
+    d = brutos[i];
+    if(d.length < 8) continue;
+    if(vistos[d]) continue;
+    vistos[d] = 1; nums.push(d);
+  }
+  var whats = null, restantes = [], telefone = null;
+  for(i = 0; i < nums.length; i++){
+    d = nums[i];
+    if(whats === null && d.length === 11 && d.charAt(2) === '9') whats = d;
+    else restantes.push(d);
+  }
+  for(i = 0; i < restantes.length; i++){ if(restantes[i].length === 10){ telefone = restantes[i]; break; } }
+  if(telefone === null && restantes.length) telefone = restantes[0];
+  return { whatsapp: whats, contact_phone: telefone };
+}
+
+// Primeiro sócio pessoa física (2.2 / emenda 3). Descarta itens de PJ.
+var IMPORT_PJ = ['ltda','s.a','s. a','s/a','participacoes','eireli','epp','sociedade','holding','empreendimentos','servicos'];
+function ehPessoaJuridica(nome){
+  var n = String(nome).toLowerCase().normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]', 'g'), ''), i;
+  for(i = 0; i < IMPORT_PJ.length; i++){ if(n.indexOf(IMPORT_PJ[i]) !== -1) return true; }
+  return false;
+}
+function primeiroSocioPF(sociosStr){
+  if(!sociosStr) return null;
+  var itens = String(sociosStr).split('|'), i, nome;
+  for(i = 0; i < itens.length; i++){
+    nome = itens[i].trim();
+    if(nome && !ehPessoaJuridica(nome)) return nome;
+  }
   return null;
 }
 
-let leadsParaImportar = [];
+// Equivalência de razão social (emenda 2): igual após remover forma societária,
+// pontuação e acento. Abreviação NÃO é equivalência.
+function nucleoRazao(s){
+  var n = ' ' + String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]', 'g'), '') + ' ';
+  n = n.replace(/[.,/&-]/g, ' ');
+  n = n.replace(/\bltda\b/g, ' ').replace(/\beireli\b/g, ' ').replace(/\bepp\b/g, ' ')
+       .replace(/\bme\b/g, ' ').replace(/\bs\s+a\b/g, ' ').replace(/\bsa\b/g, ' ');
+  return n.replace(/\s+/g, ' ').trim();
+}
+function equivalenteRazao(title, razao){
+  if(!title || !razao) return false;
+  return nucleoRazao(title) === nucleoRazao(razao);
+}
+
+// ---- Estado do importador ----
+var importRows = [];        // linhas cruas
+var importTitulos = [];     // títulos originais, em ordem
+var importMapa = {};        // título original -> campo
+var importTemFantasia = false;
+var importTemRazao = false;
+var importNomeArquivo = '';
+var importDup = { existentes: {}, lista: [] };
+var importRegistros = [];   // transformados
+
+function importModoTitulo(){
+  var r = document.querySelector('input[name="import-title-mode"]:checked');
+  return r ? r.value : 'fantasia';
+}
+
+// Valor da primeira coluna mapeada para um campo.
+function valorColunaImport(row, campo){
+  var t;
+  for(t in importMapa){
+    if(Object.prototype.hasOwnProperty.call(importMapa, t) && importMapa[t] === campo){
+      var v = row[t];
+      return (v == null) ? '' : String(v).trim();
+    }
+  }
+  return '';
+}
+
+function transformarLinhaImport(row, modo){
+  var fantasia = valorColunaImport(row, 'title');
+  var razao = valorColunaImport(row, 'razao_social');
+  var title = (modo === 'fantasia') ? (fantasia || razao) : (razao || fantasia);
+  title = (title || '').trim();
+  if(!title) return null;
+
+  var razaoFinal = razao || null;
+  if(razaoFinal && equivalenteRazao(title, razaoFinal)) razaoFinal = null;
+
+  var contato = valorColunaImport(row, 'contact_name');
+  var socios = valorColunaImport(row, 'socios');
+  var contactName = contato || primeiroSocioPF(socios) || null;
+
+  var tels = extrairTelefones(row, importTitulos);
+  var dataFech = valorColunaImport(row, 'expected_close_date');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(dataFech)) dataFech = null;
+
+  return {
+    title: title,
+    razao_social: razaoFinal,
+    contact_name: contactName,
+    contact_phone: tels.contact_phone,
+    whatsapp: tels.whatsapp,
+    contact_email: primeiroEmail(valorColunaImport(row, 'contact_email')),
+    cnpj: valorColunaImport(row, 'cnpj') || null,
+    city: normalizarMunicipio(valorColunaImport(row, 'city')),
+    bairro: valorColunaImport(row, 'bairro') || null,
+    cnae: valorColunaImport(row, 'cnae') || null,
+    porte: valorColunaImport(row, 'porte') || null,
+    faixa_faturamento: valorColunaImport(row, 'faixa_faturamento') || null,
+    socios: socios || null,
+    origem: valorColunaImport(row, 'origem') || null,
+    value: parseValorBR(valorColunaImport(row, 'value')) || 0,
+    expected_close_date: dataFech
+  };
+}
+
+function transformarImport(){
+  var modo = importModoTitulo(), regs = [], i, reg;
+  for(i = 0; i < importRows.length; i++){ reg = transformarLinhaImport(importRows[i], modo); if(reg) regs.push(reg); }
+  importRegistros = regs;
+}
+
+async function lerArquivoImport(file){
+  var nome = file.name || '';
+  var buf = await file.arrayBuffer();
+  if(/\.(csv|txt)$/i.test(nome)){
+    // Detecta o separador na 1ª linha (ASCII-safe), mas parseia o buffer cru para
+    // preservar a detecção de codepage do SheetJS (arquivos latin1 antigos).
+    var txt = new TextDecoder('utf-8').decode(buf.slice(0, 4096));
+    var sep = detectarSeparadorImport(txt);
+    var wbc = XLSX.read(buf, { type: 'array', FS: sep, raw: false });
+    return XLSX.utils.sheet_to_json(wbc.Sheets[wbc.SheetNames[0]], { defval: '' });
+  }
+  var wb = XLSX.read(buf, { type: 'array' });
+  return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+}
+function detectarSeparadorImport(txt){
+  var linha = txt.split(/\r?\n/)[0] || '';
+  var pv = (linha.match(/;/g) || []).length;
+  var vg = (linha.match(/,/g) || []).length;
+  return pv >= vg ? ';' : ',';
+}
+
+// Deduplicação: UMA chamada com todos os CNPJs do arquivo.
+async function checarDuplicatasImport(){
+  importDup = { existentes: {}, lista: [] };
+  var cnpjs = [], vistos = {}, i, d;
+  for(i = 0; i < importRegistros.length; i++){
+    d = soDigitos(importRegistros[i].cnpj);
+    if(d && !vistos[d]){ vistos[d] = 1; cnpjs.push(d); }
+  }
+  if(!cnpjs.length) return;
+  try {
+    var r = await db.rpc('cnpjs_existentes', { p_cnpjs: cnpjs });
+    if(r.error) throw r.error;
+    var dados = r.data || [];
+    for(i = 0; i < dados.length; i++){
+      importDup.existentes[dados[i].cnpj_digitos] = 1;
+      importDup.lista.push(dados[i]);
+    }
+  } catch(e){ importDup = { existentes: {}, lista: [], erro: true }; }
+}
+
+function renderImportPreview(){
+  var preview = document.getElementById('import-preview');
+  if(!importRegistros.length){ preview.innerHTML = '<span style="color:var(--lost);">Nenhuma linha válida no arquivo.</span>'; return; }
+  var campos = [
+    ['title','Nome'], ['razao_social','Razão social'], ['contact_name','Contato'], ['socios','Quadro societário'],
+    ['contact_phone','Telefone'], ['whatsapp','WhatsApp'], ['contact_email','E-mail'], ['cnpj','CNPJ'],
+    ['city','Município'], ['bairro','Bairro'], ['porte','Porte'], ['cnae','CNAE'], ['faixa_faturamento','Faixa faturamento'], ['origem','Origem']
+  ];
+  var html = '<div style="color:var(--won); font-weight:600; margin-bottom:6px;">✓ ' + importRegistros.length + ' lead(s) prontos. Prévia das 5 primeiras:</div>';
+  var n = Math.min(5, importRegistros.length), i, j, val;
+  for(i = 0; i < n; i++){
+    html += '<table class="import-prev">';
+    for(j = 0; j < campos.length; j++){
+      val = importRegistros[i][campos[j][0]];
+      if(val == null || val === '' || val === 0) continue;
+      html += '<tr><td>' + escapeHtml(campos[j][1]) + '</td><td>' + escapeHtml(String(val)) + '</td></tr>';
+    }
+    html += '</table>';
+    if(i < n - 1) html += '<hr style="border:none; border-top:1px dashed var(--border); margin:4px 0;">';
+  }
+  html += renderImportMapeamento();
+  preview.innerHTML = html;
+}
+function renderImportMapeamento(){
+  var html = '<div style="margin-top:10px;"><strong style="font-size:12px;">Colunas reconhecidas / ignoradas:</strong><div style="margin-top:4px;">';
+  var i, t, campo;
+  for(i = 0; i < importTitulos.length; i++){
+    t = importTitulos[i];
+    campo = importMapa[t] || (ehColunaTelefone(t) ? '(telefone)' : null);
+    if(campo) html += '<span class="import-maptag import-maptag--ok">' + escapeHtml(t) + ' → ' + escapeHtml(campo) + '</span>';
+    else html += '<span class="import-maptag import-maptag--off">' + escapeHtml(t) + '</span>';
+  }
+  html += '</div></div>';
+  return html;
+}
+
+function contarDuplicadasImport(){
+  var dupSet = importDup.existentes || {}, i, d, n = 0;
+  for(i = 0; i < importRegistros.length; i++){ d = soDigitos(importRegistros[i].cnpj); if(d && dupSet[d]) n++; }
+  return n;
+}
+function renderImportDedup(){
+  var box = document.getElementById('import-dedup');
+  box.classList.remove('hidden');
+  if(importDup.erro){
+    box.innerHTML = '<span style="color:#b45309;">Não foi possível checar duplicidade por CNPJ agora. É possível importar mesmo assim.</span>';
+    return;
+  }
+  var total = importRegistros.length, nDup = contarDuplicadasImport(), novas = total - nDup;
+  var html = '<div style="background:var(--bg); border-radius:8px; padding:10px;">'
+    + '<div><strong>' + total + '</strong> empresas · <strong style="color:var(--won);">' + novas + '</strong> novas · <strong style="color:var(--lost);">' + nDup + '</strong> já existem no CRM</div>';
+  if(nDup > 0){
+    html += '<label style="display:flex; gap:8px; align-items:center; margin-top:8px; font-weight:400;"><input type="checkbox" id="import-ignore-dups" checked> Ignorar as que já existem</label>';
+    var lista = importDup.lista.slice(0, 10), i;
+    html += '<div style="margin-top:8px; color:var(--text-muted);">Exemplos já no CRM:</div><ul style="margin:4px 0 0 16px;">';
+    for(i = 0; i < lista.length; i++){
+      html += '<li>' + escapeHtml(lista[i].titulo || '—') + ' · ' + escapeHtml(lista[i].responsavel || '—') + ' · ' + escapeHtml(lista[i].etapa || '—') + '</li>';
+    }
+    html += '</ul>';
+  }
+  html += '</div>';
+  box.innerHTML = html;
+}
+
+function montarRegistroImport(l, stageId, ownerId){
+  return {
+    title: l.title,
+    razao_social: l.razao_social || null,
+    contact_name: l.contact_name || null,
+    contact_phone: l.contact_phone || null,
+    contact_email: l.contact_email || null,
+    whatsapp: l.whatsapp || null,
+    cnpj: l.cnpj || null,
+    city: l.city || null,
+    bairro: l.bairro || null,
+    cnae: l.cnae || null,
+    porte: l.porte || null,
+    faixa_faturamento: l.faixa_faturamento || null,
+    socios: l.socios || null,
+    origem: l.origem || null,
+    value: l.value || 0,
+    expected_close_date: l.expected_close_date || null,
+    stage_id: stageId,
+    owner_id: ownerId
+  };
+}
+
+// Re-transforma e re-renderiza a prévia ao trocar a escolha de nome.
+document.querySelectorAll('input[name="import-title-mode"]').forEach(function(r){
+  r.addEventListener('change', function(){ transformarImport(); renderImportPreview(); });
+});
 
 // Converte valores monetários, aceitando formato BR (1.500,00) e internacional (1500.00)
 function parseValorBR(val){
@@ -3009,102 +3346,107 @@ function parseValorBR(val){
   return isNaN(n) ? 0 : n;
 }
 
-document.getElementById('import-file').addEventListener('change', async (e)=>{
-  const file = e.target.files[0];
-  const preview = document.getElementById('import-preview');
-  leadsParaImportar = [];
-  if(!file){ preview.textContent=''; return; }
+document.getElementById('import-file').addEventListener('change', async function(e){
+  var file = e.target.files[0];
+  var preview = document.getElementById('import-preview');
+  document.getElementById('import-dedup').classList.add('hidden');
+  document.getElementById('import-progress').classList.add('hidden');
+  document.getElementById('import-title-choice-field').classList.add('hidden');
+  importRegistros = []; importRows = []; importTitulos = []; importMapa = {};
+  if(!file){ preview.textContent = ''; return; }
+  importNomeArquivo = file.name || '';
+  preview.textContent = 'Lendo arquivo…';
 
   try {
-    const data = await file.arrayBuffer();
-    const wb = XLSX.read(data, { type: 'array' });
-    const sheet = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+    var rows = await lerArquivoImport(file);
+    if(!rows.length){ preview.innerHTML = '<span style="color:var(--lost);">A planilha está vazia.</span>'; return; }
 
-    if(!rows.length){
-      preview.innerHTML = '<span style="color:var(--lost);">A planilha está vazia.</span>';
+    importRows = rows;
+    importTitulos = Object.keys(rows[0]);
+    importMapa = {};
+    var i, campo, t;
+    for(i = 0; i < importTitulos.length; i++){ campo = mapearColuna(importTitulos[i]); if(campo) importMapa[importTitulos[i]] = campo; }
+
+    importTemFantasia = false; importTemRazao = false;
+    for(t in importMapa){
+      if(importMapa[t] === 'title') importTemFantasia = true;
+      if(importMapa[t] === 'razao_social') importTemRazao = true;
+    }
+    if(!importTemFantasia && !importTemRazao){
+      preview.innerHTML = '<span style="color:var(--lost);">Não encontrei coluna de <strong>nome</strong> nem <strong>razão social</strong>. Verifique os títulos da planilha.</span>';
       return;
     }
 
-    // Descobre o mapeamento das colunas a partir dos títulos
-    const titulos = Object.keys(rows[0]);
-    const mapa = {};
-    titulos.forEach(t=>{ const campo = mapearColuna(t); if(campo) mapa[t] = campo; });
+    // Rádio de escolha do nome: só quando o arquivo tem AS DUAS colunas.
+    document.getElementById('import-title-choice-field').classList.toggle('hidden', !(importTemFantasia && importTemRazao));
 
-    const temNome = Object.values(mapa).includes('title');
-    if(!temNome){
-      preview.innerHTML = '<span style="color:var(--lost);">Não encontrei a coluna <strong>nome</strong> (ou empresa). Verifique os títulos da planilha.</span>';
-      return;
-    }
-
-    // Converte as linhas
-    leadsParaImportar = rows.map(row=>{
-      const lead = {};
-      for(const [titulo, campo] of Object.entries(mapa)){
-        let val = row[titulo];
-        if(campo === 'value'){
-          val = parseValorBR(val);
-        } else if(campo === 'expected_close_date'){
-          val = String(val).trim();
-          if(!/^\d{4}-\d{2}-\d{2}$/.test(val)) val = null; // só aceita AAAA-MM-DD
-        } else {
-          val = String(val).trim() || null;
-        }
-        lead[campo] = val;
-      }
-      return lead;
-    }).filter(l=> l.title); // descarta linhas sem nome
-
-    preview.innerHTML = '<span style="color:var(--won);">✓ '+leadsParaImportar.length+' lead(s) prontos para importar.</span>';
+    transformarImport();
+    await checarDuplicatasImport();
+    renderImportPreview();
+    renderImportDedup();
   } catch(err){
-    preview.innerHTML = '<span style="color:var(--lost);">Erro ao ler o arquivo: '+err.message+'</span>';
-    leadsParaImportar = [];
+    preview.innerHTML = '<span style="color:var(--lost);">Erro ao ler o arquivo: ' + escapeHtml(err && err.message ? err.message : String(err)) + '</span>';
+    importRegistros = [];
   }
 });
 
-document.getElementById('confirm-import-btn').addEventListener('click', async ()=>{
-  if(!leadsParaImportar.length){
-    showToast('Selecione um arquivo válido primeiro.', 'err');
-    return;
-  }
-  const stageId = document.getElementById('import-stage').value;
+document.getElementById('confirm-import-btn').addEventListener('click', async function(){
+  if(!importRegistros.length){ showToast('Selecione um arquivo válido primeiro.', 'err'); return; }
+  var stageId = document.getElementById('import-stage').value;
 
   // Dono dos leads: admin escolhe no seletor; vendedor recebe sempre a si mesmo.
-  let ownerId = currentProfile.id;
+  var ownerId = currentProfile.id;
   if(isAdmin()){
-    const escolhido = document.getElementById('import-owner').value;
-    // Valida que o id escolhido é um profile conhecido (defesa contra valor adulterado).
-    const valido = (profiles || []).some(p => p.id === escolhido);
+    var escolhido = document.getElementById('import-owner').value;
+    var valido = (profiles || []).some(function(p){ return p.id === escolhido; });
     if(escolhido && valido) ownerId = escolhido;
   }
 
-  const btn = document.getElementById('confirm-import-btn');
+  // Filtra duplicadas por CNPJ se a opção estiver marcada.
+  var chk = document.getElementById('import-ignore-dups');
+  var ignorar = !!(chk && chk.checked);
+  var dupSet = importDup.existentes || {};
+  var aInserir = [], ignorados = 0, i, d;
+  for(i = 0; i < importRegistros.length; i++){
+    d = soDigitos(importRegistros[i].cnpj);
+    if(ignorar && d && dupSet[d]){ ignorados++; continue; }
+    aInserir.push(montarRegistroImport(importRegistros[i], stageId, ownerId));
+  }
+  if(!aInserir.length){ showToast('Nada a importar (todas já existem no CRM).', 'err'); return; }
+
+  var btn = document.getElementById('confirm-import-btn');
   btn.disabled = true; btn.textContent = 'Importando...';
+  var prog = document.getElementById('import-progress');
+  var bar = document.getElementById('import-progress-bar');
+  var ptxt = document.getElementById('import-progress-text');
+  prog.classList.remove('hidden');
 
-  // Monta os registros com etapa e dono
-  const registros = leadsParaImportar.map(l=>({
-    title: l.title,
-    contact_name: l.contact_name || null,
-    contact_phone: l.contact_phone || null,
-    contact_email: l.contact_email || null,
-    whatsapp: l.whatsapp || null,
-    cnpj: l.cnpj || null,
-    value: l.value || 0,
-    source: l.source || null,
-    expected_close_date: l.expected_close_date || null,
-    stage_id: stageId,
-    owner_id: ownerId
-  }));
-
-  const { error } = await db.from('deals').insert(registros);
+  // Lotes de 500: cada lote é uma transação (mesmo txid → auditoria agrupa em "lote de N").
+  var LOTE = 500, inseridos = 0, falhou = null, lote, r;
+  for(i = 0; i < aInserir.length; i += LOTE){
+    lote = aInserir.slice(i, i + LOTE);
+    r = await db.from('deals').insert(lote);
+    if(r.error){ falhou = r.error; break; }
+    inseridos += lote.length;
+    bar.style.width = Math.round((inseridos / aInserir.length) * 100) + '%';
+    ptxt.textContent = inseridos + ' de ' + aInserir.length + ' importados…';
+  }
 
   btn.disabled = false; btn.textContent = 'Importar';
 
-  if(error){
-    showToast('Erro ao importar: ' + error.message, 'err');
+  if(falhou){
+    ptxt.textContent = 'Interrompido: ' + inseridos + ' importados antes da falha.';
+    showToast('Erro no lote: ' + falhou.message + '. ' + inseridos + ' já haviam entrado.', 'err');
+    await loadDeals(); renderAll();
     return;
   }
-  showToast(registros.length + ' lead(s) importados com sucesso!', 'ok');
+
+  // Telemetria/LGPD — não bloqueia o fluxo se falhar.
+  try {
+    await db.rpc('registrar_evento', { p_event_type: 'import', p_entidade: 'deals', p_metadata: { total: inseridos, ignorados_duplicados: ignorados, arquivo: importNomeArquivo } });
+  } catch(e){ /* ignora */ }
+
+  showToast(inseridos + ' lead(s) importados' + (ignorados ? (' · ' + ignorados + ' ignorados por já existirem') : '') + '.', 'ok');
   importModal.classList.add('hidden');
   await loadDeals();
   renderAll();
