@@ -204,8 +204,38 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
     display:inline-block; margin-top:6px; font-size:10px; font-weight:700; color:var(--primary);
     background:#eef2ff; padding:2px 7px; border-radius:20px;
   }
+  .deal-card .dc-edit{display:flex; align-items:center; gap:5px; margin-top:6px; font-size:11px; color:var(--text-muted);}
+  .deal-card .dc-edit-dot{width:7px; height:7px; border-radius:50%; display:inline-block; flex:none;}
+  .deal-card .dc-edit-dot--novo{background:var(--won);}
+  .deal-card .dc-edit-dot--medio{background:#a16207;}
   .stage-won .kanban-col-header{border-top:3px solid var(--won);}
   .stage-lost .kanban-col-header{border-top:3px solid var(--lost);}
+
+  /* ===== Linha do tempo do lead (Fase 5B) ===== */
+  .tl-body{margin-top:8px;}
+  .tl-item{display:flex; gap:8px; padding:8px 0; border-bottom:1px solid var(--border);}
+  .tl-item:last-child{border-bottom:none;}
+  .tl-ico{flex:none; font-size:14px; line-height:1.4;}
+  .tl-main{min-width:0; flex:1;}
+  .tl-top{display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap;}
+  .tl-titulo{font-weight:600; font-size:13px;}
+  .tl-quando{font-size:11px; color:var(--text-muted); white-space:nowrap;}
+  .tl-autor{font-size:11px; color:var(--text-muted);}
+  .tl-det{font-size:12px; margin-top:3px;}
+  .tl-diff{display:block; margin-bottom:2px;}
+  .tl-diff-old{color:var(--lost); text-decoration:line-through;}
+  .tl-diff-new{color:var(--won); font-weight:600;}
+  .tl-nota{color:var(--text); margin-top:2px;}
+  .tl-state{padding:12px; text-align:center; color:var(--text-muted); font-size:13px;}
+  .tl-state-err{color:var(--lost);}
+
+  /* ===== Metas por vendedor (Fase 5C) ===== */
+  .metas-grid{overflow-x:auto;}
+  .metas-grid table{width:100%; border-collapse:collapse; font-size:13px; margin-top:12px; min-width:420px;}
+  .metas-grid th, .metas-grid td{padding:6px 8px; border-bottom:1px solid var(--border); text-align:left;}
+  .metas-grid th{font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted);}
+  .metas-grid .metas-ind{font-weight:600;}
+  .metas-grid input{width:96px; font:inherit; padding:6px 8px; border:1px solid var(--border); border-radius:6px; text-align:right;}
 
   /* ===== Modal ===== */
   .modal-overlay{
@@ -392,6 +422,13 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   #page-relatorios .rel-audit-filtros{display:flex; flex-wrap:wrap; gap:var(--sp-3); margin-bottom:var(--sp-4);}
   #page-relatorios .rel-audit-filtros .rel-field select{font:inherit; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); min-width:150px;}
   #page-relatorios .rel-pager{display:flex; gap:var(--sp-2); align-items:center; justify-content:flex-end; margin-top:var(--sp-3); font-size:13px; color:var(--text-muted);}
+  #page-relatorios .rel-metas-grupo{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); margin:var(--sp-4) 0 var(--sp-2);}
+  #page-relatorios .rel-metas-grupo:first-child{margin-top:0;}
+  #page-relatorios .rel-meta{margin-bottom:var(--sp-3);}
+  #page-relatorios .rel-meta__top{display:flex; justify-content:space-between; gap:var(--sp-2); font-size:13px; margin-bottom:4px; flex-wrap:wrap;}
+  #page-relatorios .rel-meta__nums{color:var(--text-muted); font-variant-numeric:tabular-nums;}
+  #page-relatorios .rel-meta__track{background:var(--bg); border-radius:6px; height:18px; overflow:hidden;}
+  #page-relatorios .rel-meta__fill{height:100%; border-radius:6px; transition:width .4s ease;}
   @media(max-width:400px){
     #page-relatorios .rel-kpi__value{font-size:22px;}
     #page-relatorios .rel-bar-row{grid-template-columns:minmax(70px,1fr) 1.8fr auto;}
@@ -629,6 +666,14 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
         <h3>Usuários</h3>
         <div id="admin-users-list"></div>
       </div>
+      <div class="panel">
+        <h3>Metas por vendedor</h3>
+        <div class="field" style="max-width:320px;">
+          <label for="admin-metas-vendedor">Vendedor</label>
+          <select id="admin-metas-vendedor"></select>
+        </div>
+        <div id="admin-metas-grid"></div>
+      </div>
     </section>
 
     <!-- ============ FASE 4 — RELATÓRIOS (aditivo, isolado) ============ -->
@@ -676,6 +721,13 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
 
       <!-- Visão geral -->
       <section id="rel-aba-visao" role="tabpanel" aria-labelledby="rel-tab-visao">
+        <div class="rel-panel" id="rel-metas-panel">
+          <div class="rel-panel__head">
+            <h3>Progresso das metas</h3>
+            <span class="rel-hint">Sempre relativo a hoje, à semana e ao mês correntes — ignora o filtro de período</span>
+          </div>
+          <div id="rel-metas"></div>
+        </div>
         <div class="rel-kpis" id="rel-kpis"></div>
         <div class="rel-panel">
           <div class="rel-panel__head">
@@ -915,6 +967,14 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
           </div>
         </div>
         <div class="notes-list" id="deal-notes-list"></div>
+      </div>
+
+      <div class="field hidden" id="deal-timeline-section">
+        <div class="field-label">
+          <span>Linha do tempo</span>
+          <button type="button" class="btn btn-slim" id="deal-timeline-toggle" aria-expanded="false">Ver histórico</button>
+        </div>
+        <div class="tl-body hidden" id="deal-timeline-body"></div>
       </div>
 
       <div class="modal-actions">
@@ -1623,6 +1683,21 @@ function selosDoCard(d, stage){
   return selos.length ? `<div class="card-selos">${selos.join('')}</div>` : '';
 }
 
+// Marcador de edição recente (distinto do "parado"): verde ate 2 dias, ambar 3-7, nada apos 7.
+function marcadorEdicao(d){
+  if(!d || !d.updated_at) return '';
+  var quando = new Date(d.updated_at);
+  if(isNaN(quando.getTime())) return '';
+  var hoje = new Date(); hoje.setHours(0,0,0,0);
+  var dia = new Date(quando.getFullYear(), quando.getMonth(), quando.getDate());
+  var dias = Math.round((hoje.getTime() - dia.getTime()) / 86400000);
+  if(dias < 0) dias = 0;
+  if(dias > 7) return '';
+  var classeDot = dias <= 2 ? 'dc-edit-dot--novo' : 'dc-edit-dot--medio';
+  var texto = dias === 0 ? 'editado hoje' : ('editado há ' + dias + 'd');
+  return '<div class="dc-edit"><span class="dc-edit-dot ' + classeDot + '"></span>' + texto + '</div>';
+}
+
 // Render PURO, a partir do estado (kanbanCounts/kanbanCards). Não lê o array `deals`.
 function renderKanban(){
   const kanban = document.getElementById('kanban');
@@ -1641,6 +1716,7 @@ function renderKanban(){
         </div>
         ${selosDoCard(d, stage)}
         ${isAdmin() && d.owner_name ? `<span class="dc-owner">${escapeHtml(d.owner_name)}</span>` : ''}
+        ${marcadorEdicao(d)}
       </div>
     `).join('');
 
@@ -1809,6 +1885,8 @@ async function openDealModal(dealId){
   dealForm.reset();
   document.getElementById('delete-deal-btn').classList.toggle('hidden', !dealId);
   document.getElementById('deal-notes-section').classList.toggle('hidden', !dealId);
+  document.getElementById('deal-timeline-section').classList.toggle('hidden', !dealId);
+  resetTimeline();
 
   if(dealId){
     const deal = deals.find(d=>d.id===dealId);
@@ -1838,6 +1916,121 @@ async function openDealModal(dealId){
   atualizarLinksContato();
   dealModal.classList.remove('hidden');
 }
+
+// ===== Linha do tempo do lead (Fase 5B) — ES5-safe, lazy load ao expandir =====
+var timelineCarregada = false;
+
+function resetTimeline(){
+  timelineCarregada = false;
+  var body = document.getElementById('deal-timeline-body');
+  var toggle = document.getElementById('deal-timeline-toggle');
+  if(body){ body.classList.add('hidden'); body.innerHTML = ''; }
+  if(toggle){ toggle.textContent = 'Ver histórico'; toggle.setAttribute('aria-expanded', 'false'); }
+}
+
+async function alternarTimeline(){
+  var body = document.getElementById('deal-timeline-body');
+  var toggle = document.getElementById('deal-timeline-toggle');
+  if(!body || !toggle) return;
+  var abrir = body.classList.contains('hidden');
+  body.classList.toggle('hidden', !abrir);
+  toggle.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+  toggle.textContent = abrir ? 'Ocultar histórico' : 'Ver histórico';
+  if(abrir && !timelineCarregada && editingDealId){
+    await carregarTimeline(editingDealId);
+  }
+}
+
+async function carregarTimeline(dealId){
+  var body = document.getElementById('deal-timeline-body');
+  if(!body) return;
+  body.innerHTML = '<div class="tl-state">Carregando…</div>';
+  try {
+    var r = await db.rpc('lead_timeline', { p_deal_id: dealId });
+    if(r.error) throw r.error;
+    timelineCarregada = true;
+    renderTimeline(r.data || []);
+  } catch(e){
+    var negado = e && (e.code === '42501' || (e.message && e.message.indexOf('permiss') >= 0));
+    var msg = negado
+      ? 'Você não tem permissão para ver o histórico deste lead.'
+      : 'Não foi possível carregar o histórico.';
+    body.innerHTML = '<div class="tl-state tl-state-err">' + escapeHtml(msg) + '</div>';
+  }
+}
+
+function iconeTimeline(tipo){
+  if(tipo === 'atividade') return '💬';
+  if(tipo === 'etapa') return '➡️';
+  return '✏️';
+}
+
+function valorTimeline(v){
+  if(v === null || v === undefined) return '';
+  if(typeof v === 'object') return JSON.stringify(v);
+  return String(v);
+}
+
+function renderDetalheTimeline(tipo, detalhe){
+  if(!detalhe) return '';
+  if(tipo === 'atividade'){
+    return detalhe.nota ? '<div class="tl-nota">' + escapeHtml(detalhe.nota) + '</div>' : '';
+  }
+  if(tipo === 'etapa'){
+    var dd = detalhe.dias_na_etapa_anterior;
+    if(dd === null || dd === undefined) return '';
+    return '<div class="tl-det">' + (Math.round(Number(dd) * 10) / 10) + ' dias na etapa anterior</div>';
+  }
+  var out = '', k, v;
+  for(k in detalhe){
+    if(Object.prototype.hasOwnProperty.call(detalhe, k)){
+      v = detalhe[k];
+      out += '<span class="tl-diff"><strong>' + escapeHtml(k) + ':</strong> ';
+      if(v && typeof v === 'object'){
+        if(v.de !== null && v.de !== undefined){ out += '<span class="tl-diff-old">' + escapeHtml(valorTimeline(v.de)) + '</span> → '; }
+        if(v.para !== null && v.para !== undefined){ out += '<span class="tl-diff-new">' + escapeHtml(valorTimeline(v.para)) + '</span>'; }
+        else { out += '<span class="tl-diff-old">removido</span>'; }
+      } else {
+        out += escapeHtml(valorTimeline(v));
+      }
+      out += '</span>';
+    }
+  }
+  return out ? '<div class="tl-det">' + out + '</div>' : '';
+}
+
+function formatarQuandoTimeline(s){
+  if(!s) return '';
+  var d = new Date(s);
+  if(isNaN(d.getTime())) return String(s);
+  function p2(n){ return (n < 10 ? '0' : '') + n; }
+  return p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+}
+
+function renderTimeline(linhas){
+  var body = document.getElementById('deal-timeline-body');
+  if(!body) return;
+  if(!linhas.length){ body.innerHTML = '<div class="tl-state">Nenhum evento registrado para este lead.</div>'; return; }
+  var html = '', i, r;
+  for(i = 0; i < linhas.length; i++){
+    r = linhas[i];
+    html += '<div class="tl-item">'
+          +   '<span class="tl-ico">' + iconeTimeline(r.tipo) + '</span>'
+          +   '<div class="tl-main">'
+          +     '<div class="tl-top"><span class="tl-titulo">' + escapeHtml(r.titulo || '') + '</span>'
+          +       '<span class="tl-quando">' + escapeHtml(formatarQuandoTimeline(r.quando)) + '</span></div>'
+          +     '<div class="tl-autor">' + escapeHtml(r.autor || '—') + '</div>'
+          +     renderDetalheTimeline(r.tipo, r.detalhe)
+          +   '</div>'
+          + '</div>';
+  }
+  body.innerHTML = html;
+}
+
+(function(){
+  var tgl = document.getElementById('deal-timeline-toggle');
+  if(tgl){ tgl.addEventListener('click', alternarTimeline); }
+})();
 
 // Mostra o campo "motivo da perda" só quando a etapa selecionada for de perda
 function atualizarCampoMotivoPerda(){
@@ -2582,6 +2775,109 @@ async function renderAdmin(){
       renderAdmin();
     });
   });
+
+  renderMetasConfig();
+}
+
+// ===== Metas por vendedor (Fase 5C) — ES5-safe. Só admin (RPC também barra). =====
+var METAS_IND = [
+  { k: 'atividades',    r: 'Contatos registrados' },
+  { k: 'trabalhados',   r: 'Leads trabalhados' },
+  { k: 'movimentacoes', r: 'Movimentações de etapa' },
+  { k: 'ganhos',        r: 'Leads ganhos' },
+  { k: 'valor_ganho',   r: 'Valor ganho (R$)' }
+];
+var METAS_PER = [
+  { k: 'diaria',  r: 'Diária' },
+  { k: 'semanal', r: 'Semanal' },
+  { k: 'mensal',  r: 'Mensal' }
+];
+
+function popularMetasVendedores(){
+  var sel = document.getElementById('admin-metas-vendedor');
+  if(!sel) return;
+  var lista = profiles || [], opts = '', achou = false, i, p;
+  for(i = 0; i < lista.length; i++){
+    p = lista[i];
+    if(p.role !== 'vendedor') continue;
+    if(p.active === false) continue;
+    opts += '<option value="' + escapeHtml(p.id) + '">' + escapeHtml(p.full_name) + '</option>';
+    achou = true;
+  }
+  sel.innerHTML = achou ? opts : '<option value="">Nenhum vendedor ativo</option>';
+}
+
+async function carregarMetasGrid(ownerId){
+  var host = document.getElementById('admin-metas-grid');
+  if(!host) return;
+  if(!ownerId){ host.innerHTML = '<p class="tl-state">Selecione um vendedor.</p>'; return; }
+  host.innerHTML = '<p class="tl-state">Carregando…</p>';
+  try {
+    var r = await db.from('metas').select('indicador,periodicidade,valor').eq('owner_id', ownerId);
+    if(r.error) throw r.error;
+    var mapa = {}, dados = r.data || [], i;
+    for(i = 0; i < dados.length; i++){ mapa[dados[i].indicador + '|' + dados[i].periodicidade] = dados[i].valor; }
+    renderMetasGrid(ownerId, mapa);
+  } catch(e){
+    host.innerHTML = '<p class="tl-state tl-state-err">Não foi possível carregar as metas.</p>';
+  }
+}
+
+function renderMetasGrid(ownerId, mapa){
+  var host = document.getElementById('admin-metas-grid');
+  var html = '<div class="metas-grid"><table><thead><tr><th>Indicador</th>';
+  var c, i, rk, val;
+  for(c = 0; c < METAS_PER.length; c++){ html += '<th>' + escapeHtml(METAS_PER[c].r) + '</th>'; }
+  html += '</tr></thead><tbody>';
+  for(i = 0; i < METAS_IND.length; i++){
+    html += '<tr><td class="metas-ind">' + escapeHtml(METAS_IND[i].r) + '</td>';
+    for(c = 0; c < METAS_PER.length; c++){
+      rk = METAS_IND[i].k + '|' + METAS_PER[c].k;
+      val = mapa[rk];
+      if(val === undefined || val === null) val = 0;
+      html += '<td><input type="number" min="0" step="1" value="' + escapeHtml(String(val)) + '"'
+            + ' data-ind="' + escapeHtml(METAS_IND[i].k) + '" data-per="' + escapeHtml(METAS_PER[c].k) + '"'
+            + ' aria-label="' + escapeHtml(METAS_IND[i].r + ' ' + METAS_PER[c].r) + '"></td>';
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table><p class="tl-state" style="text-align:left; padding:8px 0 0;">Valor 0 desliga a meta — ela não aparece no painel do vendedor.</p></div>';
+  host.innerHTML = html;
+  var inputs = host.querySelectorAll('input[data-ind]'), j;
+  for(j = 0; j < inputs.length; j++){
+    inputs[j].addEventListener('change', function(ev){ salvarMeta(ownerId, ev.currentTarget); });
+  }
+}
+
+async function salvarMeta(ownerId, input){
+  var valor = parseFloat(input.value);
+  if(isNaN(valor) || valor < 0){ showToast('Valor de meta inválido.', 'err'); input.focus(); return; }
+  try {
+    var r = await db.rpc('metas_salvar', {
+      p_owner: ownerId,
+      p_indicador: input.getAttribute('data-ind'),
+      p_periodicidade: input.getAttribute('data-per'),
+      p_valor: valor
+    });
+    if(r.error) throw r.error;
+    showToast('Meta salva.', 'ok');
+  } catch(e){
+    var msg = (e && e.code === '42501') ? 'Só administradores definem metas.'
+            : ((e && e.code === '22023') ? 'Valor de meta inválido.'
+            : 'Não foi possível salvar a meta.');
+    showToast(msg, 'err');
+  }
+}
+
+function renderMetasConfig(){
+  var sel = document.getElementById('admin-metas-vendedor');
+  if(!sel) return;
+  popularMetasVendedores();
+  if(!sel.getAttribute('data-bound')){
+    sel.setAttribute('data-bound', '1');
+    sel.addEventListener('change', function(){ carregarMetasGrid(sel.value); });
+  }
+  carregarMetasGrid(sel.value);
 }
 
 // ============================================================
@@ -3275,7 +3571,8 @@ async function criarProspeccaoDeContato(contactId){
       { rotulo:"Follow-ups em dia", valor:pct(p.followup_em_dia_pct), foot:"agendados e cumpridos no prazo" },
       { rotulo:"Leads dormentes", valor:numOuTraco(p.dormentes), foot:"sem atividade há mais de " + numOuTraco(p.dormentes_dias) + " dias" },
       { rotulo:"Taxa de conversão", valor:pct(p.conversao_pct), foot:"ganhos ÷ (ganhos + perdidos)" },
-      { rotulo:"Valor ganho", valor:moeda(p.valor_ganho), foot:"fechado no período" }
+      { rotulo:"Valor ganho", valor:moeda(p.valor_ganho), foot:"fechado no período" },
+      { rotulo:"Leads alterados", valor:numOuTraco(p.leads_alterados), foot:"por usuários reais no período" }
     ];
     var html = "", i, cls;
     for(i = 0; i < cards.length; i++){
@@ -3471,6 +3768,10 @@ async function criarProspeccaoDeContato(contactId){
       var p = r.data;
       if(!p){ estadoTexto("rel-kpis", "Nenhuma atividade registrada neste período."); return; }
       ultimo.produtividade = p;
+      try {
+        var rla = await db.rpc("leads_alterados", { p_de: per.de, p_ate: per.ate, p_owner: owner });
+        p.leads_alterados = (rla && !rla.error) ? rla.data : null;
+      } catch(eLA){ p.leads_alterados = null; }
       renderKpis(p);
       renderAlertas(p);
       renderDistribuicoes(p);
@@ -3565,6 +3866,71 @@ async function criarProspeccaoDeContato(contactId){
     } catch(e){ estadoErroTbody("rel-auditoria", 5); }
   }
 
+  // ==========================================================
+  // PROGRESSO DAS METAS (Fase 5D) — ignora o filtro de período
+  // ==========================================================
+  function rotuloIndicador(k){
+    if(k === "atividades") return "Contatos registrados";
+    if(k === "trabalhados") return "Leads trabalhados";
+    if(k === "movimentacoes") return "Movimentações de etapa";
+    if(k === "ganhos") return "Leads ganhos";
+    if(k === "valor_ganho") return "Valor ganho";
+    return k;
+  }
+  function rotuloPeriodicidade(k){
+    if(k === "diaria") return "Hoje";
+    if(k === "semanal") return "Esta semana";
+    if(k === "mensal") return "Este mês";
+    return k;
+  }
+  function barraMeta(r){
+    var pctNum = (r.pct === null || r.pct === undefined) ? 0 : Number(r.pct);
+    var cor = pctNum < 50 ? "var(--lost)" : (pctNum < 90 ? "var(--warn)" : "var(--won)");
+    var larg = Math.max(2, Math.min(100, Math.round(pctNum)));
+    var isValor = r.indicador === "valor_ganho";
+    var real = isValor ? moeda(r.realizado) : numOuTraco(r.realizado);
+    var meta = isValor ? moeda(r.meta) : numOuTraco(r.meta);
+    var nome = rotuloIndicador(r.indicador);
+    if(ehAdminRel() && ownerParam() === null && r.vendedor){ nome += " · " + r.vendedor; }
+    return '<div class="rel-meta">'
+         +   '<div class="rel-meta__top"><span class="rel-meta__label">' + escapar(nome) + '</span>'
+         +     '<span class="rel-meta__nums">' + escapar(real) + ' / ' + escapar(meta) + '  ·  ' + escapar(String(pctNum)) + '%</span></div>'
+         +   '<div class="rel-meta__track"><div class="rel-meta__fill" style="width:' + larg + '%; background:' + cor + ';"></div></div>'
+         + '</div>';
+  }
+  function renderMetasProgresso(rows){
+    var host = el("rel-metas");
+    if(!rows || !rows.length){
+      host.innerHTML = '<div class="rel-state">Nenhuma meta definida.</div>';
+      if(ehAdminRel()){
+        var b = document.createElement("button");
+        b.className = "rel-btn"; b.type = "button"; b.textContent = "Definir metas em Administração";
+        b.addEventListener("click", function(){ var nav = document.getElementById("nav-admin"); if(nav) nav.click(); });
+        host.firstChild.appendChild(document.createTextNode(" "));
+        host.firstChild.appendChild(b);
+      }
+      return;
+    }
+    var ordem = ["diaria", "semanal", "mensal"];
+    var html = "", gi, i, grupo;
+    for(gi = 0; gi < ordem.length; gi++){
+      grupo = [];
+      for(i = 0; i < rows.length; i++){ if(rows[i].periodicidade === ordem[gi]) grupo.push(rows[i]); }
+      if(!grupo.length) continue;
+      html += '<div class="rel-metas-grupo">' + escapar(rotuloPeriodicidade(ordem[gi])) + '</div>';
+      for(i = 0; i < grupo.length; i++){ html += barraMeta(grupo[i]); }
+    }
+    host.innerHTML = html;
+  }
+  async function carregarMetas(){
+    estadoTexto("rel-metas", "Carregando…");
+    try {
+      var r = await db.rpc("metas_progresso", { p_owner: ownerParam() });
+      if(r.error) throw r.error;
+      renderMetasProgresso(r.data || []);
+    } catch(e){ estadoErro("rel-metas"); }
+  }
+
   function carregarTudo(){
     var per = intervalo();
     if(!per.de || !per.ate){
@@ -3577,6 +3943,7 @@ async function criarProspeccaoDeContato(contactId){
     }
     carregado = true;
     var owner = ownerParam();
+    carregarMetas();   // ignora o período; sempre hoje/semana/mês correntes
     carregarProdutividade(per, owner);
     carregarSerie(per, owner);
     carregarFunil(per, owner);
