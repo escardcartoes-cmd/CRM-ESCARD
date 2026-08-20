@@ -429,6 +429,17 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   #page-relatorios .rel-meta__nums{color:var(--text-muted); font-variant-numeric:tabular-nums;}
   #page-relatorios .rel-meta__track{background:var(--bg); border-radius:6px; height:18px; overflow:hidden;}
   #page-relatorios .rel-meta__fill{height:100%; border-radius:6px; transition:width .4s ease;}
+  #page-relatorios .rel-metas-head-right{display:flex; gap:var(--sp-3); align-items:baseline; flex-wrap:wrap;}
+  #page-relatorios .rel-meta-edit{display:flex; align-items:center; gap:var(--sp-3); flex-wrap:wrap; padding:6px 0; border-bottom:1px solid var(--border);}
+  #page-relatorios .rel-meta-edit__label{flex:1; min-width:140px; font-size:13px;}
+  #page-relatorios .rel-meta-edit__input{width:110px; font:inherit; padding:6px 8px; border:1px solid var(--border); border-radius:6px; text-align:right; transition:opacity .15s ease, border-color .15s ease;}
+  #page-relatorios .rel-meta-edit__input--saving{opacity:.5;}
+  #page-relatorios .rel-meta-edit__input--err{border-color:var(--lost);}
+  #page-relatorios .rel-meta-edit__real{font-size:12px; color:var(--text-muted); min-width:130px;}
+  #page-relatorios .rel-meta-edit__status{font-size:12px; min-width:80px;}
+  #page-relatorios .rel-meta-edit__status--saving{color:var(--text-muted);}
+  #page-relatorios .rel-meta-edit__status--ok{color:var(--won); font-weight:700;}
+  #page-relatorios .rel-meta-edit__status--err{color:var(--lost);}
   @media(max-width:400px){
     #page-relatorios .rel-kpi__value{font-size:22px;}
     #page-relatorios .rel-bar-row{grid-template-columns:minmax(70px,1fr) 1.8fr auto;}
@@ -724,7 +735,10 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
         <div class="rel-panel" id="rel-metas-panel">
           <div class="rel-panel__head">
             <h3>Progresso das metas</h3>
-            <span class="rel-hint">Sempre relativo a hoje, à semana e ao mês correntes — ignora o filtro de período</span>
+            <div class="rel-metas-head-right">
+              <span class="rel-hint">Sempre relativo a hoje, à semana e ao mês correntes — ignora o filtro de período</span>
+              <button class="rel-btn hidden" id="rel-metas-editar" type="button">Editar metas</button>
+            </div>
           </div>
           <div id="rel-metas"></div>
         </div>
@@ -2864,16 +2878,19 @@ function renderMetasGrid(ownerId, mapa){
   }
 }
 
+// Caminho ÚNICO de escrita de meta — compartilhado pela grade de Admin e pelo
+// editor inline de Relatórios. Só a RPC; cada consumidor veste a própria UX.
+async function metaGravar(ownerId, indicador, periodicidade, valor){
+  return await db.rpc('metas_salvar', {
+    p_owner: ownerId, p_indicador: indicador, p_periodicidade: periodicidade, p_valor: valor
+  });
+}
+
 async function salvarMeta(ownerId, input){
   var valor = parseFloat(input.value);
   if(isNaN(valor) || valor < 0){ showToast('Valor de meta inválido.', 'err'); input.focus(); return; }
   try {
-    var r = await db.rpc('metas_salvar', {
-      p_owner: ownerId,
-      p_indicador: input.getAttribute('data-ind'),
-      p_periodicidade: input.getAttribute('data-per'),
-      p_valor: valor
-    });
+    var r = await metaGravar(ownerId, input.getAttribute('data-ind'), input.getAttribute('data-per'), valor);
     if(r.error) throw r.error;
     showToast('Meta salva.', 'ok');
   } catch(e){
@@ -3957,12 +3974,183 @@ async function criarProspeccaoDeContato(contactId){
     host.innerHTML = html;
   }
   async function carregarMetas(){
+    // Sair de qualquer edição pendente ao (re)carregar as barras (ex.: Aplicar no topo).
+    if(metasEditando){
+      metasEditando = false;
+      var btnE = el("rel-metas-editar");
+      if(btnE) btnE.textContent = "Editar metas";
+    }
     estadoTexto("rel-metas", "Carregando…");
     try {
       var r = await db.rpc("metas_progresso", { p_owner: ownerParam() });
       if(r.error) throw r.error;
       renderMetasProgresso(r.data || []);
     } catch(e){ estadoErro("rel-metas"); }
+  }
+
+  // ==========================================================
+  // EDIÇÃO INLINE DE METAS (Fase 7) — admin, mesmo caminho de escrita (metaGravar)
+  // ==========================================================
+  var metasEditando = false;
+
+  function metasIndList(){
+    return (typeof window !== "undefined" && window.METAS_IND) ? window.METAS_IND : [];
+  }
+
+  function alternarEdicaoMetas(){
+    if(!ehAdminRel()) return;
+    if(metasEditando){ concluirEdicaoMetas(); } else { entrarEdicaoMetas(); }
+  }
+
+  function entrarEdicaoMetas(){
+    metasEditando = true;
+    var btn = el("rel-metas-editar");
+    if(btn) btn.textContent = "Concluir";
+    renderEditorMetas();
+  }
+
+  function concluirEdicaoMetas(){
+    metasEditando = false;
+    var btn = el("rel-metas-editar");
+    if(btn) btn.textContent = "Editar metas";
+    carregarMetas();   // recarrega o progresso; barras refletem as metas novas
+  }
+
+  function editorVendedorAlvo(){
+    var o = ownerParam();
+    if(o) return o;                          // filtro do topo com vendedor: edita aquele
+    var sel = el("rel-metas-editor-vend");
+    return (sel && sel.value) ? sel.value : null;
+  }
+
+  function renderEditorMetas(){
+    var host = el("rel-metas");
+    var o = ownerParam();
+    var html = "";
+    if(o === null){
+      var ativos = vendedoresAtivos(), i, opts = "";
+      for(i = 0; i < ativos.length; i++){ opts += '<option value="' + escapar(ativos[i].id) + '">' + escapar(ativos[i].full_name) + '</option>'; }
+      if(!opts) opts = '<option value="">Nenhum vendedor ativo</option>';
+      html += '<div class="rel-field" style="max-width:280px; margin-bottom:var(--sp-3);">'
+            +   '<label for="rel-metas-editor-vend">Vendedor</label>'
+            +   '<select id="rel-metas-editor-vend">' + opts + '</select>'
+            + '</div>';
+    }
+    html += '<div id="rel-metas-editor-grade"></div>';
+    html += '<p class="rel-state" style="text-align:left; padding:8px 0 0;">O realizado aparece depois que a meta for definida.</p>';
+    host.innerHTML = html;
+    var selV = el("rel-metas-editor-vend");
+    if(selV){ selV.addEventListener("change", function(){ carregarEditorGrade(selV.value); }); }
+    carregarEditorGrade(editorVendedorAlvo());
+  }
+
+  async function carregarEditorGrade(ownerId){
+    var host = el("rel-metas-editor-grade");
+    if(!host) return;
+    if(!ownerId){ host.innerHTML = '<div class="rel-state">Selecione um vendedor.</div>'; return; }
+    host.innerHTML = '<div class="rel-state">Carregando…</div>';
+    try {
+      var rv = await db.from("metas").select("indicador,periodicidade,valor").eq("owner_id", ownerId);
+      if(rv.error) throw rv.error;
+      var valores = {}, dv = rv.data || [], i;
+      for(i = 0; i < dv.length; i++){ valores[dv[i].indicador + "|" + dv[i].periodicidade] = dv[i].valor; }
+      var realizado = {};
+      try {
+        var rp = await db.rpc("metas_progresso", { p_owner: ownerId });
+        if(rp && !rp.error && rp.data){
+          for(i = 0; i < rp.data.length; i++){ realizado[rp.data[i].indicador + "|" + rp.data[i].periodicidade] = rp.data[i].realizado; }
+        }
+      } catch(ep){ /* realizado é referência opcional; zerados ficam "—" */ }
+      renderEditorGrade(ownerId, valores, realizado);
+    } catch(e){
+      host.innerHTML = '<div class="rel-state rel-state--err">Não foi possível carregar as metas.</div>';
+    }
+  }
+
+  function renderEditorGrade(ownerId, valores, realizado){
+    var host = el("rel-metas-editor-grade");
+    var inds = metasIndList();
+    var pers = [{ k:"diaria", r:"Hoje" }, { k:"semanal", r:"Esta semana" }, { k:"mensal", r:"Este mês" }];
+    var html = "", gi, ii, ind, rk, val, real, rot, realTxt;
+    for(gi = 0; gi < pers.length; gi++){
+      html += '<div class="rel-metas-grupo">' + escapar(pers[gi].r) + '</div>';
+      for(ii = 0; ii < inds.length; ii++){
+        ind = inds[ii];
+        rk = ind.k + "|" + pers[gi].k;
+        val = valores[rk];
+        if(val === undefined || val === null) val = 0;
+        real = realizado[rk];
+        rot = ind.r + (ind.u ? " (" + ind.u + ")" : "");
+        if(real === undefined || real === null){ realTxt = "—"; }
+        else if(ind.k === "valor_ganho"){ realTxt = "realizado: " + moeda(real); }
+        else { realTxt = "realizado: " + String(real); }
+        html += '<div class="rel-meta-edit">'
+              +   '<span class="rel-meta-edit__label">' + escapar(rot) + '</span>'
+              +   '<input class="rel-meta-edit__input" type="number" min="0" step="1" value="' + escapar(String(val)) + '"'
+              +     ' data-ind="' + escapar(ind.k) + '" data-per="' + escapar(pers[gi].k) + '" data-prev="' + escapar(String(val)) + '"'
+              +     ' aria-label="' + escapar(rot + " " + pers[gi].r) + '">'
+              +   '<span class="rel-meta-edit__real">' + escapar(realTxt) + '</span>'
+              +   '<span class="rel-meta-edit__status" aria-live="polite"></span>'
+              + '</div>';
+      }
+    }
+    host.innerHTML = html;
+    var inputs = host.querySelectorAll("input.rel-meta-edit__input"), j;
+    for(j = 0; j < inputs.length; j++){
+      inputs[j].addEventListener("change", function(ev){ salvarMetaInline(ownerId, ev.currentTarget); });
+    }
+  }
+
+  function statusMeta(input){
+    var linha = input.parentNode;
+    return linha ? linha.querySelector(".rel-meta-edit__status") : null;
+  }
+  function limparEstadoMeta(input, status){
+    input.classList.remove("rel-meta-edit__input--saving");
+    input.classList.remove("rel-meta-edit__input--err");
+    if(status){ status.className = "rel-meta-edit__status"; status.textContent = ""; }
+  }
+  function erroMeta(input, status, msg){
+    input.classList.remove("rel-meta-edit__input--saving");
+    input.classList.add("rel-meta-edit__input--err");
+    if(status){ status.className = "rel-meta-edit__status rel-meta-edit__status--err"; status.textContent = msg; }
+  }
+
+  async function salvarMetaInline(ownerId, input){
+    var status = statusMeta(input);
+    var prev = parseFloat(input.getAttribute("data-prev"));
+    if(isNaN(prev)) prev = 0;
+    var valor = parseFloat(input.value);
+    if(isNaN(valor)) valor = 0;                       // vazio/não-numérico → 0
+    if(valor < 0){                                    // negativo: bloqueia antes da RPC
+      erroMeta(input, status, "Não pode ser negativo.");
+      input.value = String(prev);
+      return;
+    }
+    if(valor === prev){ limparEstadoMeta(input, status); input.value = String(valor); return; }  // inalterado
+
+    input.classList.remove("rel-meta-edit__input--err");
+    input.classList.add("rel-meta-edit__input--saving");
+    if(status){ status.className = "rel-meta-edit__status rel-meta-edit__status--saving"; status.textContent = "salvando…"; }
+
+    try {
+      var r = await metaGravar(ownerId, input.getAttribute("data-ind"), input.getAttribute("data-per"), valor);
+      if(r.error) throw r.error;
+    } catch(e){
+      var msg = (e && e.code === "42501") ? "Só admin define metas."
+              : ((e && e.code === "22023") ? "Valor inválido." : "Falha ao salvar.");
+      erroMeta(input, status, msg);
+      input.value = String(prev);                     // reverte ao valor anterior
+      return;
+    }
+
+    input.classList.remove("rel-meta-edit__input--saving");
+    input.setAttribute("data-prev", String(valor));
+    input.value = String(valor);
+    if(status){ status.className = "rel-meta-edit__status rel-meta-edit__status--ok"; status.textContent = "✓ salvo"; }
+    setTimeout(function(){
+      if(status){ status.className = "rel-meta-edit__status"; status.textContent = ""; }
+    }, 2000);
   }
 
   function carregarTudo(){
@@ -4070,6 +4258,8 @@ async function criarProspeccaoDeContato(contactId){
     el("rel-tab-auditoria").classList.toggle("hidden", !admin);
     el("rel-campo-vendedor").classList.toggle("hidden", !admin);
     el("rel-btn-exportar").classList.toggle("hidden", !admin);
+    var btnMetas = el("rel-metas-editar");
+    if(btnMetas){ btnMetas.classList.toggle("hidden", !admin); }
     el("rel-titulo").textContent = admin ? "Relatórios" : "Meu desempenho";
     el("rel-subtitulo").textContent = admin
       ? "Visão consolidada da equipe comercial"
@@ -4125,6 +4315,8 @@ async function criarProspeccaoDeContato(contactId){
     if(selTab){ selTab.addEventListener("change", recarregarAuditoria); }
     var selAut = el("rel-audit-autor");
     if(selAut){ selAut.addEventListener("change", recarregarAuditoria); }
+    var btnEditMetas = el("rel-metas-editar");
+    if(btnEditMetas){ btnEditMetas.addEventListener("click", alternarEdicaoMetas); }
     var botoes = document.querySelectorAll("#page-relatorios .rel-tab");
     var b;
     for(b = 0; b < botoes.length; b++){
