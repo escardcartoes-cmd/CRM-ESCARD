@@ -2788,11 +2788,15 @@ async function renderAdmin(){
 
 // ===== Metas por vendedor (Fase 5C) — ES5-safe. Só admin (RPC também barra). =====
 var METAS_IND = [
-  { k: 'atividades',    r: 'Contatos registrados' },
-  { k: 'trabalhados',   r: 'Leads trabalhados' },
-  { k: 'movimentacoes', r: 'Movimentações de etapa' },
-  { k: 'ganhos',        r: 'Leads ganhos' },
-  { k: 'valor_ganho',   r: 'Valor ganho (R$)' }
+  { k: 'atividades',         r: 'Contatos registrados' },
+  { k: 'ligacoes',           r: 'Ligações' },
+  { k: 'whatsapp',           r: 'WhatsApp' },
+  { k: 'emails',             r: 'E-mails' },
+  { k: 'conversas_efetivas', r: 'Conversas efetivas' },
+  { k: 'trabalhados',        r: 'Leads trabalhados' },
+  { k: 'movimentacoes',      r: 'Movimentações de etapa' },
+  { k: 'ganhos',             r: 'Leads ganhos' },
+  { k: 'valor_ganho',        r: 'Valor ganho', u: 'R$' }
 ];
 var METAS_PER = [
   { k: 'diaria',  r: 'Diária' },
@@ -2837,18 +2841,22 @@ function renderMetasGrid(ownerId, mapa){
   for(c = 0; c < METAS_PER.length; c++){ html += '<th>' + escapeHtml(METAS_PER[c].r) + '</th>'; }
   html += '</tr></thead><tbody>';
   for(i = 0; i < METAS_IND.length; i++){
-    html += '<tr><td class="metas-ind">' + escapeHtml(METAS_IND[i].r) + '</td>';
+    var rotuloInd = METAS_IND[i].r + (METAS_IND[i].u ? ' (' + METAS_IND[i].u + ')' : '');
+    html += '<tr><td class="metas-ind">' + escapeHtml(rotuloInd) + '</td>';
     for(c = 0; c < METAS_PER.length; c++){
       rk = METAS_IND[i].k + '|' + METAS_PER[c].k;
       val = mapa[rk];
       if(val === undefined || val === null) val = 0;
       html += '<td><input type="number" min="0" step="1" value="' + escapeHtml(String(val)) + '"'
             + ' data-ind="' + escapeHtml(METAS_IND[i].k) + '" data-per="' + escapeHtml(METAS_PER[c].k) + '"'
-            + ' aria-label="' + escapeHtml(METAS_IND[i].r + ' ' + METAS_PER[c].r) + '"></td>';
+            + ' aria-label="' + escapeHtml(rotuloInd + ' ' + METAS_PER[c].r) + '"></td>';
     }
     html += '</tr>';
   }
-  html += '</tbody></table><p class="tl-state" style="text-align:left; padding:8px 0 0;">Valor 0 desliga a meta — ela não aparece no painel do vendedor.</p></div>';
+  html += '</tbody></table>'
+        + '<p class="tl-state" style="text-align:left; padding:8px 0 0;">Valor 0 desliga a meta — ela não aparece no painel do vendedor.</p>'
+        + '<p class="tl-state" style="text-align:left; padding:2px 0 0;">Conversas efetivas conta apenas contatos em que o cliente atendeu ou respondeu, em qualquer canal.</p>'
+        + '</div>';
   host.innerHTML = html;
   var inputs = host.querySelectorAll('input[data-ind]'), j;
   for(j = 0; j < inputs.length; j++){
@@ -3893,12 +3901,14 @@ async function criarProspeccaoDeContato(contactId){
   // ==========================================================
   // PROGRESSO DAS METAS (Fase 5D) — ignora o filtro de período
   // ==========================================================
+  // Fonte única de rótulos: METAS_IND (global, definido no script principal).
+  // Evita dois mapas divergirem na próxima migration.
   function rotuloIndicador(k){
-    if(k === "atividades") return "Contatos registrados";
-    if(k === "trabalhados") return "Leads trabalhados";
-    if(k === "movimentacoes") return "Movimentações de etapa";
-    if(k === "ganhos") return "Leads ganhos";
-    if(k === "valor_ganho") return "Valor ganho";
+    var mapa = (typeof window !== "undefined" && window.METAS_IND) ? window.METAS_IND : null;
+    if(mapa){
+      var i;
+      for(i = 0; i < mapa.length; i++){ if(mapa[i].k === k) return mapa[i].r; }
+    }
     return k;
   }
   function rotuloPeriodicidade(k){
