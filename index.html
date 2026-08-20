@@ -731,6 +731,13 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
         <div class="rel-kpis" id="rel-kpis"></div>
         <div class="rel-panel">
           <div class="rel-panel__head">
+            <h3>Composição do trabalho</h3>
+            <span class="rel-hint">Contatados, enriquecidos e movimentados — o total "Leads trabalhados" é a união, sem dupla contagem</span>
+          </div>
+          <div id="rel-composicao"></div>
+        </div>
+        <div class="rel-panel">
+          <div class="rel-panel__head">
             <h3>Atividades registradas por dia</h3>
             <span class="rel-hint">Contatos e notas registrados</span>
           </div>
@@ -3566,7 +3573,7 @@ async function criarProspeccaoDeContato(contactId){
   function renderKpis(p){
     var cards = [
       { rotulo:"Leads trabalhados", valor:numOuTraco(p.trabalhados), foot:"de " + numOuTraco(p.carteira) + " na carteira" },
-      { rotulo:"Cobertura da carteira", valor:pct(p.cobertura_pct), foot:"receberam ao menos 1 contato", classe:corCobertura(p.cobertura_pct) },
+      { rotulo:"Cobertura da carteira", valor:pct(p.cobertura_pct), foot:"receberam algum toque no período", classe:corCobertura(p.cobertura_pct) },
       { rotulo:"Tempo até 1º contato", valor:horas(p.primeiro_contato_h), foot:"média do lead novo", classe:corPrimeiro(p.primeiro_contato_h) },
       { rotulo:"Follow-ups em dia", valor:pct(p.followup_em_dia_pct), foot:"agendados e cumpridos no prazo" },
       { rotulo:"Leads dormentes", valor:numOuTraco(p.dormentes), foot:"sem atividade há mais de " + numOuTraco(p.dormentes_dias) + " dias" },
@@ -3625,6 +3632,20 @@ async function criarProspeccaoDeContato(contactId){
       }
     }
     if(muni.length) desenharBarras("rel-municipios", muni); else estadoTexto("rel-municipios", "Nenhum lead com município neste período.");
+  }
+
+  // Composição do trabalho (Fase 6): contatados / enriquecidos / movimentados.
+  function renderComposicao(p){
+    var itens = [
+      { rotulo: "Contatados",   valor: Number(p.contatados) || 0,   texto: numOuTraco(p.contatados) },
+      { rotulo: "Enriquecidos", valor: Number(p.enriquecidos) || 0, texto: numOuTraco(p.enriquecidos) },
+      { rotulo: "Movimentados", valor: Number(p.movimentados) || 0, texto: numOuTraco(p.movimentados) }
+    ];
+    if((itens[0].valor + itens[1].valor + itens[2].valor) === 0){
+      estadoTexto("rel-composicao", "Nenhum trabalho registrado neste período.");
+      return;
+    }
+    desenharBarras("rel-composicao", itens);
   }
 
   // ==========================================================
@@ -3762,6 +3783,7 @@ async function criarProspeccaoDeContato(contactId){
     estadoTexto("rel-alertas", "Carregando…");
     estadoTexto("rel-canal", "Carregando…"); estadoTexto("rel-desfecho", "Carregando…");
     estadoTexto("rel-municipios", "Carregando…"); estadoTexto("rel-perda", "Carregando…");
+    estadoTexto("rel-composicao", "Carregando…");
     try {
       var r = await db.rpc("relatorio_produtividade", { p_de: per.de, p_ate: per.ate, p_owner: owner });
       if(r.error) throw r.error;
@@ -3775,10 +3797,12 @@ async function criarProspeccaoDeContato(contactId){
       renderKpis(p);
       renderAlertas(p);
       renderDistribuicoes(p);
+      renderComposicao(p);
     } catch(e){
       estadoErro("rel-kpis"); estadoErro("rel-alertas");
       estadoErro("rel-canal"); estadoErro("rel-desfecho");
       estadoErro("rel-municipios"); estadoErro("rel-perda");
+      estadoErro("rel-composicao");
     }
   }
 
