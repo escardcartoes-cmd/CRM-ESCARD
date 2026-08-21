@@ -211,6 +211,38 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   .stage-won .kanban-col-header{border-top:3px solid var(--won);}
   .stage-lost .kanban-col-header{border-top:3px solid var(--lost);}
 
+  /* ===== ICP — badge de tier no card (aditivo) ===== */
+  .deal-card{position:relative;}
+  .deal-card--icp .dc-title{padding-right:26px;}
+  .icp-badge{
+    position:absolute; top:10px; right:10px;
+    width:20px; height:20px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:800; line-height:1; letter-spacing:.2px;
+  }
+  .icp-tier-S{background:#fdecc8; color:#8a5a00; box-shadow:inset 0 0 0 1px #e2c584;}
+  .icp-tier-A{background:#d7f2ee; color:#0f766e; box-shadow:inset 0 0 0 1px #a7ddd4;}
+  .icp-tier-B{background:#e2e8f0; color:#475569; box-shadow:inset 0 0 0 1px #cbd5e1;}
+  .icp-tier-C{background:#f1f3f5; color:#94a3b8; box-shadow:inset 0 0 0 1px #e2e5ea;}
+
+  /* ICP — bloco de detalhe (read-only) no modal do lead */
+  .icp-detail{
+    background:var(--bg); border:1px solid var(--border); border-radius:var(--radius);
+    padding:12px 14px; margin-bottom:16px;
+  }
+  .icp-detail-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;}
+  .icp-detail-title{font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:var(--text-muted);}
+  .icp-badge-inline{font-size:11px; font-weight:800; padding:3px 9px; border-radius:20px; white-space:nowrap;}
+  .icp-detail-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px 16px;}
+  .icp-detail-full{grid-column:1 / -1;}
+  .icp-detail dt{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; color:var(--text-muted); margin-bottom:2px;}
+  .icp-detail dd{font-size:13px; color:var(--text);}
+  @media (max-width:480px){ .icp-detail-grid{grid-template-columns:1fr;} }
+
+  /* ICP — filtro de prioridade na toolbar do funil */
+  .icp-filtro{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-muted); white-space:nowrap;}
+  .icp-filtro select{min-width:120px;}
+
   /* ===== Linha do tempo do lead (Fase 5B) ===== */
   .tl-body{margin-top:8px;}
   .tl-item{display:flex; gap:8px; padding:8px 0; border-bottom:1px solid var(--border);}
@@ -607,6 +639,13 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
       <div class="funnel-toolbar">
         <input type="text" id="search-deals" placeholder="Buscar por nome, empresa ou contato...">
         <select id="filter-owner" class="hidden"></select>
+        <label class="icp-filtro hidden" id="icp-filtro-wrap" for="icp-filtro">
+          Prioridade ICP
+          <select id="icp-filtro">
+            <option value="todos">Todos</option>
+            <option value="sa">Só S e A</option>
+          </select>
+        </label>
       </div>
 
       <div class="kanban" id="kanban"></div>
@@ -896,6 +935,18 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
 <div id="deal-modal" class="modal-overlay hidden">
   <div class="modal">
     <h3 id="deal-modal-title">Novo Lead</h3>
+    <!-- ICP: bloco SOMENTE de exibição (texto), fora do <form> — nunca entra no payload de save. -->
+    <section id="deal-icp-section" class="icp-detail hidden" aria-label="Priorização ICP">
+      <div class="icp-detail-head">
+        <span class="icp-detail-title">Priorização ICP</span>
+        <span id="deal-icp-tier"></span>
+      </div>
+      <dl class="icp-detail-grid">
+        <div><dt>Produto de entrada</dt><dd id="deal-icp-produto">—</dd></div>
+        <div><dt>Afinidade private</dt><dd id="deal-icp-afinidade">—</dd></div>
+        <div class="icp-detail-full"><dt>Motivo da afinidade</dt><dd id="deal-icp-motivo">—</dd></div>
+      </dl>
+    </section>
     <form id="deal-form">
       <div class="field">
         <label>Nome do lead / empresa *</label>
@@ -1200,6 +1251,12 @@ let companies = [];         // empresas
 let contacts = [];          // pessoas/contatos
 let editingDealId = null;   // id do deal sendo editado no modal
 let dealsChannel = null;     // canal realtime
+// ICP — priorização de leads lida da view read-only vw_sdr_priorizacao_escard.
+// Camada estritamente ADITIVA: indexada por deal_id, cruzada em memória com os
+// cards do Kanban e o modal. Se a leitura falhar, fica vazia e nenhuma UI ICP
+// aparece — o CRM segue idêntico (fail-safe, zero regressão).
+let icpPorDeal = {};        // { [deal_id]: { tier, prioridade, produto_entrada, ... } }
+let icpFiltroSA = false;    // filtro "Prioridade ICP": false=Todos, true=Só S e A
 
 // ============================================================
 // HELPERS
@@ -1483,6 +1540,7 @@ async function loadProfileAndInit(){
   try { await loadStages(); } catch(e){}
   try { await loadProfiles(); } catch(e){}
   try { await loadDeals(); } catch(e){}
+  try { await carregarPriorizacaoICP(); } catch(e){}
   try { await loadCompanies(); } catch(e){}
   try { await loadContacts(); } catch(e){}
   try { await carregarContadores(); } catch(e){}
@@ -1546,6 +1604,29 @@ async function loadDeals(){
     .order('created_at', { ascending: false });
   if(error){ showToast('Erro ao carregar leads: ' + error.message, 'err'); return; }
   deals = data || [];
+}
+
+// Carrega a priorização ICP da view read-only e monta o índice por deal_id.
+// Somente LEITURA — não toca em `deals` nem nas RPCs do Kanban. Pagina em blocos
+// de 1000 (a view tem alguns milhares de linhas). Fail-safe: qualquer falha
+// deixa o índice vazio e a UI ICP simplesmente não aparece.
+async function carregarPriorizacaoICP(){
+  const BLOCO = 1000;
+  const indice = {};
+  let inicio = 0;
+  for(;;){
+    const { data, error } = await db
+      .from('vw_sdr_priorizacao_escard')
+      .select('deal_id,tier,prioridade,produto_entrada,produto_roadmap,afinidade_private,motivo_afinidade,score,rota,municipio')
+      .range(inicio, inicio + BLOCO - 1);
+    if(error){ throw new Error(error.message); }
+    const linhas = data || [];
+    for(const r of linhas){ if(r.deal_id != null){ indice[r.deal_id] = r; } }
+    if(linhas.length < BLOCO) break;
+    inicio += BLOCO;
+  }
+  icpPorDeal = indice;
+  atualizarVisibilidadeFiltroICP();
 }
 
 // ============================================================
@@ -1697,6 +1778,23 @@ searchInput.addEventListener('input', (e)=>{
 });
 ownerFilter.addEventListener('change', (e)=>{ kanbanOwner = e.target.value || null; carregarKanban(); });
 
+// Filtro "Prioridade ICP" — client-side sobre os cards já carregados. Só re-renderiza
+// (renderKanban), sem chamar as RPCs nem mexer na paginação/contagem das colunas.
+const icpFiltroSelect = document.getElementById('icp-filtro');
+if(icpFiltroSelect){
+  icpFiltroSelect.addEventListener('change', (e)=>{
+    icpFiltroSA = e.target.value === 'sa';
+    renderKanban();
+  });
+}
+// Revela o filtro só quando há priorização carregada (caso contrário, nenhuma UI ICP).
+function atualizarVisibilidadeFiltroICP(){
+  const wrap = document.getElementById('icp-filtro-wrap');
+  if(!wrap) return;
+  const temICP = Object.keys(icpPorDeal).length > 0;
+  wrap.classList.toggle('hidden', !temICP);
+}
+
 // Gera os selos visuais do card: follow-up atrasado e tempo parado na etapa
 function selosDoCard(d, stage){
   const selos = [];
@@ -1745,6 +1843,34 @@ function marcadorEdicao(d){
   return '<div class="dc-edit"><span class="dc-edit-dot ' + classeDot + '"></span>' + texto + '</div>';
 }
 
+// Badge de tier ICP para um deal. Retorna '' se o deal não tiver classificação
+// (comportamento correto: deal sem ICP não mostra badge).
+function badgeICP(dealId){
+  const icp = icpPorDeal[dealId];
+  if(!icp || !icp.tier) return '';
+  const t = String(icp.tier).toUpperCase();
+  if(t !== 'S' && t !== 'A' && t !== 'B' && t !== 'C') return '';
+  return `<span class="icp-badge icp-tier-${t}" title="Tier ICP ${t}" aria-label="Prioridade ICP tier ${t}">${t}</span>`;
+}
+
+// Aplica o filtro "Prioridade ICP" (Só S e A) e a ordenação por score desc a uma
+// lista de cards. Puro e client-side, sobre os cards JÁ carregados — não altera
+// a paginação nem as RPCs. Sem filtro, devolve a lista original inalterada.
+function aplicarFiltroICP(cards){
+  if(!icpFiltroSA) return cards;
+  return cards
+    .filter(d=>{
+      const icp = icpPorDeal[d.id];
+      const t = icp && icp.tier ? String(icp.tier).toUpperCase() : '';
+      return t === 'S' || t === 'A';
+    })
+    .sort((a,b)=>{
+      const sa = Number(icpPorDeal[a.id] && icpPorDeal[a.id].score) || 0;
+      const sb = Number(icpPorDeal[b.id] && icpPorDeal[b.id].score) || 0;
+      return sb - sa;
+    });
+}
+
 // Render PURO, a partir do estado (kanbanCounts/kanbanCards). Não lê o array `deals`.
 function renderKanban(){
   const kanban = document.getElementById('kanban');
@@ -1753,8 +1879,12 @@ function renderKanban(){
     const col = kanbanCards[stage.id] || { cards: [], carregados: 0, total: cnt.total };
     const stageClass = stage.is_won ? 'stage-won' : (stage.is_lost ? 'stage-lost' : '');
 
-    const cards = col.cards.map(d=>`
-      <div class="deal-card" draggable="true" data-deal-id="${d.id}" data-stage-id="${stage.id}">
+    const cardsVisiveis = aplicarFiltroICP(col.cards);
+    const cards = cardsVisiveis.map(d=>{
+      const badge = badgeICP(d.id);
+      return `
+      <div class="deal-card${badge ? ' deal-card--icp' : ''}" draggable="true" data-deal-id="${d.id}" data-stage-id="${stage.id}">
+        ${badge}
         <div class="dc-title">${escapeHtml(d.title)}</div>
         ${Number(d.value) > 0 ? `<div class="dc-value">${formatCurrency(d.value)}</div>` : ''}
         <div class="dc-meta">
@@ -1765,7 +1895,8 @@ function renderKanban(){
         ${isAdmin() && d.owner_name ? `<span class="dc-owner">${escapeHtml(d.owner_name)}</span>` : ''}
         ${marcadorEdicao(d)}
       </div>
-    `).join('');
+    `;
+    }).join('');
 
     const faltam = cnt.total - col.carregados;
     const maisBtn = (col.carregados < cnt.total)
@@ -1962,7 +2093,31 @@ async function openDealModal(dealId){
   }
   atualizarCampoMotivoPerda();
   atualizarLinksContato();
+  preencherICPModal(dealId);
   dealModal.classList.remove('hidden');
+}
+
+// Preenche o bloco ICP (read-only) do modal a partir de icpPorDeal. Só exibição:
+// usa textContent (sem HTML/XSS) e nenhum input — nada disso vai para o payload.
+// Sem classificação (ou lead novo) → bloco escondido, sem forçar nada.
+function preencherICPModal(dealId){
+  const sec = document.getElementById('deal-icp-section');
+  if(!sec) return;
+  const icp = dealId ? icpPorDeal[dealId] : null;
+  if(!icp){ sec.classList.add('hidden'); return; }
+  const tierEl = document.getElementById('deal-icp-tier');
+  const t = icp.tier ? String(icp.tier).toUpperCase() : '';
+  if(t === 'S' || t === 'A' || t === 'B' || t === 'C'){
+    tierEl.className = 'icp-badge-inline icp-tier-' + t;
+    tierEl.textContent = 'Tier ' + t + (icp.prioridade ? ' · ' + icp.prioridade : '');
+  } else {
+    tierEl.className = '';
+    tierEl.textContent = icp.prioridade || '';
+  }
+  document.getElementById('deal-icp-produto').textContent = icp.produto_entrada || '—';
+  document.getElementById('deal-icp-afinidade').textContent = icp.afinidade_private || '—';
+  document.getElementById('deal-icp-motivo').textContent = icp.motivo_afinidade || '—';
+  sec.classList.remove('hidden');
 }
 
 // ===== Linha do tempo do lead (Fase 5B) — ES5-safe, lazy load ao expandir =====
