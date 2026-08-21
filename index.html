@@ -243,6 +243,35 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   .icp-filtro{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-muted); white-space:nowrap;}
   .icp-filtro select{min-width:120px;}
 
+  /* ICP — modal de legenda/guia */
+  .icp-legenda-modal{max-width:560px;}
+  .icp-legenda-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:16px;}
+  .icp-legenda-head h3{margin-bottom:0;}
+  .icp-legenda-close{
+    background:none; border:none; cursor:pointer; font-size:24px; line-height:1;
+    color:var(--text-muted); padding:0 4px; border-radius:6px;
+  }
+  .icp-legenda-close:hover{color:var(--text);}
+  .icp-legenda-contagem{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:18px;}
+  .icp-cont-chip{
+    display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700;
+    padding:4px 10px; border-radius:20px;
+  }
+  .icp-cont-chip b{font-weight:800;}
+  .icp-cont-ouro{background:#fff7e6; color:#8a5a00; box-shadow:inset 0 0 0 1px #f0d9a8;}
+  .icp-legenda-sec{margin-bottom:16px;}
+  .icp-legenda-sec-titulo{font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:var(--text-muted); margin-bottom:8px;}
+  .icp-legenda-lista{display:flex; flex-direction:column; gap:8px;}
+  .icp-legenda-item{display:flex; gap:8px; align-items:flex-start; font-size:13px; color:var(--text);}
+  .icp-legenda-item .icp-badge{position:static; flex:none; margin-top:1px;}
+  .icp-legenda-item .icp-badge-vazio{
+    position:static; flex:none; margin-top:1px; width:20px; height:20px; border-radius:50%;
+    box-shadow:inset 0 0 0 1px var(--border); background:var(--bg);
+  }
+  .icp-legenda-def{font-size:13px; color:var(--text); line-height:1.5;}
+  .icp-legenda-def p + p{margin-top:8px;}
+  .icp-legenda-item .acao{color:var(--primary); font-weight:700;}
+
   /* ===== Linha do tempo do lead (Fase 5B) ===== */
   .tl-body{margin-top:8px;}
   .tl-item{display:flex; gap:8px; padding:8px 0; border-bottom:1px solid var(--border);}
@@ -646,6 +675,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
             <option value="sa">Só S e A</option>
           </select>
         </label>
+        <button type="button" class="btn btn-slim hidden" id="icp-legenda-btn" aria-haspopup="dialog">❓ Legenda ICP</button>
       </div>
 
       <div class="kanban" id="kanban"></div>
@@ -1210,6 +1240,68 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   </div>
 </div>
 
+<!-- ===================== MODAL: LEGENDA ICP (guia, aditivo, read-only) ===================== -->
+<div id="icp-legenda-modal" class="modal-overlay hidden">
+  <div class="modal icp-legenda-modal" role="dialog" aria-modal="true" aria-labelledby="icp-legenda-titulo">
+    <div class="icp-legenda-head">
+      <h3 id="icp-legenda-titulo">Legenda ICP</h3>
+      <button type="button" class="icp-legenda-close" id="icp-legenda-close" aria-label="Fechar legenda">&times;</button>
+    </div>
+
+    <!-- (A) Contagem ao vivo — preenchida por JS a partir de icpPorDeal -->
+    <div class="icp-legenda-contagem" id="icp-legenda-contagem" aria-label="Contagem de leads por classificação">
+      <span class="icp-cont-chip icp-tier-S">S <b id="icp-cont-S">0</b></span>
+      <span class="icp-cont-chip icp-tier-A">A <b id="icp-cont-A">0</b></span>
+      <span class="icp-cont-chip icp-tier-B">B <b id="icp-cont-B">0</b></span>
+      <span class="icp-cont-chip icp-tier-C">C <b id="icp-cont-C">0</b></span>
+      <span class="icp-cont-chip icp-cont-ouro">Ouro Private Label <b id="icp-cont-ouro">0</b></span>
+    </div>
+
+    <!-- (B) Significado -->
+    <div class="icp-legenda-sec">
+      <div class="icp-legenda-sec-titulo">Tier — prioridade de ataque</div>
+      <div class="icp-legenda-lista">
+        <div class="icp-legenda-item">
+          <span class="icp-badge icp-tier-S">S</span>
+          <span><b>Tier S (dourado)</b> — melhor lead: varejo-empregador (supermercado, farmácia, material de construção). Ativa os 3 produtos. <span class="acao">AÇÃO: ligar primeiro, prioridade máxima.</span></span>
+        </div>
+        <div class="icp-legenda-item">
+          <span class="icp-badge icp-tier-A">A</span>
+          <span><b>Tier A (teal)</b> — lead forte: varejista ou prestador de recorrência. <span class="acao">AÇÃO: ligar em seguida.</span></span>
+        </div>
+        <div class="icp-legenda-item">
+          <span class="icp-badge icp-tier-B">B</span>
+          <span><b>Tier B (cinza-azulado)</b> — empregador comum, entra por Benefícios. <span class="acao">AÇÃO: trabalhar após esvaziar S/A.</span></span>
+        </div>
+        <div class="icp-legenda-item">
+          <span class="icp-badge icp-tier-C">C</span>
+          <span><b>Tier C (cinza claro)</b> — micro/baixo potencial. <span class="acao">AÇÃO: baixa prioridade.</span></span>
+        </div>
+        <div class="icp-legenda-item">
+          <span class="icp-badge-vazio" aria-hidden="true"></span>
+          <span><b>Sem badge</b> — lead ainda sem CNAE, sendo classificado automaticamente. O badge aparece sozinho.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="icp-legenda-sec">
+      <div class="icp-legenda-sec-titulo">Como usar</div>
+      <div class="icp-legenda-def">
+        <p><b>Prioridade (P1/P2/P3):</b> ranking dentro do mesmo Tier. P1 = mais quente. Comece pelos P1.</p>
+        <p><b>Produto de entrada:</b> por onde abrir a conversa (Cobrança ou Benefícios) — o gancho da ligação.</p>
+        <p><b>Afinidade Private (Alta):</b> varejo de crediário em cidade pequena; alvo futuro de Private Label. Anotar.</p>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <div></div>
+      <div class="right">
+        <button type="button" class="btn btn-primary" id="icp-legenda-fechar">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -1607,17 +1699,24 @@ async function loadDeals(){
 }
 
 // Carrega a priorização ICP da view read-only e monta o índice por deal_id.
-// Somente LEITURA — não toca em `deals` nem nas RPCs do Kanban. Pagina em blocos
-// de 1000 (a view tem alguns milhares de linhas). Fail-safe: qualquer falha
-// deixa o índice vazio e a UI ICP simplesmente não aparece.
+// Somente LEITURA — não toca em `deals` nem nas RPCs do Kanban. Fail-safe:
+// qualquer falha deixa o índice vazio e a UI ICP simplesmente não aparece.
+//
+// Paginação: o PostgREST/Supabase limita cada resposta a 1000 linhas, então
+// buscamos em blocos de 1000 via .range() até um bloco voltar com menos de 1000.
+// A ordenação por deal_id é OBRIGATÓRIA: sem ORDER BY estável, o Postgres pode
+// devolver ordens diferentes entre as páginas, fazendo linhas se repetirem e
+// outras nunca aparecerem (o bug que deixava ~1.000 dos 4.694 deals sem badge).
 async function carregarPriorizacaoICP(){
   const BLOCO = 1000;
+  const MAX_BLOCOS = 100; // trava de segurança (até 100k linhas) contra loop infinito
   const indice = {};
   let inicio = 0;
-  for(;;){
+  for(let b = 0; b < MAX_BLOCOS; b++){
     const { data, error } = await db
       .from('vw_sdr_priorizacao_escard')
       .select('deal_id,tier,prioridade,produto_entrada,produto_roadmap,afinidade_private,motivo_afinidade,score,rota,municipio')
+      .order('deal_id', { ascending: true })
       .range(inicio, inicio + BLOCO - 1);
     if(error){ throw new Error(error.message); }
     const linhas = data || [];
@@ -1787,13 +1886,49 @@ if(icpFiltroSelect){
     renderKanban();
   });
 }
-// Revela o filtro só quando há priorização carregada (caso contrário, nenhuma UI ICP).
+// Revela o filtro e a legenda só quando há priorização carregada (senão, nenhuma UI ICP).
 function atualizarVisibilidadeFiltroICP(){
-  const wrap = document.getElementById('icp-filtro-wrap');
-  if(!wrap) return;
   const temICP = Object.keys(icpPorDeal).length > 0;
-  wrap.classList.toggle('hidden', !temICP);
+  const wrap = document.getElementById('icp-filtro-wrap');
+  if(wrap) wrap.classList.toggle('hidden', !temICP);
+  const legendaBtn = document.getElementById('icp-legenda-btn');
+  if(legendaBtn) legendaBtn.classList.toggle('hidden', !temICP);
 }
+
+// ===== Legenda/guia ICP — contagem ao vivo (calculada de icpPorDeal) + significado =====
+// Só UI: lê icpPorDeal, não toca em deals nem nas RPCs. Números nunca são fixos.
+function abrirLegendaICP(){
+  const cont = { S:0, A:0, B:0, C:0, ouro:0 };
+  for(const k in icpPorDeal){
+    const r = icpPorDeal[k];
+    const t = r && r.tier ? String(r.tier).toUpperCase() : '';
+    if(t === 'S' || t === 'A' || t === 'B' || t === 'C'){ cont[t]++; }
+    if((t === 'S' || t === 'A') && r.afinidade_private === 'Alta'){ cont.ouro++; }
+  }
+  const fmt = (n)=> n.toLocaleString('pt-BR');
+  const set = (id, val)=>{ const el = document.getElementById(id); if(el) el.textContent = fmt(val); };
+  set('icp-cont-S', cont.S); set('icp-cont-A', cont.A); set('icp-cont-B', cont.B);
+  set('icp-cont-C', cont.C); set('icp-cont-ouro', cont.ouro);
+  const modal = document.getElementById('icp-legenda-modal');
+  if(modal) modal.classList.remove('hidden');
+}
+function fecharLegendaICP(){
+  const modal = document.getElementById('icp-legenda-modal');
+  if(modal) modal.classList.add('hidden');
+}
+(function(){
+  const btn = document.getElementById('icp-legenda-btn');
+  if(btn) btn.addEventListener('click', abrirLegendaICP);
+  const x = document.getElementById('icp-legenda-close');
+  if(x) x.addEventListener('click', fecharLegendaICP);
+  const fechar = document.getElementById('icp-legenda-fechar');
+  if(fechar) fechar.addEventListener('click', fecharLegendaICP);
+  const modal = document.getElementById('icp-legenda-modal');
+  if(modal) modal.addEventListener('click', (e)=>{ if(e.target === modal) fecharLegendaICP(); });
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape' && modal && !modal.classList.contains('hidden')) fecharLegendaICP();
+  });
+})();
 
 // Gera os selos visuais do card: follow-up atrasado e tempo parado na etapa
 function selosDoCard(d, stage){
