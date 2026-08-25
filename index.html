@@ -515,6 +515,76 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
     #page-relatorios .rel-kpi__value{font-size:22px;}
     #page-relatorios .rel-bar-row{grid-template-columns:minmax(70px,1fr) 1.8fr auto;}
   }
+
+    /* Fase 8 - valor derivado (semana/mes) ao lado da meta diaria */
+    .metas-der{
+      color: var(--muted, #6b7280);
+      font-size: .8125rem;
+      white-space: nowrap;
+    }
+    .rel-meta-edit__der{
+      color: var(--muted, #6b7280);
+      font-size: .8125rem;
+      white-space: nowrap;
+      margin-left: var(--sp-2, 8px);
+    }
+    .rel-meta-edit__status--ok{
+      color: var(--won, #16a34a);
+    }
+    @media (max-width: 640px){
+      .rel-meta-edit__der{
+        display: block;
+        margin-left: 0;
+        margin-top: 2px;
+      }
+    }
+
+    /* Fase 8 - grafico de colunas do progresso das metas */
+    .rel-metas-chart{
+      margin: var(--sp-2, 8px) 0 var(--sp-4, 16px);
+      overflow-x: auto;
+    }
+    .rel-metas-svg{
+      display: block;
+      width: 100%;
+      min-width: 560px;
+      height: auto;
+    }
+    .rel-metas-legenda{
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--sp-3, 12px);
+      margin-top: var(--sp-2, 8px);
+      font-size: .75rem;
+      color: var(--muted, #6b7280);
+    }
+    .rel-metas-legenda__item{
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .rel-metas-legenda__item i{
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+    .rel-metas-detalhe{
+      margin-bottom: var(--sp-4, 16px);
+    }
+    .rel-metas-detalhe > summary{
+      cursor: pointer;
+      font-size: .8125rem;
+      color: var(--muted, #6b7280);
+      padding: 4px 0;
+    }
+    .rel-metas-detalhe > summary:focus-visible{
+      outline: 2px solid var(--accent, #2563eb);
+      outline-offset: 2px;
+    }
+    @media (prefers-reduced-motion: reduce){
+      .rel-metas-svg rect{ transition: none; }
+    }
 </style>
 </head>
 <body>
@@ -3118,12 +3188,20 @@ async function renderAdmin(){
 }
 
 // ===== Metas por vendedor (Fase 5C) — ES5-safe. Só admin (RPC também barra). =====
+// Fase 8: a meta é definida APENAS na periodicidade diária. Semanal e mensal são
+// derivadas por multiplicador de dias úteis e gravadas junto, pelo mesmo caminho
+// de escrita (metaGravar -> RPC metas_salvar). Elimina o preenchimento de 3
+// caixas por indicador e a divergência entre elas.
+var METAS_MULT_SEM = 5;    // dias úteis por semana
+var METAS_MULT_MEN = 21;   // dias úteis por mês
+
 var METAS_IND = [
   { k: 'atividades',         r: 'Contatos registrados' },
   { k: 'ligacoes',           r: 'Ligações' },
   { k: 'whatsapp',           r: 'WhatsApp' },
   { k: 'emails',             r: 'E-mails' },
   { k: 'conversas_efetivas', r: 'Conversas efetivas' },
+  { k: 'reunioes',           r: 'Reuniões' },
   { k: 'trabalhados',        r: 'Leads trabalhados' },
   { k: 'movimentacoes',      r: 'Movimentações de etapa' },
   { k: 'ganhos',             r: 'Leads ganhos' },
@@ -3134,6 +3212,42 @@ var METAS_PER = [
   { k: 'semanal', r: 'Semanal' },
   { k: 'mensal',  r: 'Mensal' }
 ];
+
+// Multiplicador efetivo. Um indicador pode sobrescrever com .sem / .men
+// (ex.: { k:'valor_ganho', sem: 5, men: 21 }) sem mexer no resto do código.
+function metaMultiplicador(ind, per){
+  if(per === 'semanal'){ return (ind && typeof ind.sem === 'number') ? ind.sem : METAS_MULT_SEM; }
+  if(per === 'mensal'){  return (ind && typeof ind.men === 'number') ? ind.men : METAS_MULT_MEN; }
+  return 1;
+}
+function metaDerivar(ind, valorDiario){
+  var v = Number(valorDiario);
+  if(isNaN(v) || v < 0){ v = 0; }
+  return {
+    diaria:  v,
+    semanal: Math.round(v * metaMultiplicador(ind, 'semanal')),
+    mensal:  Math.round(v * metaMultiplicador(ind, 'mensal'))
+  };
+}
+function metaIndPorChave(k){
+  var i;
+  for(i = 0; i < METAS_IND.length; i++){ if(METAS_IND[i].k === k){ return METAS_IND[i]; } }
+  return null;
+}
+function metaTextoDerivado(ind, valorDiario){
+  var d = metaDerivar(ind, valorDiario);
+  return 'semana ' + String(d.semanal) + ' · mês ' + String(d.mensal);
+}
+// Grava a diária e as duas derivadas. Caminho único de escrita (metaGravar).
+async function metaGravarDerivado(ownerId, indicadorKey, valorDiario){
+  var ind = metaIndPorChave(indicadorKey);
+  var d = metaDerivar(ind, valorDiario);
+  var r1 = await metaGravar(ownerId, indicadorKey, 'diaria', d.diaria);
+  if(r1 && r1.error){ return r1; }
+  var r2 = await metaGravar(ownerId, indicadorKey, 'semanal', d.semanal);
+  if(r2 && r2.error){ return r2; }
+  return await metaGravar(ownerId, indicadorKey, 'mensal', d.mensal);
+}
 
 function popularMetasVendedores(){
   var sel = document.getElementById('admin-metas-vendedor');
@@ -3167,26 +3281,30 @@ async function carregarMetasGrid(ownerId){
 
 function renderMetasGrid(ownerId, mapa){
   var host = document.getElementById('admin-metas-grid');
-  var html = '<div class="metas-grid"><table><thead><tr><th>Indicador</th>';
-  var c, i, rk, val;
-  for(c = 0; c < METAS_PER.length; c++){ html += '<th>' + escapeHtml(METAS_PER[c].r) + '</th>'; }
-  html += '</tr></thead><tbody>';
+  var html = '<div class="metas-grid"><table><thead><tr>'
+           + '<th>Indicador</th><th>Meta diária</th><th>Derivado</th>'
+           + '</tr></thead><tbody>';
+  var i, ind, val, rotuloInd;
   for(i = 0; i < METAS_IND.length; i++){
-    var rotuloInd = METAS_IND[i].r + (METAS_IND[i].u ? ' (' + METAS_IND[i].u + ')' : '');
-    html += '<tr><td class="metas-ind">' + escapeHtml(rotuloInd) + '</td>';
-    for(c = 0; c < METAS_PER.length; c++){
-      rk = METAS_IND[i].k + '|' + METAS_PER[c].k;
-      val = mapa[rk];
-      if(val === undefined || val === null) val = 0;
-      html += '<td><input type="number" min="0" step="1" value="' + escapeHtml(String(val)) + '"'
-            + ' data-ind="' + escapeHtml(METAS_IND[i].k) + '" data-per="' + escapeHtml(METAS_PER[c].k) + '"'
-            + ' aria-label="' + escapeHtml(rotuloInd + ' ' + METAS_PER[c].r) + '"></td>';
-    }
-    html += '</tr>';
+    ind = METAS_IND[i];
+    rotuloInd = ind.r + (ind.u ? ' (' + ind.u + ')' : '');
+    val = mapa[ind.k + '|diaria'];
+    if(val === undefined || val === null){ val = 0; }
+    html += '<tr><td class="metas-ind">' + escapeHtml(rotuloInd) + '</td>'
+          + '<td><input type="number" min="0" step="1" value="' + escapeHtml(String(val)) + '"'
+          +   ' data-ind="' + escapeHtml(ind.k) + '" data-per="diaria"'
+          +   ' aria-label="' + escapeHtml(rotuloInd + ' meta diária') + '"></td>'
+          + '<td class="metas-der" data-der="' + escapeHtml(ind.k) + '">'
+          +   escapeHtml(metaTextoDerivado(ind, val))
+          + '</td></tr>';
   }
   html += '</tbody></table>'
-        + '<p class="tl-state" style="text-align:left; padding:8px 0 0;">Valor 0 desliga a meta — ela não aparece no painel do vendedor.</p>'
+        + '<p class="tl-state" style="text-align:left; padding:8px 0 0;">Defina só a meta diária — semanal (×'
+        +   String(METAS_MULT_SEM) + ') e mensal (×' + String(METAS_MULT_MEN)
+        +   ') são calculadas e gravadas automaticamente.</p>'
+        + '<p class="tl-state" style="text-align:left; padding:2px 0 0;">Valor 0 desliga a meta — ela não aparece no painel do vendedor.</p>'
         + '<p class="tl-state" style="text-align:left; padding:2px 0 0;">Conversas efetivas conta apenas contatos em que o cliente atendeu ou respondeu, em qualquer canal.</p>'
+        + '<p class="tl-state" style="text-align:left; padding:2px 0 0;">Reuniões conta atividades do canal presencial com resultado “realizada”.</p>'
         + '</div>';
   host.innerHTML = html;
   var inputs = host.querySelectorAll('input[data-ind]'), j;
@@ -3207,9 +3325,13 @@ async function salvarMeta(ownerId, input){
   var valor = parseFloat(input.value);
   if(isNaN(valor) || valor < 0){ showToast('Valor de meta inválido.', 'err'); input.focus(); return; }
   try {
-    var r = await metaGravar(ownerId, input.getAttribute('data-ind'), input.getAttribute('data-per'), valor);
-    if(r.error) throw r.error;
-    showToast('Meta salva.', 'ok');
+    var indKey = input.getAttribute('data-ind');
+    var r = await metaGravarDerivado(ownerId, indKey, valor);
+    if(r && r.error) throw r.error;
+    var linha = input.parentNode ? input.parentNode.parentNode : null;
+    var cell = linha ? linha.querySelector('.metas-der') : null;
+    if(cell){ cell.textContent = metaTextoDerivado(metaIndPorChave(indKey), valor); }
+    showToast('Meta salva (diária, semanal e mensal).', 'ok');
   } catch(e){
     var msg = (e && e.code === '42501') ? 'Só administradores definem metas.'
             : ((e && e.code === '22023') ? 'Valor de meta inválido.'
@@ -3228,6 +3350,7 @@ function renderMetasConfig(){
   }
   carregarMetasGrid(sel.value);
 }
+
 
 // ============================================================
 // IMPORTAÇÃO DE LISTAS (CSV / EXCEL)
@@ -4581,6 +4704,159 @@ async function criarProspeccaoDeContato(contactId){
          +   '<div class="rel-meta__track"><div class="rel-meta__fill" style="width:' + larg + '%; background:' + cor + ';"></div></div>'
          + '</div>';
   }
+  // ---- INÍCIO DO BLOCO E ----
+  // Gráfico de colunas por período. Eixo Y em % de atingimento — é o que
+  // permite comparar indicadores com denominadores muito diferentes
+  // (200, 20, 50, 1000) na mesma escala. O valor absoluto vai no tooltip.
+  function metaRotuloCurto(k){
+    if(k === "atividades") return "Contatos";
+    if(k === "ligacoes") return "Ligações";
+    if(k === "whatsapp") return "WhatsApp";
+    if(k === "emails") return "E-mails";
+    if(k === "conversas_efetivas") return "Efetivas";
+    if(k === "reunioes") return "Reuniões";
+    if(k === "trabalhados") return "Trabalhados";
+    if(k === "movimentacoes") return "Movim.";
+    if(k === "ganhos") return "Ganhos";
+    if(k === "valor_ganho") return "Valor";
+    return k;
+  }
+  function metaCorPct(p){
+    if(p >= 100) return "#16a34a";
+    if(p >= 80)  return "#2563eb";
+    if(p >= 40)  return "#f59e0b";
+    return "#dc2626";
+  }
+  function metaSigla(nome){
+    if(!nome) return "--";
+    var partes = String(nome).replace(/\s+/g, " ").trim().split(" ");
+    return partes[0].substring(0, 3).toUpperCase();
+  }
+  function metaOrdemInd(k){
+    var lista = metasIndList(), i;
+    for(i = 0; i < lista.length; i++){ if(lista[i].k === k) return i; }
+    return 999;
+  }
+
+  function graficoMetas(grupo){
+    if(!grupo || !grupo.length) return "";
+
+    // eixos
+    var W = 760, H = 300;
+    var mL = 42, mR = 10, mT = 26, mB = 78;
+    var pw = W - mL - mR;
+    var ph = H - mT - mB;
+
+    // indicadores presentes, na ordem de METAS_IND
+    var inds = [], vends = [], i, r, achou, j;
+    for(i = 0; i < grupo.length; i++){
+      r = grupo[i];
+      achou = false;
+      for(j = 0; j < inds.length; j++){ if(inds[j] === r.indicador) achou = true; }
+      if(!achou) inds.push(r.indicador);
+      achou = false;
+      for(j = 0; j < vends.length; j++){ if(vends[j] === r.vendedor) achou = true; }
+      if(!achou && r.vendedor) vends.push(r.vendedor);
+    }
+    if(!vends.length) vends = [""];
+    inds.sort(function(a, b){ return metaOrdemInd(a) - metaOrdemInd(b); });
+    vends.sort();
+
+    var gW = pw / inds.length;
+    var bW = Math.min(30, Math.max(8, (gW - 10) / vends.length));
+
+    var s = '<svg class="rel-metas-svg" viewBox="0 0 ' + W + ' ' + H + '"'
+          + ' role="img" aria-label="Progresso das metas em percentual"'
+          + ' xmlns="http://www.w3.org/2000/svg">';
+
+    // grade + eixo Y
+    var ticks = [0, 25, 50, 75, 100], t, y;
+    for(i = 0; i < ticks.length; i++){
+      t = ticks[i];
+      y = mT + ph - (ph * t / 100);
+      s += '<line x1="' + mL + '" y1="' + y + '" x2="' + (W - mR) + '" y2="' + y + '"'
+        +  ' stroke="' + (t === 100 ? "#94a3b8" : "#e5e7eb") + '"'
+        +  ' stroke-width="1"' + (t === 100 ? ' stroke-dasharray="5 4"' : '') + '/>';
+      s += '<text x="' + (mL - 6) + '" y="' + (y + 4) + '" text-anchor="end"'
+        +  ' font-size="10" fill="#6b7280">' + t + '%</text>';
+    }
+    s += '<text x="' + (W - mR) + '" y="' + (mT + ph - (ph) - 8) + '" text-anchor="end"'
+      +  ' font-size="10" fill="#6b7280">meta</text>';
+
+    // colunas
+    var gi, vi, reg, pct, alt, x, cor, rotulo, valTxt, isValor;
+    for(gi = 0; gi < inds.length; gi++){
+      for(vi = 0; vi < vends.length; vi++){
+        reg = null;
+        for(i = 0; i < grupo.length; i++){
+          if(grupo[i].indicador === inds[gi] && (grupo[i].vendedor === vends[vi] || vends[vi] === "")){
+            reg = grupo[i];
+          }
+        }
+        if(!reg) continue;
+
+        pct = (reg.pct === null || reg.pct === undefined) ? 0 : Number(reg.pct);
+        if(isNaN(pct) || pct < 0) pct = 0;
+        alt = Math.max(2, Math.round(ph * Math.min(100, pct) / 100));
+        x = mL + gi * gW + (gW - bW * vends.length) / 2 + vi * bW;
+        y = mT + ph - alt;
+        cor = metaCorPct(pct);
+
+        isValor = reg.indicador === "valor_ganho";
+        valTxt = isValor
+          ? (moeda(reg.realizado) + " de " + moeda(reg.meta))
+          : (String(reg.realizado) + " de " + String(reg.meta));
+
+        s += '<rect x="' + x + '" y="' + y + '" width="' + Math.max(4, bW - 3) + '" height="' + alt + '"'
+          +  ' fill="' + cor + '" rx="2">'
+          +  '<title>' + escapar(metaRotuloCurto(reg.indicador) + " · " + (reg.vendedor || "")
+          +    " — " + valTxt + " (" + String(pct) + "%)") + '</title></rect>';
+
+        // rótulo do topo: % e ✓ quando bateu
+        if(pct >= 100){
+          s += '<text x="' + (x + (bW - 3) / 2) + '" y="' + (y - 12) + '" text-anchor="middle"'
+            +  ' font-size="11" font-weight="700" fill="#16a34a">✓</text>';
+        }
+        s += '<text x="' + (x + (bW - 3) / 2) + '" y="' + (y - 3) + '" text-anchor="middle"'
+          +  ' font-size="9" fill="#374151">' + escapar(String(Math.round(pct))) + '</text>';
+
+        // sigla do vendedor
+        if(vends.length > 1){
+          s += '<text x="' + (x + (bW - 3) / 2) + '" y="' + (mT + ph + 11) + '" text-anchor="middle"'
+            +  ' font-size="8" fill="#9ca3af">' + escapar(metaSigla(vends[vi])) + '</text>';
+        }
+      }
+
+      // rótulo do indicador (rotacionado)
+      rotulo = metaRotuloCurto(inds[gi]);
+      x = mL + gi * gW + gW / 2;
+      y = mT + ph + 24;
+      s += '<text x="' + x + '" y="' + y + '" text-anchor="end" font-size="10" fill="#374151"'
+        +  ' transform="rotate(-35 ' + x + ' ' + y + ')">' + escapar(rotulo) + '</text>';
+    }
+
+    // eixo base
+    s += '<line x1="' + mL + '" y1="' + (mT + ph) + '" x2="' + (W - mR) + '" y2="' + (mT + ph) + '"'
+      +  ' stroke="#94a3b8" stroke-width="1"/>';
+    s += '</svg>';
+
+    // legenda
+    var leg = '<div class="rel-metas-legenda">';
+    if(vends.length > 1){
+      for(vi = 0; vi < vends.length; vi++){
+        leg += '<span class="rel-metas-legenda__item"><b>' + escapar(metaSigla(vends[vi])) + '</b> '
+             + escapar(vends[vi]) + '</span>';
+      }
+    }
+    leg += '<span class="rel-metas-legenda__item"><i style="background:#dc2626"></i>abaixo de 40%</span>'
+         + '<span class="rel-metas-legenda__item"><i style="background:#f59e0b"></i>40 a 79%</span>'
+         + '<span class="rel-metas-legenda__item"><i style="background:#2563eb"></i>80 a 99%</span>'
+         + '<span class="rel-metas-legenda__item"><i style="background:#16a34a"></i>meta batida</span>'
+         + '</div>';
+
+    return '<div class="rel-metas-chart">' + s + leg + '</div>';
+  }
+
   function renderMetasProgresso(rows){
     var host = el("rel-metas");
     if(!rows || !rows.length){
@@ -4601,10 +4877,14 @@ async function criarProspeccaoDeContato(contactId){
       for(i = 0; i < rows.length; i++){ if(rows[i].periodicidade === ordem[gi]) grupo.push(rows[i]); }
       if(!grupo.length) continue;
       html += '<div class="rel-metas-grupo">' + escapar(rotuloPeriodicidade(ordem[gi])) + '</div>';
+      html += graficoMetas(grupo);
+      html += '<details class="rel-metas-detalhe"><summary>Ver detalhamento</summary>';
       for(i = 0; i < grupo.length; i++){ html += barraMeta(grupo[i]); }
+      html += '</details>';
     }
     host.innerHTML = html;
   }
+  // ---- FIM DO BLOCO E ----
   async function carregarMetas(){
     // Sair de qualquer edição pendente ao (re)carregar as barras (ex.: Aplicar no topo).
     if(metasEditando){
@@ -4699,37 +4979,89 @@ async function criarProspeccaoDeContato(contactId){
     }
   }
 
+  // Helpers globais acessados de forma defensiva (mesmo padrão de metasIndList).
+  function metaDerivarSeguro(ind, val){
+    if(typeof window !== "undefined" && typeof window.metaDerivar === "function"){
+      return window.metaDerivar(ind, val);
+    }
+    return { diaria: Number(val) || 0, semanal: 0, mensal: 0 };
+  }
+  function metaTextoDerivadoSeguro(ind, val){
+    var d = metaDerivarSeguro(ind, val);
+    return "semana " + String(d.semanal) + " · mês " + String(d.mensal);
+  }
+
   function renderEditorGrade(ownerId, valores, realizado){
     var host = el("rel-metas-editor-grade");
     var inds = metasIndList();
-    var pers = [{ k:"diaria", r:"Hoje" }, { k:"semanal", r:"Esta semana" }, { k:"mensal", r:"Este mês" }];
-    var html = "", gi, ii, ind, rk, val, real, rot, realTxt;
-    for(gi = 0; gi < pers.length; gi++){
-      html += '<div class="rel-metas-grupo">' + escapar(pers[gi].r) + '</div>';
-      for(ii = 0; ii < inds.length; ii++){
-        ind = inds[ii];
-        rk = ind.k + "|" + pers[gi].k;
-        val = valores[rk];
-        if(val === undefined || val === null) val = 0;
-        real = realizado[rk];
-        rot = ind.r + (ind.u ? " (" + ind.u + ")" : "");
-        if(real === undefined || real === null){ realTxt = "—"; }
-        else if(ind.k === "valor_ganho"){ realTxt = "realizado: " + moeda(real); }
-        else { realTxt = "realizado: " + String(real); }
-        html += '<div class="rel-meta-edit">'
-              +   '<span class="rel-meta-edit__label">' + escapar(rot) + '</span>'
-              +   '<input class="rel-meta-edit__input" type="number" min="0" step="1" value="' + escapar(String(val)) + '"'
-              +     ' data-ind="' + escapar(ind.k) + '" data-per="' + escapar(pers[gi].k) + '" data-prev="' + escapar(String(val)) + '"'
-              +     ' aria-label="' + escapar(rot + " " + pers[gi].r) + '">'
-              +   '<span class="rel-meta-edit__real">' + escapar(realTxt) + '</span>'
-              +   '<span class="rel-meta-edit__status" aria-live="polite"></span>'
-              + '</div>';
-      }
+    var html = "", ii, ind, rk, val, real, rot, realTxt;
+    html += '<div class="rel-metas-grupo">Meta diária</div>';
+    for(ii = 0; ii < inds.length; ii++){
+      ind = inds[ii];
+      rk = ind.k + "|diaria";
+      val = valores[rk];
+      if(val === undefined || val === null){ val = 0; }
+      real = realizado[rk];
+      rot = ind.r + (ind.u ? " (" + ind.u + ")" : "");
+      if(real === undefined || real === null){ realTxt = "—"; }
+      else if(ind.k === "valor_ganho"){ realTxt = "realizado: " + moeda(real); }
+      else { realTxt = "realizado: " + String(real); }
+      html += '<div class="rel-meta-edit">'
+            +   '<span class="rel-meta-edit__label">' + escapar(rot) + '</span>'
+            +   '<input class="rel-meta-edit__input" type="number" min="0" step="1" value="' + escapar(String(val)) + '"'
+            +     ' data-ind="' + escapar(ind.k) + '" data-per="diaria" data-prev="' + escapar(String(val)) + '"'
+            +     ' aria-label="' + escapar(rot + " meta diária") + '">'
+            +   '<span class="rel-meta-edit__der">' + escapar(metaTextoDerivadoSeguro(ind, val)) + '</span>'
+            +   '<span class="rel-meta-edit__real">' + escapar(realTxt) + '</span>'
+            +   '<span class="rel-meta-edit__status" aria-live="polite"></span>'
+            + '</div>';
     }
+    html += '<p class="rel-state" style="text-align:left; padding:8px 0 0;">Semanal e mensal são calculadas a partir da diária e gravadas junto.</p>';
     host.innerHTML = html;
     var inputs = host.querySelectorAll("input.rel-meta-edit__input"), j;
     for(j = 0; j < inputs.length; j++){
-      inputs[j].addEventListener("change", function(ev){ salvarMetaInline(ownerId, ev.currentTarget); });
+      inputs[j].addEventListener("change", function(ev){ salvarMetaDerivada(ownerId, ev.currentTarget); });
+    }
+  }
+
+  async function salvarMetaDerivada(ownerId, input){
+    var status = statusMeta(input);
+    var prev = parseFloat(input.getAttribute("data-prev"));
+    if(isNaN(prev)){ prev = 0; }
+    var valor = parseFloat(input.value);
+    if(isNaN(valor)){ valor = 0; }
+    if(valor < 0){
+      erroMeta(input, status, "Não pode ser negativo.");
+      input.value = String(prev);
+      return;
+    }
+    input.classList.remove("rel-meta-edit__input--err");
+    input.classList.add("rel-meta-edit__input--saving");
+    if(status){ status.className = "rel-meta-edit__status"; status.textContent = "salvando…"; }
+    try {
+      var indKey = input.getAttribute("data-ind");
+      if(typeof window === "undefined" || typeof window.metaGravarDerivado !== "function"){
+        throw { code: "nofn" };
+      }
+      var r = await window.metaGravarDerivado(ownerId, indKey, valor);
+      if(r && r.error){ throw r.error; }
+      input.setAttribute("data-prev", String(valor));
+      var ind = null, lista = metasIndList(), z;
+      for(z = 0; z < lista.length; z++){ if(lista[z].k === indKey){ ind = lista[z]; } }
+      var linha = input.parentNode;
+      var cell = linha ? linha.querySelector(".rel-meta-edit__der") : null;
+      if(cell){ cell.textContent = metaTextoDerivadoSeguro(ind, valor); }
+      limparEstadoMeta(input, status);
+      if(status){
+        status.className = "rel-meta-edit__status rel-meta-edit__status--ok";
+        status.textContent = "salvo";
+      }
+    } catch(e){
+      var msg = (e && e.code === "42501") ? "Só administradores definem metas."
+              : ((e && e.code === "22023") ? "Valor de meta inválido."
+              : "Não foi possível salvar.");
+      erroMeta(input, status, msg);
+      input.value = String(prev);
     }
   }
 
