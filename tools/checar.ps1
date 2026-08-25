@@ -88,9 +88,20 @@ if(-not $bk){
   Write-Host ('-' * 51)
   $la = ($jsA -split "`n").Count
   $ld = ($js  -split "`n").Count
-  Write-Host ('{0,-22} {1,8} {2,8} {3,9}' -f 'linhas de JS', $la, $ld, (('{0:+#;-#;0}') -f ($ld - $la)))
+  $dl = $ld - $la
+  $corL = 'Green'
+  if($dl -lt -20){ $corL = 'Red' }
+  Write-Host ('{0,-22} {1,8} {2,8} {3,9}' -f 'linhas de JS', $la, $ld, (('{0:+#;-#;0}') -f $dl)) -ForegroundColor $corL
 
   if($intro -gt 0){ $erro++ }
+
+  # Remocao em massa e destruicao de codigo, nao 'melhoria'. Trata como erro.
+  if($dl -lt -20){
+    $erro++
+    Write-Host ''
+    Write-Host ('ALERTA: o JS perdeu ' + [Math]::Abs($dl) + ' linhas. Substituicao pode ter engolido codigo.') -ForegroundColor Red
+    Write-Host 'Confira o git diff antes de qualquer commit.' -ForegroundColor Red
+  }
 }
 
 # --- 3. Git ---------------------------------------------------------

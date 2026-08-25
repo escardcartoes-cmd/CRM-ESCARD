@@ -596,7 +596,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
       display:inline-flex; align-items:center; gap:5px;
     }
     .icp-chip b{font-weight:800; opacity:.62;}
-    .icp-chip[data-tier="todos"]{
+    .icp-chip[data-valor="todos"]{
       background:#fff; color:var(--text-muted,#64748b);
       box-shadow:inset 0 0 0 1px var(--border,#e2e8f0);
     }
@@ -606,6 +606,18 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
     @media (max-width:640px){
       .icp-filtro{width:100%;}
       .icp-chips{width:100%;}
+    }
+
+    /* ICP - segunda linha de filtro (produto) */
+    .icp-filtro{flex-direction:column; align-items:flex-start; gap:6px;}
+    .icp-filtro__linha{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+    .icp-filtro__rotulo{min-width:64px; white-space:nowrap;}
+    .icp-prod-ben{background:#e0f2fe; color:#075985; box-shadow:inset 0 0 0 1px #bae6fd;}
+    .icp-prod-cob{background:#fee2e2; color:#991b1b; box-shadow:inset 0 0 0 1px #fecaca;}
+    .icp-prod-pri{background:#fdecc8; color:#8a5a00; box-shadow:inset 0 0 0 1px #e2c584;}
+    @media (max-width:640px){
+      .icp-filtro__rotulo{min-width:0; font-size:11px;}
+      .icp-filtro__linha{width:100%;}
     }
 </style>
 </head>
@@ -760,14 +772,25 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
       <div class="funnel-toolbar">
         <input type="text" id="search-deals" placeholder="Buscar por nome, empresa ou contato...">
         <select id="filter-owner" class="hidden"></select>
-        <div class="icp-filtro hidden" id="icp-filtro-wrap" role="group" aria-label="Filtro de prioridade ICP">
-          <span class="icp-filtro__rotulo">Prioridade ICP</span>
-          <div class="icp-chips" id="icp-chips">
-            <button type="button" class="icp-chip icp-chip--ativo" data-tier="todos" aria-pressed="true">Todos</button>
-            <button type="button" class="icp-chip icp-tier-S" data-tier="S" aria-pressed="false">S <b id="icp-chip-cont-S">0</b></button>
-            <button type="button" class="icp-chip icp-tier-A" data-tier="A" aria-pressed="false">A <b id="icp-chip-cont-A">0</b></button>
-            <button type="button" class="icp-chip icp-tier-B" data-tier="B" aria-pressed="false">B <b id="icp-chip-cont-B">0</b></button>
-            <button type="button" class="icp-chip icp-tier-C" data-tier="C" aria-pressed="false">C <b id="icp-chip-cont-C">0</b></button>
+        <div class="icp-filtro hidden" id="icp-filtro-wrap" aria-label="Filtros ICP">
+          <div class="icp-filtro__linha" role="group" aria-label="Prioridade ICP">
+            <span class="icp-filtro__rotulo">Prioridade</span>
+            <div class="icp-chips" id="icp-chips">
+              <button type="button" class="icp-chip icp-chip--ativo" data-grupo="tier" data-valor="todos" aria-pressed="true">Todos</button>
+              <button type="button" class="icp-chip icp-tier-S" data-grupo="tier" data-valor="S" aria-pressed="false">S <b id="icp-chip-cont-S">0</b></button>
+              <button type="button" class="icp-chip icp-tier-A" data-grupo="tier" data-valor="A" aria-pressed="false">A <b id="icp-chip-cont-A">0</b></button>
+              <button type="button" class="icp-chip icp-tier-B" data-grupo="tier" data-valor="B" aria-pressed="false">B <b id="icp-chip-cont-B">0</b></button>
+              <button type="button" class="icp-chip icp-tier-C" data-grupo="tier" data-valor="C" aria-pressed="false">C <b id="icp-chip-cont-C">0</b></button>
+            </div>
+          </div>
+          <div class="icp-filtro__linha" role="group" aria-label="Produto de entrada">
+            <span class="icp-filtro__rotulo">Produto</span>
+            <div class="icp-chips" id="icp-chips-produto">
+              <button type="button" class="icp-chip icp-chip--ativo" data-grupo="produto" data-valor="todos" aria-pressed="true">Todos</button>
+              <button type="button" class="icp-chip icp-prod-ben" data-grupo="produto" data-valor="beneficios" aria-pressed="false">Benefícios <b id="icp-chip-cont-beneficios">0</b></button>
+              <button type="button" class="icp-chip icp-prod-cob" data-grupo="produto" data-valor="cobranca" aria-pressed="false">Cobrança <b id="icp-chip-cont-cobranca">0</b></button>
+              <button type="button" class="icp-chip icp-prod-pri" data-grupo="produto" data-valor="private" aria-pressed="false">Private <b id="icp-chip-cont-private">0</b></button>
+            </div>
           </div>
         </div>
         <button type="button" class="btn btn-slim hidden" id="icp-legenda-btn" aria-haspopup="dialog">❓ Legenda ICP</button>
@@ -1443,7 +1466,6 @@ let dealsChannel = null;     // canal realtime
 // cards do Kanban e o modal. Se a leitura falhar, fica vazia e nenhuma UI ICP
 // aparece — o CRM segue idêntico (fail-safe, zero regressão).
 let icpPorDeal = {};        // { [deal_id]: { tier, prioridade, produto_entrada, ... } }
-let icpFiltroSA = false;    // filtro "Prioridade ICP": false=Todos, true=Só S e A
 
 // ============================================================
 // HELPERS
@@ -1972,60 +1994,91 @@ searchInput.addEventListener('input', (e)=>{
 });
 ownerFilter.addEventListener('change', (e)=>{ kanbanOwner = e.target.value || null; carregarKanban(); });
 
-// Filtro "Prioridade ICP" - chips de selecao multipla, client-side sobre os cards
-// ja carregados. So re-renderiza (renderKanban), sem chamar as RPCs nem mexer na
-// paginacao/contagem das colunas. Lista vazia = Todos.
+// Filtros do funil - dois eixos independentes, combinados por E:
+//   icpFiltroTiers    = prioridade ICP (S/A/B/C)
+//   icpFiltroProdutos = produto de entrada (beneficios/cobranca/private)
+// Client-side sobre os cards JA carregados. So re-renderiza (renderKanban),
+// sem chamar as RPCs nem mexer na paginacao/contagem das colunas.
+// Lista vazia num eixo = "Todos" naquele eixo.
 var icpFiltroTiers = [];
+var icpFiltroProdutos = [];
 
-function icpChipAlternar(tier){
+// Classifica um registro ICP nos produtos aplicaveis. Um lead pode pertencer a
+// mais de um: "Cobranca (+Beneficios)" entra em beneficios E em cobranca - e o
+// que a vendedora espera ao filtrar por canal de abordagem.
+// Private nao vem de produto_entrada: vem de afinidade_private (Alta ou Media).
+function icpProdutosDe(icp){
+  var out = [];
+  if(!icp) return out;
+  var p = icp.produto_entrada ? String(icp.produto_entrada).toLowerCase() : '';
+  var a = icp.afinidade_private ? String(icp.afinidade_private).toLowerCase() : '';
+  a = a.replace(/[\u00e9\u00ea]/g, 'e');
+  if(p.indexOf('benef') >= 0) out.push('beneficios');
+  if(p.indexOf('cobran') >= 0) out.push('cobranca');
+  if(a === 'alta' || a === 'media') out.push('private');
+  return out;
+}
+
+function icpChipAlternar(grupo, valor){
+  var arr = (grupo === 'produto') ? icpFiltroProdutos : icpFiltroTiers;
   var i;
-  if(tier === 'todos'){
-    icpFiltroTiers = [];
+  if(valor === 'todos'){
+    arr.length = 0;
   } else {
-    i = icpFiltroTiers.indexOf(tier);
-    if(i >= 0){ icpFiltroTiers.splice(i, 1); } else { icpFiltroTiers.push(tier); }
+    i = arr.indexOf(valor);
+    if(i >= 0){ arr.splice(i, 1); } else { arr.push(valor); }
   }
   icpChipsSincronizar();
   renderKanban();
 }
 
 function icpChipsSincronizar(){
-  var host = document.getElementById('icp-chips');
-  if(!host) return;
-  var bts = host.querySelectorAll('.icp-chip'), j, t, on;
-  for(j = 0; j < bts.length; j++){
-    t = bts[j].getAttribute('data-tier');
-    on = (t === 'todos') ? (icpFiltroTiers.length === 0) : (icpFiltroTiers.indexOf(t) >= 0);
-    bts[j].classList.toggle('icp-chip--ativo', on);
-    bts[j].setAttribute('aria-pressed', on ? 'true' : 'false');
+  var grupos = [
+    { id: 'icp-chips',         arr: icpFiltroTiers },
+    { id: 'icp-chips-produto', arr: icpFiltroProdutos }
+  ];
+  var g, host, bts, j, v, on;
+  for(g = 0; g < grupos.length; g++){
+    host = document.getElementById(grupos[g].id);
+    if(!host) continue;
+    bts = host.querySelectorAll('.icp-chip');
+    for(j = 0; j < bts.length; j++){
+      v = bts[j].getAttribute('data-valor');
+      on = (v === 'todos') ? (grupos[g].arr.length === 0) : (grupos[g].arr.indexOf(v) >= 0);
+      bts[j].classList.toggle('icp-chip--ativo', on);
+      bts[j].setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
   }
 }
 
 function icpChipsContar(){
-  var cont = { S:0, A:0, B:0, C:0 }, k, t;
+  var cont = { S:0, A:0, B:0, C:0, beneficios:0, cobranca:0, private:0 };
+  var k, t, ps, j;
   for(k in icpPorDeal){
     t = (icpPorDeal[k] && icpPorDeal[k].tier) ? String(icpPorDeal[k].tier).toUpperCase() : '';
-    if(cont[t] !== undefined){ cont[t]++; }
+    if(t === 'S' || t === 'A' || t === 'B' || t === 'C'){ cont[t]++; }
+    ps = icpProdutosDe(icpPorDeal[k]);
+    for(j = 0; j < ps.length; j++){ cont[ps[j]]++; }
   }
-  var tiers = ['S','A','B','C'], j, elc;
-  for(j = 0; j < tiers.length; j++){
-    elc = document.getElementById('icp-chip-cont-' + tiers[j]);
-    if(elc){ elc.textContent = String(cont[tiers[j]]); }
+  var ids = ['S','A','B','C','beneficios','cobranca','private'], z, elc;
+  for(z = 0; z < ids.length; z++){
+    elc = document.getElementById('icp-chip-cont-' + ids[z]);
+    if(elc){ elc.textContent = String(cont[ids[z]]); }
   }
 }
 
 (function(){
-  var host = document.getElementById('icp-chips');
-  if(!host) return;
-  host.addEventListener('click', function(ev){
+  var wrap = document.getElementById('icp-filtro-wrap');
+  if(!wrap) return;
+  wrap.addEventListener('click', function(ev){
     var b = ev.target;
-    while(b && b !== host && !(b.classList && b.classList.contains('icp-chip'))){ b = b.parentNode; }
-    if(!b || b === host) return;
-    icpChipAlternar(b.getAttribute('data-tier'));
+    while(b && b !== wrap && !(b.classList && b.classList.contains('icp-chip'))){ b = b.parentNode; }
+    if(!b || b === wrap) return;
+    icpChipAlternar(b.getAttribute('data-grupo'), b.getAttribute('data-valor'));
   });
 })();
 
-// Revela o filtro e a legenda so quando ha priorizacao carregada (senao, nenhuma UI ICP).
+// Revela os filtros e a legenda so quando ha priorizacao carregada.
 function atualizarVisibilidadeFiltroICP(){
   var temICP = Object.keys(icpPorDeal).length > 0;
   var wrap = document.getElementById('icp-filtro-wrap');
@@ -2129,16 +2182,29 @@ function badgeICP(dealId){
   return `<span class="icp-badge icp-tier-${t}" title="Tier ICP ${t}" aria-label="Prioridade ICP tier ${t}">${t}</span>`;
 }
 
-// Aplica o filtro "Prioridade ICP" (chips de selecao multipla) e a ordenacao por
-// score desc a uma lista de cards. Puro e client-side, sobre os cards JA carregados
-// - nao altera a paginacao nem as RPCs. Sem filtro, devolve a lista inalterada.
+// Aplica os dois eixos de filtro (prioridade E produto) e a ordenacao por score
+// desc a uma lista de cards. Puro e client-side, sobre os cards JA carregados -
+// nao altera a paginacao nem as RPCs. Sem nenhum filtro, devolve a lista inalterada.
 function aplicarFiltroICP(cards){
-  if(!icpFiltroTiers || !icpFiltroTiers.length) return cards;
+  var temTier = !!(icpFiltroTiers && icpFiltroTiers.length);
+  var temProd = !!(icpFiltroProdutos && icpFiltroProdutos.length);
+  if(!temTier && !temProd) return cards;
   return cards
     .filter(function(d){
       var icp = icpPorDeal[d.id];
-      var t = (icp && icp.tier) ? String(icp.tier).toUpperCase() : '';
-      return icpFiltroTiers.indexOf(t) >= 0;
+      if(!icp) return false;
+      if(temTier){
+        var t = icp.tier ? String(icp.tier).toUpperCase() : '';
+        if(icpFiltroTiers.indexOf(t) < 0) return false;
+      }
+      if(temProd){
+        var ps = icpProdutosDe(icp), ok = false, j;
+        for(j = 0; j < ps.length; j++){
+          if(icpFiltroProdutos.indexOf(ps[j]) >= 0){ ok = true; }
+        }
+        if(!ok) return false;
+      }
+      return true;
     })
     .sort(function(a, b){
       var sa = Number(icpPorDeal[a.id] && icpPorDeal[a.id].score) || 0;
