@@ -585,6 +585,28 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
     @media (prefers-reduced-motion: reduce){
       .rel-metas-svg rect{ transition: none; }
     }
+
+    /* ICP - chips de filtro por tier (selecao multipla) */
+    .icp-filtro{display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12px; color:var(--text-muted);}
+    .icp-filtro__rotulo{white-space:nowrap;}
+    .icp-chips{display:flex; gap:4px; flex-wrap:wrap;}
+    .icp-chip{
+      font:inherit; font-size:12px; font-weight:700; line-height:1;
+      padding:6px 11px; border-radius:20px; border:0; cursor:pointer;
+      display:inline-flex; align-items:center; gap:5px;
+    }
+    .icp-chip b{font-weight:800; opacity:.62;}
+    .icp-chip[data-tier="todos"]{
+      background:#fff; color:var(--text-muted,#64748b);
+      box-shadow:inset 0 0 0 1px var(--border,#e2e8f0);
+    }
+    .icp-chips .icp-chip--ativo{box-shadow:inset 0 0 0 2px currentColor;}
+    .icp-chips .icp-chip--ativo b{opacity:1;}
+    .icp-chip:focus-visible{outline:2px solid var(--primary,#2563eb); outline-offset:2px;}
+    @media (max-width:640px){
+      .icp-filtro{width:100%;}
+      .icp-chips{width:100%;}
+    }
 </style>
 </head>
 <body>
@@ -738,13 +760,16 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
       <div class="funnel-toolbar">
         <input type="text" id="search-deals" placeholder="Buscar por nome, empresa ou contato...">
         <select id="filter-owner" class="hidden"></select>
-        <label class="icp-filtro hidden" id="icp-filtro-wrap" for="icp-filtro">
-          Prioridade ICP
-          <select id="icp-filtro">
-            <option value="todos">Todos</option>
-            <option value="sa">Só S e A</option>
-          </select>
-        </label>
+        <div class="icp-filtro hidden" id="icp-filtro-wrap" role="group" aria-label="Filtro de prioridade ICP">
+          <span class="icp-filtro__rotulo">Prioridade ICP</span>
+          <div class="icp-chips" id="icp-chips">
+            <button type="button" class="icp-chip icp-chip--ativo" data-tier="todos" aria-pressed="true">Todos</button>
+            <button type="button" class="icp-chip icp-tier-S" data-tier="S" aria-pressed="false">S <b id="icp-chip-cont-S">0</b></button>
+            <button type="button" class="icp-chip icp-tier-A" data-tier="A" aria-pressed="false">A <b id="icp-chip-cont-A">0</b></button>
+            <button type="button" class="icp-chip icp-tier-B" data-tier="B" aria-pressed="false">B <b id="icp-chip-cont-B">0</b></button>
+            <button type="button" class="icp-chip icp-tier-C" data-tier="C" aria-pressed="false">C <b id="icp-chip-cont-C">0</b></button>
+          </div>
+        </div>
         <button type="button" class="btn btn-slim hidden" id="icp-legenda-btn" aria-haspopup="dialog">❓ Legenda ICP</button>
       </div>
 
@@ -1947,22 +1972,68 @@ searchInput.addEventListener('input', (e)=>{
 });
 ownerFilter.addEventListener('change', (e)=>{ kanbanOwner = e.target.value || null; carregarKanban(); });
 
-// Filtro "Prioridade ICP" — client-side sobre os cards já carregados. Só re-renderiza
-// (renderKanban), sem chamar as RPCs nem mexer na paginação/contagem das colunas.
-const icpFiltroSelect = document.getElementById('icp-filtro');
-if(icpFiltroSelect){
-  icpFiltroSelect.addEventListener('change', (e)=>{
-    icpFiltroSA = e.target.value === 'sa';
-    renderKanban();
-  });
+// Filtro "Prioridade ICP" - chips de selecao multipla, client-side sobre os cards
+// ja carregados. So re-renderiza (renderKanban), sem chamar as RPCs nem mexer na
+// paginacao/contagem das colunas. Lista vazia = Todos.
+var icpFiltroTiers = [];
+
+function icpChipAlternar(tier){
+  var i;
+  if(tier === 'todos'){
+    icpFiltroTiers = [];
+  } else {
+    i = icpFiltroTiers.indexOf(tier);
+    if(i >= 0){ icpFiltroTiers.splice(i, 1); } else { icpFiltroTiers.push(tier); }
+  }
+  icpChipsSincronizar();
+  renderKanban();
 }
-// Revela o filtro e a legenda só quando há priorização carregada (senão, nenhuma UI ICP).
+
+function icpChipsSincronizar(){
+  var host = document.getElementById('icp-chips');
+  if(!host) return;
+  var bts = host.querySelectorAll('.icp-chip'), j, t, on;
+  for(j = 0; j < bts.length; j++){
+    t = bts[j].getAttribute('data-tier');
+    on = (t === 'todos') ? (icpFiltroTiers.length === 0) : (icpFiltroTiers.indexOf(t) >= 0);
+    bts[j].classList.toggle('icp-chip--ativo', on);
+    bts[j].setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+}
+
+function icpChipsContar(){
+  var cont = { S:0, A:0, B:0, C:0 }, k, t;
+  for(k in icpPorDeal){
+    t = (icpPorDeal[k] && icpPorDeal[k].tier) ? String(icpPorDeal[k].tier).toUpperCase() : '';
+    if(cont[t] !== undefined){ cont[t]++; }
+  }
+  var tiers = ['S','A','B','C'], j, elc;
+  for(j = 0; j < tiers.length; j++){
+    elc = document.getElementById('icp-chip-cont-' + tiers[j]);
+    if(elc){ elc.textContent = String(cont[tiers[j]]); }
+  }
+}
+
+(function(){
+  var host = document.getElementById('icp-chips');
+  if(!host) return;
+  host.addEventListener('click', function(ev){
+    var b = ev.target;
+    while(b && b !== host && !(b.classList && b.classList.contains('icp-chip'))){ b = b.parentNode; }
+    if(!b || b === host) return;
+    icpChipAlternar(b.getAttribute('data-tier'));
+  });
+})();
+
+// Revela o filtro e a legenda so quando ha priorizacao carregada (senao, nenhuma UI ICP).
 function atualizarVisibilidadeFiltroICP(){
-  const temICP = Object.keys(icpPorDeal).length > 0;
-  const wrap = document.getElementById('icp-filtro-wrap');
+  var temICP = Object.keys(icpPorDeal).length > 0;
+  var wrap = document.getElementById('icp-filtro-wrap');
   if(wrap) wrap.classList.toggle('hidden', !temICP);
-  const legendaBtn = document.getElementById('icp-legenda-btn');
+  var legendaBtn = document.getElementById('icp-legenda-btn');
   if(legendaBtn) legendaBtn.classList.toggle('hidden', !temICP);
+  icpChipsContar();
+  icpChipsSincronizar();
 }
 
 // ===== Legenda/guia ICP — contagem ao vivo (calculada de icpPorDeal) + significado =====
@@ -2058,20 +2129,20 @@ function badgeICP(dealId){
   return `<span class="icp-badge icp-tier-${t}" title="Tier ICP ${t}" aria-label="Prioridade ICP tier ${t}">${t}</span>`;
 }
 
-// Aplica o filtro "Prioridade ICP" (Só S e A) e a ordenação por score desc a uma
-// lista de cards. Puro e client-side, sobre os cards JÁ carregados — não altera
-// a paginação nem as RPCs. Sem filtro, devolve a lista original inalterada.
+// Aplica o filtro "Prioridade ICP" (chips de selecao multipla) e a ordenacao por
+// score desc a uma lista de cards. Puro e client-side, sobre os cards JA carregados
+// - nao altera a paginacao nem as RPCs. Sem filtro, devolve a lista inalterada.
 function aplicarFiltroICP(cards){
-  if(!icpFiltroSA) return cards;
+  if(!icpFiltroTiers || !icpFiltroTiers.length) return cards;
   return cards
-    .filter(d=>{
-      const icp = icpPorDeal[d.id];
-      const t = icp && icp.tier ? String(icp.tier).toUpperCase() : '';
-      return t === 'S' || t === 'A';
+    .filter(function(d){
+      var icp = icpPorDeal[d.id];
+      var t = (icp && icp.tier) ? String(icp.tier).toUpperCase() : '';
+      return icpFiltroTiers.indexOf(t) >= 0;
     })
-    .sort((a,b)=>{
-      const sa = Number(icpPorDeal[a.id] && icpPorDeal[a.id].score) || 0;
-      const sb = Number(icpPorDeal[b.id] && icpPorDeal[b.id].score) || 0;
+    .sort(function(a, b){
+      var sa = Number(icpPorDeal[a.id] && icpPorDeal[a.id].score) || 0;
+      var sb = Number(icpPorDeal[b.id] && icpPorDeal[b.id].score) || 0;
       return sb - sa;
     });
 }
