@@ -1493,6 +1493,20 @@ function isAdmin(){
   return currentProfile && currentProfile.role === 'admin';
 }
 
+// Papel 'gestor': leitura consolidada da equipe nos relatórios, sem nenhum
+// poder administrativo. Não substitui isAdmin() — convive com ele.
+// Escrita, gestão de usuários, metas e auditoria continuam em isAdmin().
+function isGestor(){
+  return currentProfile && currentProfile.role === 'gestor';
+}
+
+// Quem enxerga os números de toda a equipe no painel de relatórios.
+// Espelha public.rel_pode_ver_equipe() no banco — o servidor é quem decide;
+// aqui só evitamos mostrar caminho que daria erro.
+function podeVerEquipe(){
+  return isAdmin() || isGestor();
+}
+
 // ============================================================
 // AUTENTICAÇÃO
 // ============================================================
@@ -1737,7 +1751,7 @@ async function loadProfileAndInit(){
   document.getElementById('sidebar-name').textContent = currentProfile.full_name;
   document.getElementById('sidebar-role').textContent = currentProfile.role;
   var navRel = document.getElementById('nav-relatorios');
-  if(navRel) navRel.textContent = isAdmin() ? '📈 Relatórios' : '📈 Meu desempenho';
+  if(navRel) navRel.textContent = podeVerEquipe() ? '📈 Relatórios' : '📈 Meu desempenho';
 
   if(isAdmin()){
     document.getElementById('nav-admin').classList.remove('hidden');
@@ -4251,6 +4265,14 @@ async function criarProspeccaoDeContato(contactId){
 
   function ehAdminRel(){ return typeof isAdmin === "function" && isAdmin(); }
 
+  // Visão de equipe = admin OU gestor. Separada de ehAdminRel() de propósito:
+  // ehAdminRel() continua guardando o que é escrita/auditoria (aba Auditoria,
+  // edição de metas); ehVisaoEquipe() guarda apenas o que é LEITURA agregada
+  // (filtro por vendedor, ranking completo, exportação do relatório).
+  function ehVisaoEquipe(){
+    return typeof podeVerEquipe === "function" ? podeVerEquipe() : ehAdminRel();
+  }
+
   function numOuTraco(v){ return (v === null || v === undefined) ? "—" : String(v); }
   function pct(v){ return (v === null || v === undefined) ? "—" : (v + "%"); }
   function horas(v){ return (v === null || v === undefined) ? "—" : (v + "h"); }
@@ -4280,7 +4302,7 @@ async function criarProspeccaoDeContato(contactId){
   }
 
   function ownerParam(){
-    if(!ehAdminRel()) return null;      // servidor ignora p/ vendedor; manda null
+    if(!ehVisaoEquipe()) return null;   // servidor ignora p/ vendedor; manda null
     var v = el("rel-vendedor").value;
     return v ? v : null;
   }
@@ -4725,8 +4747,9 @@ async function criarProspeccaoDeContato(contactId){
 
   async function carregarSerie(per, owner){
     estadoTexto("rel-serie", "Carregando…");
-    // Multi-linha só para admin em "Toda a equipe" (owner null) e havendo vendedores ativos.
-    var ativos = (ehAdminRel() && owner === null) ? vendedoresAtivos() : [];
+    // Multi-linha só para quem tem visão de equipe em "Toda a equipe" (owner null)
+    // e havendo vendedores ativos.
+    var ativos = (ehVisaoEquipe() && owner === null) ? vendedoresAtivos() : [];
     try {
       if(ativos.length){
         var promessas = [], k;
@@ -4834,7 +4857,7 @@ async function criarProspeccaoDeContato(contactId){
     var real = isValor ? moeda(r.realizado) : numOuTraco(r.realizado);
     var meta = isValor ? moeda(r.meta) : numOuTraco(r.meta);
     var nome = rotuloIndicador(r.indicador);
-    if(ehAdminRel() && ownerParam() === null && r.vendedor){ nome += " · " + r.vendedor; }
+    if(ehVisaoEquipe() && ownerParam() === null && r.vendedor){ nome += " · " + r.vendedor; }
     return '<div class="rel-meta">'
          +   '<div class="rel-meta__top"><span class="rel-meta__label">' + escapar(nome) + '</span>'
          +     '<span class="rel-meta__nums">' + escapar(real) + ' / ' + escapar(meta) + '  ·  ' + escapar(String(pctNum)) + '%</span></div>'
@@ -5275,10 +5298,10 @@ async function criarProspeccaoDeContato(contactId){
   }
 
   // ==========================================================
-  // EXPORTAÇÃO (admin) — registra evento ANTES do download (LGPD)
+  // EXPORTAÇÃO (admin e gestor) — registra evento ANTES do download (LGPD)
   // ==========================================================
   async function exportar(){
-    if(!ehAdminRel()) return;
+    if(!ehVisaoEquipe()) return;
     var per = intervalo();
     if(!per.de || !per.ate){ window.alert("Defina o período antes de exportar."); return; }
     try {
@@ -5355,14 +5378,15 @@ async function criarProspeccaoDeContato(contactId){
   }
 
   function aplicarPapel(){
-    var admin = ehAdminRel();
+    var admin  = ehAdminRel();      // escrita e auditoria
+    var equipe = ehVisaoEquipe();   // leitura consolidada (admin ou gestor)
     el("rel-tab-auditoria").classList.toggle("hidden", !admin);
-    el("rel-campo-vendedor").classList.toggle("hidden", !admin);
-    el("rel-btn-exportar").classList.toggle("hidden", !admin);
+    el("rel-campo-vendedor").classList.toggle("hidden", !equipe);
+    el("rel-btn-exportar").classList.toggle("hidden", !equipe);
     var btnMetas = el("rel-metas-editar");
     if(btnMetas){ btnMetas.classList.toggle("hidden", !admin); }
-    el("rel-titulo").textContent = admin ? "Relatórios" : "Meu desempenho";
-    el("rel-subtitulo").textContent = admin
+    el("rel-titulo").textContent = equipe ? "Relatórios" : "Meu desempenho";
+    el("rel-subtitulo").textContent = equipe
       ? "Visão consolidada da equipe comercial"
       : "Seus números e sua posição em relação à equipe";
     var sel = document.querySelector('#page-relatorios .rel-tab[aria-selected="true"]');
