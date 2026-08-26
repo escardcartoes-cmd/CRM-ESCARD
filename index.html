@@ -5070,7 +5070,7 @@ async function criarProspeccaoDeContato(contactId){
   }
 
   function alternarEdicaoMetas(){
-    if(!ehAdminRel()) return;
+    if(!ehVisaoEquipe()) return;
     if(metasEditando){ concluirEdicaoMetas(); } else { entrarEdicaoMetas(); }
   }
 
@@ -5384,7 +5384,7 @@ async function criarProspeccaoDeContato(contactId){
     el("rel-campo-vendedor").classList.toggle("hidden", !equipe);
     el("rel-btn-exportar").classList.toggle("hidden", !equipe);
     var btnMetas = el("rel-metas-editar");
-    if(btnMetas){ btnMetas.classList.toggle("hidden", !admin); }
+    if(btnMetas){ btnMetas.classList.toggle("hidden", !equipe); }
     el("rel-titulo").textContent = equipe ? "Relatórios" : "Meu desempenho";
     el("rel-subtitulo").textContent = equipe
       ? "Visão consolidada da equipe comercial"
