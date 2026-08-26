@@ -2125,14 +2125,17 @@ async function renderDashboard(){
   // Agenda: consulta própria (deal_activities), independente de dashboard_stats.
   // Se falhar, o card mostra '—' e o dashboard segue funcionando.
   const agenda = await carregarAgenda();
+  // O card conta TODA reunião agendada em aberto — a vencida sem desfecho também
+  // é compromisso vivo. Contar só as futuras mostrava 0 com reunião marcada.
+  const agendaAbertas = agenda.futuras.length + agenda.pendentes.length;
   const agendaSub = agenda.erro ? ''
     : (agenda.pendentes.length
-        ? (agenda.pendentes.length + ' aguardando desfecho')
+        ? (agenda.pendentes.length + (agenda.pendentes.length === 1 ? ' aguardando desfecho' : ' aguardando desfecho'))
         : (agenda.realizadasMes + (agenda.realizadasMes === 1 ? ' realizada no mês' : ' realizadas no mês')));
 
   const metrics = [
     { label: '🔔 Follow-ups p/ hoje', value: followupPendente, sub: followupPendente>0 ? 'precisam de contato!' : 'tudo em dia' },
-    { label: '🤝 Reuniões agendadas', value: agenda.erro ? '—' : agenda.futuras.length, sub: agendaSub },
+    { label: '🤝 Reuniões agendadas', value: agenda.erro ? '—' : agendaAbertas, sub: agendaSub },
     { label: 'Negócios em aberto', value: openCount, sub: formatCurrency(openValue) + ' em negociação' },
     { label: 'Ganhos', value: wonCount, sub: formatCurrency(wonValue) + ' faturado' },
     { label: 'Perdidos', value: lostCount, sub: '' },
