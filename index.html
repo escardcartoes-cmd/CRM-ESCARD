@@ -56,6 +56,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
     --won-bg:#ecfdf3;
     --lost:#dc2626;
     --lost-bg:#fef2f2;
+    --primary-bg:#eceefb;
     --radius:10px;
     --shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 8px rgba(0,0,0,.04);
     font-family: -apple-system, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -163,6 +164,41 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   .leaderboard-row .lb-name{font-weight:600;}
   .leaderboard-row .lb-stats{display:flex; gap:14px; color:var(--text-muted); font-size:12px;}
   .leaderboard-row .lb-value{font-weight:700; color:var(--text);}
+
+  /* ===== Agenda de reunioes (Fase 9) ===== */
+  .dash-agenda{margin-top:16px;}
+  .agenda-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px; flex-wrap:wrap;}
+  .agenda-head h3{margin-bottom:14px;}
+  .agenda-sub{font-size:12px; color:var(--text-muted);}
+  .agenda-item{display:flex; gap:14px; align-items:flex-start; padding:11px 0; border-bottom:1px solid var(--border);}
+  .agenda-item:last-child{border-bottom:none;}
+  .agenda-quando{flex:none; width:92px;}
+  .agenda-data{font-size:13px; font-weight:700;}
+  .agenda-hora{font-size:12px; color:var(--text-muted);}
+  .agenda-main{min-width:0; flex:1;}
+  .agenda-empresa{font-size:13px; font-weight:600; background:none; border:none; padding:0; cursor:pointer; color:var(--text); text-align:left; font-family:inherit;}
+  .agenda-empresa:hover{color:var(--primary); text-decoration:underline;}
+  .agenda-cnpj{font-size:11px; color:var(--text-muted); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .agenda-contato{display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:12px; margin-top:4px;}
+  .agenda-tel{color:var(--text-muted);}
+  .agenda-modo{font-size:11px; font-weight:600; color:var(--text-muted); background:var(--bg); border-radius:6px; padding:2px 7px;}
+  .agenda-entrar{font-size:11px; font-weight:700; text-decoration:none; color:#fff; background:var(--primary); border-radius:6px; padding:3px 9px;}
+  .agenda-entrar:hover{background:var(--primary-hover);}
+  .agenda-acao{text-decoration:none; font-size:13px; line-height:1;}
+  .agenda-acao.off{opacity:.25; pointer-events:none;}
+  .agenda-vendedor{font-size:11px; color:var(--text-muted); margin-top:3px;}
+  .agenda-tag{flex:none; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
+    padding:3px 9px; border-radius:20px; background:var(--bg); color:var(--text-muted); white-space:nowrap;}
+  .agenda-tag--hoje{background:var(--primary-bg); color:var(--primary);}
+  .agenda-tag--pendente{background:var(--lost-bg); color:var(--lost);}
+  .agenda-mais{font-size:12px; color:var(--text-muted); padding-top:10px;}
+  @media (max-width:600px){
+    /* Linha 1: data/hora à esquerda, selo à direita. Linha 2: o lead inteiro. */
+    .agenda-item{flex-wrap:wrap; gap:6px 10px;}
+    .agenda-quando{order:1; width:auto; display:flex; gap:8px; align-items:baseline;}
+    .agenda-tag{order:2; margin-left:auto;}
+    .agenda-main{order:3; flex:1 1 100%;}
+  }
 
   /* ===== Kanban ===== */
   .funnel-toolbar{display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center;}
@@ -337,6 +373,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   .activity-edited{font-style:italic;}
   .activity-note{white-space:pre-wrap; color:var(--text); margin-top:3px;}
   .activity-next{color:var(--primary); font-size:11px; font-weight:600; margin-top:3px;}
+  .activity-agenda{color:var(--text-muted); font-size:11px; margin-top:3px;}
   .activity-actions{display:flex; gap:12px; margin-top:5px;}
   .activity-actions button{background:none; border:none; padding:0; cursor:pointer; font-size:11px; font-weight:600; color:var(--text-muted);}
   .activity-actions button:hover{color:var(--text);}
@@ -351,6 +388,9 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   .canal-travado .chip{opacity:.5; cursor:default;}
   .canal-travado .chip.sel{opacity:1;}
   .reg-actions{display:flex; gap:8px; justify-content:flex-end;}
+  .reg-grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .reg-grid2 label{margin-bottom:4px;}
+  @media (max-width:600px){.reg-grid2{grid-template-columns:1fr;}}
   /* Aba Follow-up (fila de trabalho) */
   .nav-badge{display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px; margin-left:6px; border-radius:9px; background:var(--lost); color:#fff; font-size:11px; font-weight:700;}
   .fu-cards{display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px;}
@@ -753,6 +793,14 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
           <h3>Ranking de vendedores (valor em negociação)</h3>
           <div id="leaderboard"></div>
         </div>
+      </div>
+
+      <div class="panel dash-agenda" id="agenda-panel">
+        <div class="agenda-head">
+          <h3>🤝 Próximas reuniões</h3>
+          <span class="agenda-sub" id="agenda-sub"></span>
+        </div>
+        <div id="agenda-list"></div>
       </div>
     </section>
 
@@ -1178,12 +1226,36 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
             <label>Resultado</label>
             <div class="reg-chips" id="reg-resultados"></div>
           </div>
+          <div class="reg-row hidden" id="reg-agenda-row">
+            <label>Situação da reunião</label>
+            <div class="reg-chips" id="reg-agenda-status"></div>
+          </div>
+          <div class="reg-row hidden" id="reg-agenda-modo-row">
+            <label>Modalidade</label>
+            <div class="reg-chips" id="reg-agenda-modo"></div>
+          </div>
+          <div class="reg-row hidden" id="reg-agenda-link-row">
+            <label for="reg-agenda-link">Link da reunião</label>
+            <input type="url" id="reg-agenda-link" placeholder="https://meet.google.com/..." inputmode="url">
+          </div>
+          <div class="reg-row hidden" id="reg-agenda-contato-row">
+            <div class="reg-grid2">
+              <div>
+                <label for="reg-agenda-contato">Contato da reunião</label>
+                <input type="text" id="reg-agenda-contato" placeholder="Quem participa">
+              </div>
+              <div>
+                <label for="reg-agenda-telefone">Telefone</label>
+                <input type="text" id="reg-agenda-telefone" placeholder="(00) 00000-0000" inputmode="numeric">
+              </div>
+            </div>
+          </div>
           <div class="reg-row">
             <label>Observação</label>
             <textarea id="reg-note" placeholder="Observação (opcional)"></textarea>
           </div>
           <div class="reg-row">
-            <label>Quando</label>
+            <label id="reg-occurred-label" for="reg-occurred">Quando</label>
             <input type="datetime-local" id="reg-occurred">
           </div>
           <div class="reg-row">
@@ -1895,6 +1967,134 @@ function renderAll(){
 }
 
 // ------------------------------------------------------------
+// AGENDA DE REUNIÕES (painel do Dashboard)
+// ------------------------------------------------------------
+// Fonte: deal_activities do canal 'presencial' com meeting_status preenchido.
+// occurred_at é a data/hora DA REUNIÃO — futura quando a reunião está marcada.
+// A RLS de deal_activities deriva do dono do deal: vendedor vê a própria
+// agenda, admin vê a da equipe. Nenhum filtro de owner no cliente.
+const AGENDA_LIMITE_PAINEL = 12;
+
+function inicioDoMesISO(){
+  const d = new Date(); d.setHours(0,0,0,0); d.setDate(1);
+  return d.toISOString();
+}
+
+async function carregarAgenda(){
+  try {
+    const { data, error } = await db
+      .from('deal_activities')
+      .select('id, occurred_at, meeting_status, meeting_mode, meeting_link, meeting_contact_name, meeting_contact_phone, deal:deals!deal_activities_deal_id_fkey(id, title, cnpj, contact_name, contact_phone, whatsapp, owner:profiles!deals_owner_id_fkey(full_name))')
+      .not('meeting_status', 'is', null)
+      .gte('occurred_at', inicioDoMesISO())
+      .order('occurred_at', { ascending: true })
+      .limit(300);
+    if(error) throw error;
+    const agora = Date.now();
+    const res = { futuras: [], pendentes: [], realizadasMes: 0, erro: false };
+    (data || []).forEach(r=>{
+      if(r.meeting_status === 'realizada'){ res.realizadasMes++; return; }
+      if(r.meeting_status !== 'agendada') return;   // cancelada / não compareceu saem do painel
+      if(new Date(r.occurred_at).getTime() < agora) res.pendentes.push(r);
+      else res.futuras.push(r);
+    });
+    res.pendentes.reverse();   // vencida mais recente primeiro
+    return res;
+  } catch(err){
+    return { futuras: [], pendentes: [], realizadasMes: 0, erro: true };
+  }
+}
+
+function agendaLinhaHtml(r){
+  const d = r.deal || {};
+  const dt = new Date(r.occurred_at);
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const dia = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+  const dif = Math.round((dia - hoje) / 86400000);
+  let tag = 'Em ' + dif + 'd', tagCls = '';
+  if(dif < 0){ tag = 'Aguardando desfecho'; tagCls = ' agenda-tag--pendente'; }
+  else if(dif === 0){ tag = 'Hoje'; tagCls = ' agenda-tag--hoje'; }
+  else if(dif === 1){ tag = 'Amanhã'; tagCls = ' agenda-tag--hoje'; }
+
+  const nome = r.meeting_contact_name || d.contact_name || '';
+  const fone = r.meeting_contact_phone || d.contact_phone || '';
+  const cnpj = d.cnpj || '';
+  const vendedor = (d.owner && d.owner.full_name) ? d.owner.full_name : '';
+
+  const modo = infoAgendaModo(r.meeting_mode) || infoAgendaModo('presencial');
+  const partes = [];
+  partes.push('<span class="agenda-modo">' + modo.icon + ' ' + escapeHtml(modo.t) + '</span>');
+  if(r.meeting_mode === 'online' && linkReuniaoValido(r.meeting_link)){
+    partes.push('<a class="agenda-entrar" data-agenda-link="' + r.id + '" target="_blank" rel="noopener noreferrer">Entrar</a>');
+  }
+  if(nome) partes.push('<span>👤 ' + escapeHtml(nome) + '</span>');
+  if(fone) partes.push('<span class="agenda-tel">' + escapeHtml(fone) + '</span>');
+  partes.push('<a class="agenda-acao" data-agenda-tel="' + r.id + '" title="Ligar" aria-label="Ligar para o contato da reunião">📞</a>');
+  partes.push('<a class="agenda-acao" data-agenda-wa="' + r.id + '" title="WhatsApp" aria-label="Abrir conversa no WhatsApp" target="_blank" rel="noopener noreferrer">💬</a>');
+
+  return '' +
+    '<div class="agenda-item">' +
+      '<div class="agenda-quando">' +
+        '<div class="agenda-data">' + escapeHtml(dt.toLocaleDateString('pt-BR')) + '</div>' +
+        '<div class="agenda-hora">' + escapeHtml(dt.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})) + '</div>' +
+      '</div>' +
+      '<div class="agenda-main">' +
+        '<button type="button" class="agenda-empresa" data-agenda-lead="' + escapeHtml(d.id || '') + '">' + escapeHtml(d.title || '(sem título)') + '</button>' +
+        (cnpj ? '<div class="agenda-cnpj">CNPJ ' + escapeHtml(cnpj) + '</div>' : '') +
+        '<div class="agenda-contato">' + partes.join('') + '</div>' +
+        (vendedor && podeVerEquipe() ? '<div class="agenda-vendedor">Responsável: ' + escapeHtml(vendedor) + '</div>' : '') +
+      '</div>' +
+      '<span class="agenda-tag' + tagCls + '">' + escapeHtml(tag) + '</span>' +
+    '</div>';
+}
+
+function renderAgendaPainel(ag){
+  const lista = document.getElementById('agenda-list');
+  const sub   = document.getElementById('agenda-sub');
+  if(!lista) return;
+  if(ag.erro){
+    if(sub) sub.textContent = '';
+    lista.innerHTML = '<div class="empty-state">Não foi possível carregar as reuniões.</div>';
+    return;
+  }
+  if(sub){
+    sub.textContent = ag.realizadasMes
+      ? (ag.realizadasMes + (ag.realizadasMes === 1 ? ' realizada no mês' : ' realizadas no mês'))
+      : '';
+  }
+  const itens = ag.pendentes.concat(ag.futuras);
+  if(!itens.length){
+    lista.innerHTML = '<div class="empty-state">Nenhuma reunião na agenda. Registre pelo lead, em “Registrar contato → Presencial”.</div>';
+    return;
+  }
+  const visiveis = itens.slice(0, AGENDA_LIMITE_PAINEL);
+  const resto = itens.length - visiveis.length;
+  lista.innerHTML = visiveis.map(agendaLinhaHtml).join('')
+    + (resto > 0 ? '<div class="agenda-mais">+ ' + resto + (resto === 1 ? ' reunião não exibida' : ' reuniões não exibidas') + '</div>' : '');
+
+  // hrefs por propriedade — padrão do projeto: nenhuma URL interpolada no HTML.
+  visiveis.forEach(r=>{
+    const d = r.deal || {};
+    const fone = r.meeting_contact_phone || d.contact_phone || '';
+    const tel = normalizarTelefoneBR(fone);
+    const aTel = lista.querySelector('[data-agenda-tel="' + r.id + '"]');
+    if(aTel){ if(tel){ aTel.href = 'tel:+' + tel; } else { aTel.classList.add('off'); } }
+    const url = linkReuniaoValido(r.meeting_link);
+    const aLink = lista.querySelector('[data-agenda-link="' + r.id + '"]');
+    if(aLink && url) aLink.href = url;
+    const wa = normalizarTelefoneBR(fone || d.whatsapp);
+    const aWa = lista.querySelector('[data-agenda-wa="' + r.id + '"]');
+    if(aWa){
+      if(wa){ aWa.href = ehMobile() ? ('https://wa.me/' + wa) : ('https://web.whatsapp.com/send?phone=' + wa); }
+      else { aWa.classList.add('off'); }
+    }
+  });
+  lista.querySelectorAll('[data-agenda-lead]').forEach(b=>{
+    if(b.dataset.agendaLead) b.addEventListener('click', ()=>abrirLeadPorId(b.dataset.agendaLead));
+  });
+}
+
+// ------------------------------------------------------------
 // DASHBOARD
 // ------------------------------------------------------------
 async function renderDashboard(){
@@ -1922,8 +2122,17 @@ async function renderDashboard(){
     ? Math.round((wonCount / (wonCount + lostCount)) * 100)
     : 0;
 
+  // Agenda: consulta própria (deal_activities), independente de dashboard_stats.
+  // Se falhar, o card mostra '—' e o dashboard segue funcionando.
+  const agenda = await carregarAgenda();
+  const agendaSub = agenda.erro ? ''
+    : (agenda.pendentes.length
+        ? (agenda.pendentes.length + ' aguardando desfecho')
+        : (agenda.realizadasMes + (agenda.realizadasMes === 1 ? ' realizada no mês' : ' realizadas no mês')));
+
   const metrics = [
     { label: '🔔 Follow-ups p/ hoje', value: followupPendente, sub: followupPendente>0 ? 'precisam de contato!' : 'tudo em dia' },
+    { label: '🤝 Reuniões agendadas', value: agenda.erro ? '—' : agenda.futuras.length, sub: agendaSub },
     { label: 'Negócios em aberto', value: openCount, sub: formatCurrency(openValue) + ' em negociação' },
     { label: 'Ganhos', value: wonCount, sub: formatCurrency(wonValue) + ' faturado' },
     { label: 'Perdidos', value: lostCount, sub: '' },
@@ -1938,6 +2147,8 @@ async function renderDashboard(){
       ${m.sub ? `<div class="sub">${m.sub}</div>` : ''}
     </div>
   `).join('');
+
+  renderAgendaPainel(agenda);
 
   // Funil chart
   const maxCount = Math.max(1, ...stages.map(s=>byStage[s.id]?.count || 0));
@@ -2736,7 +2947,7 @@ const ACTIVITY_CHANNELS = [
   { value:'telefone',   label:'Telefone',   icon:'📞' },
   { value:'whatsapp',   label:'WhatsApp',   icon:'💬' },
   { value:'email',      label:'E-mail',     icon:'✉️' },
-  { value:'presencial', label:'Presencial', icon:'🤝' },
+  { value:'presencial', label:'Reunião',    icon:'🤝' },   // presencial OU online — a modalidade fica em meeting_mode
   { value:'nota',       label:'Nota',       icon:'📝' },
 ];
 // Valores idênticos à constraint resultado_valido; tone define a cor semântica.
@@ -2755,6 +2966,47 @@ const PROXIMO_OPCOES = [
   { k:'data',   label:'Data...',           dias:null },
   { k:'sem',    label:'Sem próximo passo', dias:null },
 ];
+
+// ----- Agenda de reuniões (canal presencial) -----
+// meeting_status é o dado de negócio; `outcome` é DERIVADO dele. Assim a meta
+// 'reunioes' (presencial + outcome 'realizada') e os relatórios seguem valendo
+// sem alteração. A constraint agenda_outcome_coerente no banco garante o par.
+const AGENDA_STATUS = [
+  { v:'agendada',       t:'Agendada',       tone:'neu', outcome:null },
+  { v:'realizada',      t:'Realizada',      tone:'pos', outcome:'realizada' },
+  { v:'nao_compareceu', t:'Não compareceu', tone:'neg', outcome:'nao_compareceu' },
+  { v:'cancelada',      t:'Cancelada',      tone:'neg', outcome:null },
+];
+function infoAgendaStatus(v){
+  return AGENDA_STATUS.find(s=>s.v===v) || null;
+}
+const AGENDA_MODOS = [
+  { v:'presencial', t:'Presencial', icon:'🏢' },
+  { v:'online',     t:'Online',     icon:'💻' },
+];
+function infoAgendaModo(v){ return AGENDA_MODOS.find(m=>m.v===v) || null; }
+// Só https entra como link de sala. Espelha a constraint agenda_link_valido e
+// fecha a porta para javascript:/data: antes de qualquer render.
+function linkReuniaoValido(v){
+  const t = (v || '').trim();
+  if(!t) return null;
+  try {
+    const u = new URL(t);
+    return (u.protocol === 'https:' && t.length <= 500) ? t : false;
+  } catch(e){ return false; }
+}
+// Lead alvo do registro. No modal ele está em `deals`; na fila de follow-up o
+// item vem da RPC e mora em `fuItens` — o array `deals` pode nem conter o lead.
+function dealAlvoRegistro(){
+  if(!regDealId) return null;
+  const noArray = deals.find(d=>d.id===regDealId);
+  if(noArray) return noArray;
+  if(Array.isArray(fuItens)){
+    const naFila = fuItens.find(i=>i.id===regDealId);
+    if(naFila) return naFila;
+  }
+  return null;
+}
 
 function iconeCanal(c){ const x = ACTIVITY_CHANNELS.find(k=>k.value===c); return x ? x.icon : '•'; }
 function rotuloCanal(c){ const x = ACTIVITY_CHANNELS.find(k=>k.value===c); return x ? x.label : c; }
@@ -2779,7 +3031,7 @@ function dataMaisDias(dias){
 
 let atividadesDoDeal = [];
 let editandoAtividadeId = null;
-let regState = { canal:null, resultado:null, proximoKey:'sem', proximo:null };
+let regState = { canal:null, resultado:null, agendaStatus:null, agendaModo:null, proximoKey:'sem', proximo:null };
 let regContext = 'modal';   // 'modal' (timeline do lead) ou 'followup' (linha da fila)
 let regDealId = null;       // deal alvo do registro, independente do modal aberto
 
@@ -2807,9 +3059,14 @@ function renderAtividades(){
     return;
   }
   list.innerHTML = atividadesDoDeal.map(a=>{
-    const res = infoResultado(a.channel, a.outcome);
+    // Reunião: a situação da agenda substitui o rótulo de resultado.
+    const ag = a.meeting_status ? infoAgendaStatus(a.meeting_status) : null;
+    const res = ag || infoResultado(a.channel, a.outcome);
     const toneCls = res ? (res.tone==='pos' ? 'pos' : (res.tone==='neg' ? 'neg' : '')) : '';
     const resHtml = res ? ` · <span class="activity-outcome ${toneCls}">${escapeHtml(res.t)}</span>` : '';
+    const agModo = ag ? (infoAgendaModo(a.meeting_mode) || infoAgendaModo('presencial')) : null;
+    const agPartes = ag ? [agModo.icon + ' ' + agModo.t].concat([a.meeting_contact_name, a.meeting_contact_phone].filter(Boolean)) : [];
+    const agHtml = ag ? `<div class="activity-agenda">${escapeHtml(agPartes.join(' · '))}</div>` : '';
     const editado = a.edited_at ? ' · <span class="activity-edited">editado</span>' : '';
     const autor = (a.author && a.author.full_name) ? a.author.full_name : 'Usuário';
     const noteHtml = a.note ? `<div class="activity-note">${escapeHtml(a.note)}</div>` : '';
@@ -2818,9 +3075,10 @@ function renderAtividades(){
     return `
       <div class="activity-item">
         <div class="activity-head">
-          <span class="activity-channel">${iconeCanal(a.channel)} ${escapeHtml(rotuloCanal(a.channel))}</span>${resHtml}
+          <span class="activity-channel">${iconeCanal(a.channel)} ${escapeHtml(ag ? 'Reunião' : rotuloCanal(a.channel))}</span>${resHtml}
           <span class="activity-meta">${escapeHtml(fmtDataHora(a.occurred_at))} · ${escapeHtml(autor)}${editado}</span>
         </div>
+        ${agHtml}
         ${noteHtml}
         ${nextHtml}
         <div class="activity-actions">
@@ -2842,10 +3100,14 @@ function selecionarCanal(canal){
   if(editandoAtividadeId) return; // canal não é editável (spec 2.3)
   regState.canal = canal;
   regState.resultado = null;
+  regState.agendaStatus = (canal === 'presencial') ? 'agendada' : null;
+  regState.agendaModo   = (canal === 'presencial') ? 'presencial' : null;
   renderRegCanais();
   const row = document.getElementById('reg-resultado-row');
-  if(canal === 'nota'){ row.classList.add('hidden'); }
+  // Presencial tem fluxo próprio (situação da reunião), não usa "Resultado".
+  if(canal === 'nota' || canal === 'presencial'){ row.classList.add('hidden'); }
   else { row.classList.remove('hidden'); renderRegResultados(); }
+  aplicarModoAgenda(canal === 'presencial', true);
   document.getElementById('reg-note').placeholder = (canal==='nota')
     ? 'Observação (obrigatória para nota)'
     : 'Observação (opcional)';
@@ -2855,6 +3117,54 @@ function renderRegResultados(){
   const arr = ACTIVITY_OUTCOMES[regState.canal] || [];
   el.innerHTML = arr.map(o=>`<button type="button" class="chip${regState.resultado===o.v?' sel':''}" data-resultado="${o.v}">${escapeHtml(o.t)}</button>`).join('');
   el.querySelectorAll('[data-resultado]').forEach(b=>b.addEventListener('click',()=>{ regState.resultado = b.dataset.resultado; renderRegResultados(); }));
+}
+// Alterna o formulário entre "registrar contato" e "agendar/atualizar reunião".
+function aplicarModoAgenda(ativo, prefill){
+  const rowStatus  = document.getElementById('reg-agenda-row');
+  const rowModo    = document.getElementById('reg-agenda-modo-row');
+  const rowContato = document.getElementById('reg-agenda-contato-row');
+  const label      = document.getElementById('reg-occurred-label');
+  if(!rowStatus || !rowModo || !rowContato || !label) return;
+  rowStatus.classList.toggle('hidden', !ativo);
+  rowModo.classList.toggle('hidden', !ativo);
+  rowContato.classList.toggle('hidden', !ativo);
+  aplicarLinhaLink(ativo && regState.agendaModo === 'online');
+  label.textContent = ativo ? 'Data e hora da reunião' : 'Quando';
+  const btnSalvar = document.getElementById('reg-salvar');
+  if(btnSalvar && !editandoAtividadeId){ btnSalvar.textContent = ativo ? 'Salvar reunião' : 'Salvar contato'; }
+  if(!ativo) return;
+  if(prefill){
+    const alvo = dealAlvoRegistro();
+    const nome = document.getElementById('reg-agenda-contato');
+    const fone = document.getElementById('reg-agenda-telefone');
+    if(alvo){
+      if(!nome.value) nome.value = alvo.contact_name || '';
+      if(!fone.value) fone.value = alvo.contact_phone || alvo.whatsapp || '';
+    }
+  }
+  renderRegAgendaStatus();
+  renderRegAgendaModo();
+}
+// O campo de link só existe para reunião online — presencial não tem sala.
+function aplicarLinhaLink(mostrar){
+  const row = document.getElementById('reg-agenda-link-row');
+  if(row) row.classList.toggle('hidden', !mostrar);
+}
+function renderRegAgendaModo(){
+  const el = document.getElementById('reg-agenda-modo');
+  if(!el) return;
+  el.innerHTML = AGENDA_MODOS.map(m=>`<button type="button" class="chip${regState.agendaModo===m.v?' sel':''}" data-modo="${m.v}">${m.icon} ${escapeHtml(m.t)}</button>`).join('');
+  el.querySelectorAll('[data-modo]').forEach(b=>b.addEventListener('click',()=>{
+    regState.agendaModo = b.dataset.modo;
+    aplicarLinhaLink(regState.agendaModo === 'online');
+    renderRegAgendaModo();
+  }));
+}
+function renderRegAgendaStatus(){
+  const el = document.getElementById('reg-agenda-status');
+  if(!el) return;
+  el.innerHTML = AGENDA_STATUS.map(s=>`<button type="button" class="chip${regState.agendaStatus===s.v?' sel':''}" data-agenda="${s.v}">${escapeHtml(s.t)}</button>`).join('');
+  el.querySelectorAll('[data-agenda]').forEach(b=>b.addEventListener('click',()=>{ regState.agendaStatus = b.dataset.agenda; renderRegAgendaStatus(); }));
 }
 function renderRegProximo(){
   const el = document.getElementById('reg-proximo');
@@ -2873,8 +3183,12 @@ function selecionarProximo(k){
 
 function resetCamposRegistro(){
   editandoAtividadeId = null;
-  regState = { canal:null, resultado:null, proximoKey:'sem', proximo:null };
+  regState = { canal:null, resultado:null, agendaStatus:null, agendaModo:null, proximoKey:'sem', proximo:null };
   document.getElementById('reg-canais').classList.remove('canal-travado');
+  document.getElementById('reg-agenda-link').value = '';
+  document.getElementById('reg-agenda-contato').value = '';
+  document.getElementById('reg-agenda-telefone').value = '';
+  aplicarModoAgenda(false, false);
   document.getElementById('reg-note').value = '';
   document.getElementById('reg-note').placeholder = 'Observação (opcional)';
   document.getElementById('reg-occurred').value = tsParaLocal(new Date().toISOString());
@@ -2920,12 +3234,24 @@ function abrirEdicaoAtividade(id){
   const a = atividadesDoDeal.find(x=>x.id===id);
   if(!a) return;
   editandoAtividadeId = id;
+  // Linha antiga de 'presencial' (anterior à agenda) não tem meeting_status:
+  // deriva do outcome para a edição não perder o que já estava registrado.
+  const statusAgenda = (a.channel === 'presencial')
+    ? (a.meeting_status
+        || (a.outcome === 'realizada' ? 'realizada'
+          : (a.outcome === 'nao_compareceu' ? 'nao_compareceu' : 'agendada')))
+    : null;
   regState = {
     canal: a.channel,
     resultado: a.outcome || null,
+    agendaStatus: statusAgenda,
+    agendaModo: (a.channel === 'presencial') ? (a.meeting_mode || 'presencial') : null,
     proximoKey: a.next_action_date ? 'data' : 'sem',
     proximo: a.next_action_date || null,
   };
+  document.getElementById('reg-agenda-link').value = a.meeting_link || '';
+  document.getElementById('reg-agenda-contato').value = a.meeting_contact_name || '';
+  document.getElementById('reg-agenda-telefone').value = a.meeting_contact_phone || '';
   document.getElementById('reg-note').value = a.note || '';
   document.getElementById('reg-note').placeholder = (a.channel==='nota') ? 'Observação (obrigatória para nota)' : 'Observação (opcional)';
   document.getElementById('reg-occurred').value = tsParaLocal(a.occurred_at);
@@ -2933,11 +3259,12 @@ function abrirEdicaoAtividade(id){
   dateInput.value = a.next_action_date || '';
   dateInput.classList.toggle('hidden', !a.next_action_date);
   const row = document.getElementById('reg-resultado-row');
-  if(a.channel === 'nota'){ row.classList.add('hidden'); } else { row.classList.remove('hidden'); }
+  if(a.channel === 'nota' || a.channel === 'presencial'){ row.classList.add('hidden'); } else { row.classList.remove('hidden'); }
+  aplicarModoAgenda(a.channel === 'presencial', false);
   document.getElementById('reg-canais').classList.add('canal-travado'); // canal travado na edição
   document.getElementById('reg-salvar').textContent = 'Salvar edição';
   renderRegCanais();
-  if(a.channel !== 'nota') renderRegResultados();
+  if(a.channel !== 'nota' && a.channel !== 'presencial') renderRegResultados();
   renderRegProximo();
   document.getElementById('reg-form').classList.remove('hidden');
 }
@@ -2959,6 +3286,7 @@ async function excluirAtividade(id){
 
 document.getElementById('registrar-contato-btn').addEventListener('click', abrirFormRegistro);
 document.getElementById('reg-cancelar').addEventListener('click', fecharFormRegistro);
+document.getElementById('reg-agenda-telefone').addEventListener('input', (e)=>{ e.target.value = mascararWhatsapp(e.target.value); });
 document.getElementById('reg-next-date').addEventListener('change', (e)=>{
   if(regState.proximoKey === 'data') regState.proximo = e.target.value || null;
 });
@@ -2968,9 +3296,29 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
   // Validações (espelham as constraints do banco)
   if(!regState.canal){ showToast('Escolha o canal do contato.', 'err'); return; }
   const ehNota = regState.canal === 'nota';
-  if(!ehNota && !regState.resultado){ showToast('Escolha o resultado do contato antes de salvar.', 'err'); return; }
+  const ehReuniao = regState.canal === 'presencial';
+  if(ehReuniao && !regState.agendaStatus){ showToast('Escolha a situação da reunião.', 'err'); return; }
+  if(ehReuniao && !regState.agendaModo){ showToast('Escolha a modalidade: presencial ou online.', 'err'); return; }
+  if(!ehNota && !ehReuniao && !regState.resultado){ showToast('Escolha o resultado do contato antes de salvar.', 'err'); return; }
   const note = document.getElementById('reg-note').value.trim();
   if(ehNota && !note){ showToast('A nota precisa de um texto.', 'err'); return; }
+
+  // Reunião: outcome deriva da situação (agenda_outcome_coerente no banco).
+  const infoStatus   = ehReuniao ? infoAgendaStatus(regState.agendaStatus) : null;
+  const outcomeFinal = ehReuniao
+    ? (infoStatus ? infoStatus.outcome : null)
+    : (ehNota ? null : regState.resultado);
+  const agendaStatus = ehReuniao ? regState.agendaStatus : null;
+  const agendaModo   = ehReuniao ? regState.agendaModo : null;
+  const agendaNome   = ehReuniao ? (document.getElementById('reg-agenda-contato').value.trim() || null) : null;
+  const agendaFone   = ehReuniao ? (document.getElementById('reg-agenda-telefone').value.trim() || null) : null;
+  // Link só vale em reunião online e só https (constraint agenda_link_valido).
+  let agendaLink = null;
+  if(ehReuniao && agendaModo === 'online'){
+    const bruto = linkReuniaoValido(document.getElementById('reg-agenda-link').value);
+    if(bruto === false){ showToast('O link da reunião precisa começar com https://', 'err'); return; }
+    agendaLink = bruto;
+  }
 
   const occurredVal = document.getElementById('reg-occurred').value;
   const occurred_at = occurredVal ? new Date(occurredVal).toISOString() : new Date().toISOString();
@@ -2982,10 +3330,15 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
   try {
     if(editandoAtividadeId){
       const { error } = await db.from('deal_activities').update({
-        outcome: ehNota ? null : regState.resultado,
+        outcome: outcomeFinal,
         note: note || null,
         occurred_at,
         next_action_date: nextDate || null,
+        meeting_status: agendaStatus,
+        meeting_mode: agendaModo,
+        meeting_link: agendaLink,
+        meeting_contact_name: agendaNome,
+        meeting_contact_phone: agendaFone,
         edited_at: new Date().toISOString(),
         edited_by: currentProfile.id,
       }).eq('id', editandoAtividadeId);
@@ -2995,10 +3348,15 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
         deal_id: regDealId,
         author_id: currentProfile.id,
         channel: regState.canal,
-        outcome: ehNota ? null : regState.resultado,
+        outcome: outcomeFinal,
         note: note || null,
         occurred_at,
         next_action_date: nextDate || null,
+        meeting_status: agendaStatus,
+        meeting_mode: agendaModo,
+        meeting_link: agendaLink,
+        meeting_contact_name: agendaNome,
+        meeting_contact_phone: agendaFone,
       });
       if(error) throw error;
     }
@@ -3013,10 +3371,15 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
       if(fu) fu.value = nextDate;
       renderAll();
     }
-    showToast(editandoAtividadeId ? 'Contato atualizado' : 'Contato registrado', 'ok');
+    const rotuloOk = ehReuniao
+      ? (editandoAtividadeId ? 'Reunião atualizada' : 'Reunião registrada na agenda')
+      : (editandoAtividadeId ? 'Contato atualizado' : 'Contato registrado');
+    showToast(rotuloOk, 'ok');
     const ctxReg = regContext;
     const alvoReg = regDealId;
     fecharFormRegistro();
+    // O painel de reuniões do Dashboard sai do ar assim que a agenda muda.
+    if(ehReuniao) await renderDashboard();
     if(ctxReg === 'followup'){
       // Fila de trabalho: recarrega contadores e a lista (o servidor decide se o
       // item ainda pertence ao filtro — some da fila ao ser tratado). Preserva a
