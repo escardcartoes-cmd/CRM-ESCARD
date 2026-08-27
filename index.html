@@ -994,7 +994,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
         <div class="rel-panel">
           <div class="rel-panel__head">
             <h3>Composição do trabalho</h3>
-            <span class="rel-hint">Contatados, enriquecidos e movimentados — o total "Leads trabalhados" é a união, sem dupla contagem</span>
+            <span class="rel-hint">Contatados e enriquecidos — o KPI "Leads trabalhados" é mais amplo: soma também quem só mudou de etapa</span>
           </div>
           <div id="rel-composicao"></div>
         </div>
@@ -3854,18 +3854,15 @@ async function renderAdmin(){
 var METAS_MULT_SEM = 5;    // dias úteis por semana
 var METAS_MULT_MEN = 21;   // dias úteis por mês
 
+// A operação acompanha UM indicador de meta: volume de ligação. Os demais
+// (contatos, whatsapp, e-mails, conversas efetivas, reuniões, no-show,
+// trabalhados, movimentações de etapa, ganhos, valor ganho) continuam sendo
+// medidos nos KPIs e nos gráficos do relatório — só não são mais metas.
+// Metas antigas desses indicadores permanecem gravadas em `metas`; deixam de
+// ser exibidas e de ser editáveis (ver metasFiltradas). Para reativar um
+// indicador, basta devolvê-lo a esta lista.
 var METAS_IND = [
-  { k: 'atividades',         r: 'Contatos registrados' },
-  { k: 'ligacoes',           r: 'Ligações' },
-  { k: 'whatsapp',           r: 'WhatsApp' },
-  { k: 'emails',             r: 'E-mails' },
-  { k: 'conversas_efetivas', r: 'Conversas efetivas' },
-  { k: 'reunioes',           r: 'Reuniões' },
-  { k: 'reunioes_nao_realizadas', r: 'Reuniões não realizadas' },
-  { k: 'trabalhados',        r: 'Leads trabalhados' },
-  { k: 'movimentacoes',      r: 'Movimentações de etapa' },
-  { k: 'ganhos',             r: 'Leads ganhos' },
-  { k: 'valor_ganho',        r: 'Valor ganho', u: 'R$' }
+  { k: 'ligacoes',           r: 'Ligações' }
 ];
 var METAS_PER = [
   { k: 'diaria',  r: 'Diária' },
@@ -3963,8 +3960,7 @@ function renderMetasGrid(ownerId, mapa){
         +   String(METAS_MULT_SEM) + ') e mensal (×' + String(METAS_MULT_MEN)
         +   ') são calculadas e gravadas automaticamente.</p>'
         + '<p class="tl-state" style="text-align:left; padding:2px 0 0;">Valor 0 desliga a meta — ela não aparece no painel do vendedor.</p>'
-        + '<p class="tl-state" style="text-align:left; padding:2px 0 0;">Conversas efetivas conta apenas contatos em que o cliente atendeu ou respondeu, em qualquer canal.</p>'
-        + '<p class="tl-state" style="text-align:left; padding:2px 0 0;">Reuniões conta atividades do canal presencial com resultado “realizada”.</p>'
+        + '<p class="tl-state" style="text-align:left; padding:2px 0 0;">Ligações conta toda tentativa registrada no canal telefone — inclusive “Não atendeu”. A taxa de atendimento fica no relatório.</p>'
         + '</div>';
   host.innerHTML = html;
   var inputs = host.querySelectorAll('input[data-ind]'), j;
@@ -4872,7 +4868,50 @@ async function criarProspeccaoDeContato(contactId){
   // ==========================================================
   // GRÁFICO DE LINHA (SVG puro — reaproveitado do mockup)
   // ==========================================================
-  function desenharLinha(pontos){
+  // Eixo X do gráfico de série. O rótulo "D-N" anterior errava por um (o
+  // primeiro ponto é D-(n-1), não D-n), nunca marcava o último dia e não
+  // significava nada num período personalizado terminado no passado.
+  // Agora o rótulo é a data real do ponto, e o último dia é sempre marcado.
+  function rotuloDia(d){
+    var m = String(d || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? (m[3] + "/" + m[2]) : "";
+  }
+  function rotulosEixoX(dias, n, px, h){
+    var out = "", passo = Math.max(1, Math.round(n / 6)), ult = n - 1, marcados = [], i, txt;
+    for(i = 0; i < n; i += passo){ if(ult - i >= passo) marcados.push(i); }
+    marcados.push(ult);
+    for(i = 0; i < marcados.length; i++){
+      txt = (dias && dias[marcados[i]]) ? rotuloDia(dias[marcados[i]]) : "";
+      if(!txt) continue;
+      out += '<text x="' + px(marcados[i]) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="10" fill="#6b7280">' + txt + '</text>';
+    }
+    return out;
+  }
+
+  // Une as séries por DATA, não por posição no array. Duas séries de tamanhos
+  // diferentes (ou com dias faltando) deslocariam a linha inteira no eixo X.
+  function diasUniao(todas){
+    var visto = {}, lista = [], i, j, d;
+    for(i = 0; i < todas.length; i++){
+      for(j = 0; j < todas[i].length; j++){
+        d = todas[i][j].dia;
+        if(d && !visto[d]){ visto[d] = true; lista.push(d); }
+      }
+    }
+    lista.sort();
+    return lista;
+  }
+  function serieNosDias(linhas, dias, campo){
+    var idx = {}, out = [], i, v;
+    for(i = 0; i < linhas.length; i++){ idx[linhas[i].dia] = linhas[i]; }
+    for(i = 0; i < dias.length; i++){
+      v = idx[dias[i]] ? Number(idx[dias[i]][campo]) : 0;
+      out.push(isNaN(v) ? 0 : v);
+    }
+    return out;
+  }
+
+  function desenharLinha(pontos, dias){
     var w = 720, h = 200, padL = 34, padR = 10, padT = 12, padB = 26;
     var n = pontos.length;
     if(n < 2) return "";
@@ -4906,10 +4945,7 @@ async function criarProspeccaoDeContato(contactId){
     svg += '<line x1="' + padL + '" y1="' + py(media) + '" x2="' + (w - padR) + '" y2="' + py(media) +
            '" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="5 4"/>';
 
-    var passo = Math.max(1, Math.round(n / 6));
-    for(i = 0; i < n; i += passo){
-      svg += '<text x="' + px(i) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="10" fill="#6b7280">D-' + (n - i) + '</text>';
-    }
+    svg += rotulosEixoX(dias, n, px, h);
 
     svg += "</svg>";
     return svg;
@@ -4919,7 +4955,7 @@ async function criarProspeccaoDeContato(contactId){
   var COR_SERIE = ["#2a2f8f", "#16a34a", "#dc2626", "#b45309", "#0891b2", "#7c3aed", "#db2777", "#4b5563"];
 
   // Gráfico multi-linha: uma linha por série, sem área nem média (a legenda identifica).
-  function desenharLinhaMulti(series, cores){
+  function desenharLinhaMulti(series, cores, dias){
     var w = 720, h = 200, padL = 34, padR = 10, padT = 12, padB = 26;
     var n = 0, i, j;
     for(i = 0; i < series.length; i++){ if(series[i].length > n) n = series[i].length; }
@@ -4947,10 +4983,7 @@ async function criarProspeccaoDeContato(contactId){
       for(j = 1; j < pts.length; j++){ d += " L " + px(j) + " " + py(pts[j]); }
       svg += '<path d="' + d + '" fill="none" stroke="' + cores[i] + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
     }
-    var passo = Math.max(1, Math.round(n / 6));
-    for(i = 0; i < n; i += passo){
-      svg += '<text x="' + px(i) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="10" fill="#6b7280">D-' + (n - i) + '</text>';
-    }
+    svg += rotulosEixoX(dias, n, px, h);
     svg += "</svg>";
     return svg;
   }
@@ -4986,14 +5019,20 @@ async function criarProspeccaoDeContato(contactId){
   }
 
   // Soma total/efetivas por dia entre as séries dos vendedores (para o export).
+  // Casamento por data: somar por posição atribuía o dia de um vendedor ao dia
+  // de outro assim que uma das séries viesse com tamanho diferente.
   function agregarSeries(todas){
     if(!todas.length) return [];
-    var base = todas[0], out = [], i, j;
-    for(i = 0; i < base.length; i++){ out.push({ dia: base[i].dia, total: 0, efetivas: 0 }); }
+    var dias = diasUniao(todas), out = [], idx, reg, i, j;
+    for(i = 0; i < dias.length; i++){ out.push({ dia: dias[i], total: 0, efetivas: 0 }); }
     for(i = 0; i < todas.length; i++){
-      for(j = 0; j < todas[i].length && j < out.length; j++){
-        out[j].total += Number(todas[i][j].total) || 0;
-        out[j].efetivas += Number(todas[i][j].efetivas) || 0;
+      idx = {};
+      for(j = 0; j < todas[i].length; j++){ idx[todas[i][j].dia] = todas[i][j]; }
+      for(j = 0; j < dias.length; j++){
+        reg = idx[dias[j]];
+        if(!reg) continue;
+        out[j].total += Number(reg.total) || 0;
+        out[j].efetivas += Number(reg.efetivas) || 0;
       }
     }
     return out;
@@ -5008,7 +5047,8 @@ async function criarProspeccaoDeContato(contactId){
     if(max === 0) max = 1;
     var html = "";
     for(i = 0; i < itens.length; i++){
-      var pctBar = Math.max(3, Math.round((itens[i].valor / max) * 100));
+      // valor 0 desenha barra 0. O piso de 3% pintava um traço para quem não fez nada.
+      var pctBar = itens[i].valor > 0 ? Math.max(3, Math.round((itens[i].valor / max) * 100)) : 0;
       var cor = itens[i].cor ? itens[i].cor : "var(--primary)";
       var texto = itens[i].texto !== undefined ? itens[i].texto : String(itens[i].valor);
       html += '<div class="rel-bar-row">'
@@ -5093,7 +5133,7 @@ async function criarProspeccaoDeContato(contactId){
   }
 
   function renderDistribuicoes(p){
-    var canal = objItens(p.por_canal, { telefone:"Telefone", whatsapp:"WhatsApp", email:"E-mail" }, null);
+    var canal = objItens(p.por_canal, { telefone:"Telefone", whatsapp:"WhatsApp", email:"E-mail", presencial:"Reunião" }, null);
     if(canal.length) desenharBarras("rel-canal", canal); else estadoTexto("rel-canal", "Nenhuma atividade registrada neste período.");
 
     var desf = objItens(p.por_desfecho, {
@@ -5117,14 +5157,17 @@ async function criarProspeccaoDeContato(contactId){
     if(muni.length) desenharBarras("rel-municipios", muni); else estadoTexto("rel-municipios", "Nenhum lead com município neste período.");
   }
 
-  // Composição do trabalho (Fase 6): contatados / enriquecidos / movimentados.
+  // Composição do trabalho: contatados / enriquecidos.
+  // Movimentação de etapa saiu do gráfico por decisão de negócio — continua
+  // sendo contada em `trabalhados` no backend, apenas não é mais exibida.
   function renderComposicao(p){
     var itens = [
       { rotulo: "Contatados",   valor: Number(p.contatados) || 0,   texto: numOuTraco(p.contatados) },
-      { rotulo: "Enriquecidos", valor: Number(p.enriquecidos) || 0, texto: numOuTraco(p.enriquecidos) },
-      { rotulo: "Movimentados", valor: Number(p.movimentados) || 0, texto: numOuTraco(p.movimentados) }
+      { rotulo: "Enriquecidos", valor: Number(p.enriquecidos) || 0, texto: numOuTraco(p.enriquecidos) }
     ];
-    if((itens[0].valor + itens[1].valor + itens[2].valor) === 0){
+    var soma = 0, i;
+    for(i = 0; i < itens.length; i++){ soma += itens[i].valor; }
+    if(soma === 0){
       estadoTexto("rel-composicao", "Nenhum trabalho registrado neste período.");
       return;
     }
@@ -5170,13 +5213,20 @@ async function criarProspeccaoDeContato(contactId){
       html += '<div class="rel-stage">'
             +   '<div class="rel-stage__top"><span class="rel-stage__name">' + escapar(linhas[i].etapa) + '</span>'
             +   '<span class="rel-stage__count">' + q + ' leads</span></div>'
-            +   '<div class="rel-stage__track"><div class="rel-stage__fill" style="width:' + Math.max(3, Math.round((q / max) * 100)) + '%; background:' + cor + ';"></div></div>'
+            +   '<div class="rel-stage__track"><div class="rel-stage__fill" style="width:' + (q > 0 ? Math.max(3, Math.round((q / max) * 100)) : 0) + '%; background:' + cor + ';"></div></div>'
             + '</div>';
       if(i < linhas.length - 1 && !linhas[i].is_won && !linhas[i].is_lost && !linhas[i+1].is_won && !linhas[i+1].is_lost){
         entAtual = Number(linhas[i].entradas) || 0;
         entProx = Number(linhas[i+1].entradas) || 0;
-        conv = entAtual > 0 ? Math.round((entProx / entAtual) * 100) : 0;
-        html += '<p class="rel-stage__conv">↳ ' + conv + '% avançam para ' + escapar(linhas[i+1].etapa) + '</p>';
+        // Sem entrada na etapa anterior não há razão a exibir — 0% mentiria.
+        // O teto de 100% evita "180% avançam", que acontece quando a etapa
+        // seguinte recebe leads que não vieram desta (importação, salto de etapa).
+        if(entAtual <= 0){
+          html += '<p class="rel-stage__conv">↳ sem entradas nesta etapa no período</p>';
+        } else {
+          conv = Math.min(100, Math.round((entProx / entAtual) * 100));
+          html += '<p class="rel-stage__conv">↳ ' + conv + '% avançam para ' + escapar(linhas[i+1].etapa) + '</p>';
+        }
       }
     }
     el("rel-funil").innerHTML = html;
@@ -5301,30 +5351,37 @@ async function criarProspeccaoDeContato(contactId){
           promessas.push(db.rpc("serie_atividades", { p_de: per.de, p_ate: per.ate, p_owner: ativos[k].id }));
         }
         var resultados = await Promise.all(promessas);
-        var series = [], nomes = [], cores = [], todas = [], soma = 0, i, j, linhasV, pts, t;
+        var series = [], nomes = [], cores = [], todas = [], soma = 0, i, j, pts;
         for(i = 0; i < resultados.length; i++){
           if(resultados[i].error) throw resultados[i].error;
-          linhasV = resultados[i].data || [];
-          todas.push(linhasV);
-          pts = [];
-          for(j = 0; j < linhasV.length; j++){ t = Number(linhasV[j].total) || 0; pts.push(t); soma += t; }
-          series.push(pts);
+          todas.push(resultados[i].data || []);
           nomes.push(ativos[i].full_name);
           cores.push(COR_SERIE[i % COR_SERIE.length]);
         }
+        // Eixo X comum, casado por data: cada linha é reprojetada sobre a união
+        // dos dias. Dia sem registro vale 0 em vez de encolher a série.
+        var dias = diasUniao(todas);
+        for(i = 0; i < todas.length; i++){
+          pts = serieNosDias(todas[i], dias, "total");
+          for(j = 0; j < pts.length; j++){ soma += pts[j]; }
+          series.push(pts);
+        }
         ultimo.serie = agregarSeries(todas);   // export usa o agregado da equipe
         if(soma === 0){ estadoTexto("rel-serie", "Nenhuma atividade registrada neste período."); legendaSeriePadrao(); return; }
-        el("rel-serie").innerHTML = desenharLinhaMulti(series, cores);
+        el("rel-serie").innerHTML = desenharLinhaMulti(series, cores, dias);
         legendaSerieVendedores(nomes, cores);
       } else {
         var r = await db.rpc("serie_atividades", { p_de: per.de, p_ate: per.ate, p_owner: owner });
         if(r.error) throw r.error;
         var linhas = r.data || [];
         ultimo.serie = linhas;
-        var pontos = [], soma2 = 0, i2, t2;
-        for(i2 = 0; i2 < linhas.length; i2++){ t2 = Number(linhas[i2].total) || 0; pontos.push(t2); soma2 += t2; }
+        var pontos = [], dias2 = [], soma2 = 0, i2, t2;
+        for(i2 = 0; i2 < linhas.length; i2++){
+          t2 = Number(linhas[i2].total) || 0;
+          pontos.push(t2); dias2.push(linhas[i2].dia); soma2 += t2;
+        }
         if(!linhas.length || soma2 === 0){ estadoTexto("rel-serie", "Nenhuma atividade registrada neste período."); legendaSeriePadrao(); return; }
-        el("rel-serie").innerHTML = desenharLinha(pontos);
+        el("rel-serie").innerHTML = desenharLinha(pontos, dias2);
         legendaSeriePadrao();
       }
     } catch(e){ estadoErro("rel-serie"); }
@@ -5412,19 +5469,19 @@ async function criarProspeccaoDeContato(contactId){
   // Gráfico de colunas por período. Eixo Y em % de atingimento — é o que
   // permite comparar indicadores com denominadores muito diferentes
   // (200, 20, 50, 1000) na mesma escala. O valor absoluto vai no tooltip.
+  // Rótulo do eixo X do gráfico de metas. Fonte única: METAS_IND — o mapa
+  // paralelo que existia aqui divergia da lista a cada mudança de indicador.
   function metaRotuloCurto(k){
-    if(k === "atividades") return "Contatos";
-    if(k === "ligacoes") return "Ligações";
-    if(k === "whatsapp") return "WhatsApp";
-    if(k === "emails") return "E-mails";
-    if(k === "conversas_efetivas") return "Efetivas";
-    if(k === "reunioes") return "Reuniões";
-    if(k === "reunioes_nao_realizadas") return "No-show";
-    if(k === "trabalhados") return "Trabalhados";
-    if(k === "movimentacoes") return "Movim.";
-    if(k === "ganhos") return "Ganhos";
-    if(k === "valor_ganho") return "Valor";
-    return k;
+    return rotuloIndicador(k);
+  }
+  // Só indicadores ativos em METAS_IND entram no painel. Metas gravadas de
+  // indicadores desativados continuam no banco, mas não são exibidas.
+  function metasFiltradas(rows){
+    var lista = metasIndList(), permitido = {}, out = [], i;
+    for(i = 0; i < lista.length; i++){ permitido[lista[i].k] = true; }
+    if(!rows) return out;
+    for(i = 0; i < rows.length; i++){ if(permitido[rows[i].indicador]) out.push(rows[i]); }
+    return out;
   }
   function metaCorPct(p){
     if(p >= 100) return "#16a34a";
@@ -5564,6 +5621,7 @@ async function criarProspeccaoDeContato(contactId){
 
   function renderMetasProgresso(rows){
     var host = el("rel-metas");
+    rows = metasFiltradas(rows);
     if(!rows || !rows.length){
       host.innerHTML = '<div class="rel-state">Nenhuma meta definida.</div>';
       if(ehAdminRel()){
