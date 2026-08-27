@@ -4579,7 +4579,7 @@ function renderCompanies(){
         <td style="padding:8px;">${escapeHtml(c.city||'—')}</td>
         <td style="padding:8px;white-space:nowrap;">
           <button class="btn" style="padding:5px 10px;font-size:12px;" data-edit-company="${c.id}">Editar</button>
-          <button class="btn btn-primary" style="padding:5px 10px;font-size:12px;" data-prospect-company="${c.id}">→ Prospecção</button>
+          <button class="btn btn-primary" style="padding:5px 10px;font-size:12px;" data-prospect-company="${c.id}">→ Gerar lead</button>
         </td></tr>`).join('')
     + '</tbody></table></div>';
   el.querySelectorAll('[data-edit-company]').forEach(b=>b.addEventListener('click',()=>openCompanyModal(b.dataset.editCompany)));
@@ -4668,7 +4668,7 @@ function renderContacts(){
         <td style="padding:8px;">${escapeHtml(c.phone||'—')}</td>
         <td style="padding:8px;white-space:nowrap;">
           <button class="btn" style="padding:5px 10px;font-size:12px;" data-edit-contact="${c.id}">Editar</button>
-          <button class="btn btn-primary" style="padding:5px 10px;font-size:12px;" data-prospect-contact="${c.id}">→ Prospecção</button>
+          <button class="btn btn-primary" style="padding:5px 10px;font-size:12px;" data-prospect-contact="${c.id}">→ Gerar lead</button>
         </td></tr>`).join('')
     + '</tbody></table></div>';
   el.querySelectorAll('[data-edit-contact]').forEach(b=>b.addEventListener('click',()=>openContactModal(b.dataset.editContact)));
@@ -4737,8 +4737,13 @@ document.getElementById('delete-contact-btn').addEventListener('click', async ()
   renderContacts();
 });
 
+// Etapa de entrada do funil. A migration 0012 fundiu Prospecção com Novo Lead
+// e renomeou o resultado para "Leads Novos"; o nome antigo fica no fallback
+// para o caso de a migration não ter rodado ainda. Última defesa: stages[0].
 function etapaProspeccao(){
-  return stages.find(s=>s.name==='Prospecção') || stages[0];
+  return stages.find(s=>s.name==='Leads Novos')
+      || stages.find(s=>s.name==='Prospecção')
+      || stages[0];
 }
 async function criarProspeccaoDeEmpresa(companyId){
   const c = companies.find(x=>x.id===companyId);
@@ -4749,7 +4754,7 @@ async function criarProspeccaoDeEmpresa(companyId){
     stage_id: etapa.id, owner_id: currentProfile.id, company_id: c.id
   });
   if(error){ showToast('Erro: '+error.message,'err'); return; }
-  showToast('Prospecção criada para '+c.name,'ok');
+  showToast('Lead criado para '+c.name,'ok');
   await loadDeals(); renderAll();
 }
 async function criarProspeccaoDeContato(contactId){
@@ -4763,7 +4768,7 @@ async function criarProspeccaoDeContato(contactId){
     company_id: c.company_id || null, contact_id: c.id
   });
   if(error){ showToast('Erro: '+error.message,'err'); return; }
-  showToast('Prospecção criada para '+c.full_name,'ok');
+  showToast('Lead criado para '+c.full_name,'ok');
   await loadDeals(); renderAll();
 }
 
