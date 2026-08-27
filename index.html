@@ -121,6 +121,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   .quick-link{font-size:12px; line-height:1; text-decoration:none; color:var(--primary);}
   .quick-link:hover{color:var(--primary-hover);}
   .field-row{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .field-ajuda{font-size:11px; font-weight:400; color:var(--text-muted); margin-top:4px; line-height:1.4;}
 
   /* ===== Auth screen ===== */
   .auth-wrap{display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px;}
@@ -820,6 +821,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
       <div class="funnel-toolbar">
         <input type="text" id="search-deals" placeholder="Buscar por nome, empresa ou contato...">
         <select id="filter-owner" class="hidden"></select>
+        <select id="filter-lista" class="hidden" aria-label="Filtrar por lista de origem"></select>
         <div class="icp-filtro hidden" id="icp-filtro-wrap" aria-label="Filtros ICP">
           <div class="icp-filtro__linha" role="group" aria-label="Prioridade ICP">
             <span class="icp-filtro__rotulo">Prioridade</span>
@@ -868,6 +870,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
           <option value="90">90+ dias parado</option>
         </select>
         <select id="fu-owner" class="hidden"></select>
+        <select id="fu-lista" class="hidden" aria-label="Filtrar por lista de origem"></select>
       </div>
       <div class="fu-count" id="fu-count"></div>
       <div class="fu-list" id="fu-list"></div>
@@ -1192,6 +1195,12 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
           <select id="deal-stage"></select>
         </div>
       </div>
+      <div class="field">
+        <label for="deal-lista">Lista de origem</label>
+        <input type="text" id="deal-lista" list="listas-datalist" maxlength="120" placeholder="Nenhuma lista">
+        <datalist id="listas-datalist"></datalist>
+        <div class="field-ajuda">De qual lista de prospecção este lead veio. Preenchido na importação; editável aqui.</div>
+      </div>
       <div class="field-row">
         <div class="field">
           <label>📅 Próximo contato (follow-up)</label>
@@ -1310,6 +1319,12 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
     <div class="field">
       <label>Etapa do funil para os leads importados</label>
       <select id="import-stage"></select>
+    </div>
+
+    <div class="field">
+      <label for="import-lista">Nome da lista</label>
+      <input type="text" id="import-lista" maxlength="120" placeholder="Ex.: Receita Federal — ES — comércio">
+      <div class="field-ajuda">Marca todos os leads deste arquivo. Vira filtro no funil e aparece na ficha do lead. Sugerido pelo nome do arquivo &mdash; pode trocar.</div>
     </div>
 
     <div class="field hidden" id="import-title-choice-field">
@@ -1528,6 +1543,11 @@ let kanbanCounts = {};      // { stageId: {total, valor} }
 let kanbanCards = {};       // { stageId: {cards, carregados, total} }
 let kanbanBusca = '';
 let kanbanOwner = null;
+// Filtro por lista de origem. Dois eixos por RPC: p_lista (uma lista) e
+// p_sem_lista (só os leads sem lista). Nunca os dois ao mesmo tempo — o valor
+// '__sem__' do seletor liga o segundo e zera o primeiro.
+let kanbanLista = null;
+let kanbanSemLista = false;
 let profiles = [];          // todos os profiles (apenas admin carrega de fato)
 let companies = [];         // empresas
 let contacts = [];          // pessoas/contatos
@@ -1836,6 +1856,7 @@ async function loadProfileAndInit(){
   try { await loadProfiles(); } catch(e){}
   try { await loadDeals(); } catch(e){}
   try { await carregarPriorizacaoICP(); } catch(e){}
+  try { await carregarListas(); } catch(e){}
   try { await loadCompanies(); } catch(e){}
   try { await loadContacts(); } catch(e){}
   try { await carregarContadores(); } catch(e){}
@@ -1899,6 +1920,74 @@ async function loadDeals(){
     .order('created_at', { ascending: false });
   if(error){ showToast('Erro ao carregar leads: ' + error.message, 'err'); return; }
   deals = data || [];
+}
+
+// ------------------------------------------------------------
+// LISTAS DE ORIGEM (deals.lista_origem)
+// ------------------------------------------------------------
+// Alimenta o datalist da ficha do lead. A RPC listas_importadas NÃO é security
+// definer: roda com a RLS de quem chamou, então o vendedor só enxerga as listas
+// em que ele tem lead. Falha aqui é silenciosa por decisão — sem lista o campo
+// vira um texto livre comum e nada mais deixa de funcionar.
+var listasImportadas = [];
+
+async function carregarListas(){
+  try {
+    const { data, error } = await db.rpc('listas_importadas');
+    if(error) throw error;
+    listasImportadas = (data || []).map(r=>r.lista).filter(Boolean);
+  } catch(err){
+    listasImportadas = [];
+  }
+  preencherDatalistListas();
+  preencherSelectsLista();
+}
+
+// Parâmetros de lista para as RPCs. Só são enviados quando há filtro ativo:
+// sem filtro, a chamada fica IDÊNTICA à de hoje e continua funcionando mesmo
+// que a migration 0010 ainda não tenha rodado. Quem tentar usar o filtro antes
+// da migration recebe erro do PostgREST; o resto do sistema não sente nada.
+function paramsLista(lista, sem){
+  if(sem) return { p_lista: null, p_sem_lista: true };
+  if(lista) return { p_lista: lista, p_sem_lista: false };
+  return {};
+}
+
+// Monta os dois seletores de lista (funil e follow-up). Ficam escondidos
+// enquanto não houver nenhuma lista — mesmo critério do filtro ICP: controle
+// que não filtra nada só ocupa barra.
+function preencherSelectsLista(){
+  [
+    { id: 'filter-lista', valor: kanbanSemLista ? '__sem__' : (kanbanLista || '') },
+    { id: 'fu-lista',     valor: fuSemLista     ? '__sem__' : (fuLista     || '') }
+  ].forEach(cfg=>{
+    const sel = document.getElementById(cfg.id);
+    if(!sel) return;
+    sel.innerHTML = '';
+    const add = (valor, rotulo)=>{
+      const o = document.createElement('option');
+      o.value = valor;              // por propriedade: nome de lista nunca entra em HTML
+      o.textContent = rotulo;
+      sel.appendChild(o);
+    };
+    add('', 'Todas as listas');
+    listasImportadas.forEach(nome=>add(nome, nome));
+    if(listasImportadas.length) add('__sem__', 'Sem lista');
+    sel.value = cfg.valor;
+    if(sel.value !== cfg.valor) sel.value = '';   // lista apagada entretanto
+    sel.classList.toggle('hidden', listasImportadas.length === 0);
+  });
+}
+
+function preencherDatalistListas(){
+  const dl = document.getElementById('listas-datalist');
+  if(!dl) return;
+  dl.innerHTML = '';
+  listasImportadas.forEach(nome=>{
+    const opt = document.createElement('option');
+    opt.value = nome;          // por propriedade: nada de nome interpolado em HTML
+    dl.appendChild(opt);
+  });
 }
 
 // Carrega a priorização ICP da view read-only e monta o índice por deal_id.
@@ -1991,10 +2080,15 @@ async function carregarAgenda(){
       .limit(300);
     if(error) throw error;
     const agora = Date.now();
-    const res = { futuras: [], pendentes: [], realizadasMes: 0, erro: false };
+    const res = { futuras: [], pendentes: [], realizadasMes: 0, naoCompareceuMes: 0, canceladasMes: 0, erro: false };
     (data || []).forEach(r=>{
       if(r.meeting_status === 'realizada'){ res.realizadasMes++; return; }
-      if(r.meeting_status !== 'agendada') return;   // cancelada / não compareceu saem do painel
+      // Reunião que não aconteceu continua fora do painel (ele é lista de
+      // compromisso vivo), mas passa a ser CONTADA — furo de cliente é
+      // informação de gestão, não descarte.
+      if(r.meeting_status === 'nao_compareceu'){ res.naoCompareceuMes++; return; }
+      if(r.meeting_status === 'cancelada'){ res.canceladasMes++; return; }
+      if(r.meeting_status !== 'agendada') return;
       if(new Date(r.occurred_at).getTime() < agora) res.pendentes.push(r);
       else res.futuras.push(r);
     });
@@ -2058,9 +2152,11 @@ function renderAgendaPainel(ag){
     return;
   }
   if(sub){
-    sub.textContent = ag.realizadasMes
-      ? (ag.realizadasMes + (ag.realizadasMes === 1 ? ' realizada no mês' : ' realizadas no mês'))
-      : '';
+    const partesSub = [];
+    if(ag.realizadasMes){ partesSub.push(ag.realizadasMes + (ag.realizadasMes === 1 ? ' realizada' : ' realizadas')); }
+    if(ag.naoCompareceuMes){ partesSub.push(ag.naoCompareceuMes + ' não compareceu'); }
+    if(ag.canceladasMes){ partesSub.push(ag.canceladasMes + (ag.canceladasMes === 1 ? ' cancelada' : ' canceladas')); }
+    sub.textContent = partesSub.length ? (partesSub.join(' · ') + ' no mês') : '';
   }
   const itens = ag.pendentes.concat(ag.futuras);
   if(!itens.length){
@@ -2133,9 +2229,21 @@ async function renderDashboard(){
         ? (agenda.pendentes.length + (agenda.pendentes.length === 1 ? ' aguardando desfecho' : ' aguardando desfecho'))
         : (agenda.realizadasMes + (agenda.realizadasMes === 1 ? ' realizada no mês' : ' realizadas no mês')));
 
+  // Reunião que não aconteceu. O denominador da taxa é realizada + não
+  // compareceu: cancelada fica de fora porque desmarcar com antecedência não
+  // é falha de comparecimento, e contá-la pune quem avisou.
+  const agendaFechadas = agenda.realizadasMes + agenda.naoCompareceuMes;
+  const agendaTaxa = agendaFechadas ? Math.round((agenda.realizadasMes / agendaFechadas) * 100) : null;
+  const noShowSub = agenda.erro ? ''
+    : (agendaTaxa === null
+        ? 'nenhuma reunião com desfecho no mês'
+        : (agendaTaxa + '% de comparecimento no mês'
+           + (agenda.canceladasMes ? (' · ' + agenda.canceladasMes + ' cancelada(s)') : '')));
+
   const metrics = [
     { label: '🔔 Follow-ups p/ hoje', value: followupPendente, sub: followupPendente>0 ? 'precisam de contato!' : 'tudo em dia' },
     { label: '🤝 Reuniões agendadas', value: agenda.erro ? '—' : agendaAbertas, sub: agendaSub },
+    { label: '🚫 Reuniões não realizadas', value: agenda.erro ? '—' : agenda.naoCompareceuMes, sub: noShowSub },
     { label: 'Negócios em aberto', value: openCount, sub: formatCurrency(openValue) + ' em negociação' },
     { label: 'Ganhos', value: wonCount, sub: formatCurrency(wonValue) + ' faturado' },
     { label: 'Perdidos', value: lostCount, sub: '' },
@@ -2221,6 +2329,20 @@ searchInput.addEventListener('input', (e)=>{
   kanbanBuscaTimer = setTimeout(()=>{ kanbanBusca = val.trim(); carregarKanban(); }, 400);
 });
 ownerFilter.addEventListener('change', (e)=>{ kanbanOwner = e.target.value || null; carregarKanban(); });
+
+// Filtro por lista no funil. Vai para o servidor: a contagem no topo da coluna
+// e o "Carregar mais" passam a ser os da lista, não os da carteira inteira.
+(function(){
+  const sel = document.getElementById('filter-lista');
+  if(!sel) return;
+  sel.addEventListener('change', (e)=>{
+    const v = e.target.value;
+    kanbanSemLista = (v === '__sem__');
+    kanbanLista = (v && v !== '__sem__') ? v : null;
+    kanbanCards = {};              // profundidade das colunas não sobrevive à troca de filtro
+    carregarKanban();
+  });
+})();
 
 // Filtros do funil - dois eixos independentes, combinados por E:
 //   icpFiltroTiers    = prioridade ICP (S/A/B/C)
@@ -2499,7 +2621,7 @@ function renderKanban(){
 // eles chamam renderAll, que agora recarrega o Kanban do banco.
 async function recarregarContagem(){
   try {
-    const { data, error } = await db.rpc('kanban_contagem', { p_owner: kanbanOwner, p_busca: kanbanBusca || null });
+    const { data, error } = await db.rpc('kanban_contagem', Object.assign({ p_owner: kanbanOwner, p_busca: kanbanBusca || null }, paramsLista(kanbanLista, kanbanSemLista)));
     if(error) throw error;
     const novo = {};
     (data || []).forEach(r=>{ novo[r.stage_id] = { total: Number(r.total), valor: Number(r.soma_valor) }; });
@@ -2512,7 +2634,7 @@ async function recarregarContagem(){
 async function recarregarColuna(stageId){
   const limite = Math.max(100, (kanbanCards[stageId] && kanbanCards[stageId].carregados) || 0);
   try {
-    const { data, error } = await db.rpc('kanban_cards', { p_stage: stageId, p_owner: kanbanOwner, p_busca: kanbanBusca || null, p_limit: limite, p_offset: 0 });
+    const { data, error } = await db.rpc('kanban_cards', Object.assign({ p_stage: stageId, p_owner: kanbanOwner, p_busca: kanbanBusca || null, p_limit: limite, p_offset: 0 }, paramsLista(kanbanLista, kanbanSemLista)));
     if(error) throw error;
     const cards = data || [];
     kanbanCards[stageId] = { cards, carregados: cards.length, total: kanbanCounts[stageId] ? kanbanCounts[stageId].total : cards.length };
@@ -2527,7 +2649,7 @@ async function carregarKanban(){
     // Preserva a profundidade: colunas expandidas não voltam a 100 num renderAll.
     const limite = Math.max(100, (kanbanCards[s.id] && kanbanCards[s.id].carregados) || 0);
     try {
-      const { data, error } = await db.rpc('kanban_cards', { p_stage: s.id, p_owner: kanbanOwner, p_busca: kanbanBusca || null, p_limit: limite, p_offset: 0 });
+      const { data, error } = await db.rpc('kanban_cards', Object.assign({ p_stage: s.id, p_owner: kanbanOwner, p_busca: kanbanBusca || null, p_limit: limite, p_offset: 0 }, paramsLista(kanbanLista, kanbanSemLista)));
       if(error) throw error;
       const cards = data || [];
       novos[s.id] = { cards, carregados: cards.length, total: kanbanCounts[s.id] ? kanbanCounts[s.id].total : cards.length };
@@ -2544,10 +2666,10 @@ async function carregarMaisColuna(stageId){
   const col = kanbanCards[stageId];
   if(!col) return;
   try {
-    const { data, error } = await db.rpc('kanban_cards', {
+    const { data, error } = await db.rpc('kanban_cards', Object.assign({
       p_stage: stageId, p_owner: kanbanOwner, p_busca: kanbanBusca || null,
       p_limit: 100, p_offset: col.carregados,
-    });
+    }, paramsLista(kanbanLista, kanbanSemLista)));
     if(error) throw error;
     col.cards = col.cards.concat(data || []);
     col.carregados = col.cards.length;
@@ -2651,6 +2773,7 @@ async function openDealModal(dealId){
     // Origem: lê deals.origem; cai para o legado deals.source quando origem é null.
     document.getElementById('deal-source').value = (deal.origem != null ? deal.origem : deal.source) || '';
     document.getElementById('deal-stage').value = deal.stage_id;
+    document.getElementById('deal-lista').value = deal.lista_origem || '';
     document.getElementById('deal-followup').value = deal.next_followup_date || '';
     document.getElementById('deal-loss-reason').value = deal.loss_reason || '';
     if(isAdmin()) document.getElementById('deal-owner').value = deal.owner_id;
@@ -2911,6 +3034,7 @@ dealForm.addEventListener('submit', async (e)=>{
     expected_close_date: document.getElementById('deal-close-date').value || null,
     origem: document.getElementById('deal-source').value.trim() || null,
     stage_id: document.getElementById('deal-stage').value,
+    lista_origem: document.getElementById('deal-lista').value.trim().slice(0, 120) || null,
     next_followup_date: document.getElementById('deal-followup').value || null,
     loss_reason: document.getElementById('deal-loss-reason').value || null,
   };
@@ -2929,6 +3053,7 @@ dealForm.addEventListener('submit', async (e)=>{
 
   closeDealModal();
   await loadDeals();
+  await carregarListas();   // lista nova digitada na ficha entra no datalist
   renderAll();
 });
 
@@ -2957,7 +3082,11 @@ const ACTIVITY_CHANNELS = [
 const ACTIVITY_OUTCOMES = {
   telefone:   [ {v:'atendeu',t:'Atendeu',tone:'pos'}, {v:'nao_atendeu',t:'Não atendeu',tone:'neg'}, {v:'caixa_postal',t:'Caixa postal',tone:'neg'}, {v:'numero_errado',t:'Número errado',tone:'neg'} ],
   whatsapp:   [ {v:'respondeu',t:'Respondeu',tone:'pos'}, {v:'visualizou',t:'Visualizou',tone:'neu'}, {v:'nao_visualizou',t:'Não visualizou',tone:'neg'}, {v:'numero_invalido',t:'Número inválido',tone:'neg'} ],
-  email:      [ {v:'respondeu',t:'Respondeu',tone:'pos'}, {v:'sem_resposta',t:'Sem resposta',tone:'neu'}, {v:'bounce',t:'Bounce',tone:'neg'} ],
+  // 'bounce' é o valor gravado (constraint resultado_valido do banco vivo); o
+  // rótulo é 'Enviado'. Renomear a chave exige alterar a constraint — feito
+  // depois, junto com o UPDATE das linhas já gravadas. Nenhuma lógica lê
+  // 'bounce': ele só aparece em rótulo.
+  email:      [ {v:'respondeu',t:'Respondeu',tone:'pos'}, {v:'sem_resposta',t:'Sem resposta',tone:'neu'}, {v:'bounce',t:'Enviado',tone:'neu'} ],
   presencial: [ {v:'realizada',t:'Realizada',tone:'pos'}, {v:'nao_compareceu',t:'Não compareceu',tone:'neg'} ],
   nota:       [],
 };
@@ -3412,6 +3541,8 @@ const FU_FILTROS = [
   { k:'sem_passo', label:'Sem próximo passo' },
 ];
 let fuFiltro = 'esteira';
+let fuLista = null;
+let fuSemLista = false;
 let fuBusca = '';
 let fuMinDias = 0;
 let fuStage = null;
@@ -3426,7 +3557,7 @@ function fuOwnerParam(){ return isAdmin() ? (fuOwner || null) : null; }
 
 async function carregarContadores(){
   try {
-    const { data, error } = await db.rpc('followups_contadores', { p_owner: fuOwnerParam(), p_min_dias: fuMinDias, p_stage: fuStage });
+    const { data, error } = await db.rpc('followups_contadores', Object.assign({ p_owner: fuOwnerParam(), p_min_dias: fuMinDias, p_stage: fuStage }, paramsLista(fuLista, fuSemLista)));
     if(error) throw error;
     fuContadores = data || {};
     renderContadores();
@@ -3488,7 +3619,7 @@ async function carregarFollowups(opts){
   if(opts.reset){ fuItens = []; }
   const offset = fuItens.length;
   try {
-    const { data, error } = await db.rpc('followups_list', {
+    const { data, error } = await db.rpc('followups_list', Object.assign({
       p_filtro:   fuFiltro,
       p_busca:    fuBusca || null,
       p_owner:    fuOwnerParam(),
@@ -3496,7 +3627,7 @@ async function carregarFollowups(opts){
       p_stage:    fuStage,
       p_limit:    limit,
       p_offset:   offset,
-    });
+    }, paramsLista(fuLista, fuSemLista)));
     if(error) throw error;
     const rows = data || [];
     if(rows.length){ fuTotal = Number(rows[0].total_registros); }
@@ -3645,6 +3776,14 @@ document.getElementById('fu-min-dias').addEventListener('change', (e)=>{
   carregarContadores();
   carregarFollowups({ reset:true });
 });
+document.getElementById('fu-lista').addEventListener('change', (e)=>{
+  const v = e.target.value;
+  fuSemLista = (v === '__sem__');
+  fuLista = (v && v !== '__sem__') ? v : null;
+  fecharFormRegistro();
+  carregarContadores();
+  carregarFollowups({ reset:true });
+});
 document.getElementById('fu-more-btn').addEventListener('click', ()=>{ carregarFollowups({}); });
 
 // ============================================================
@@ -3719,6 +3858,7 @@ var METAS_IND = [
   { k: 'emails',             r: 'E-mails' },
   { k: 'conversas_efetivas', r: 'Conversas efetivas' },
   { k: 'reunioes',           r: 'Reuniões' },
+  { k: 'reunioes_nao_realizadas', r: 'Reuniões não realizadas' },
   { k: 'trabalhados',        r: 'Leads trabalhados' },
   { k: 'movimentacoes',      r: 'Movimentações de etapa' },
   { k: 'ganhos',             r: 'Leads ganhos' },
@@ -4220,8 +4360,9 @@ function renderImportDedup(){
   box.innerHTML = html;
 }
 
-function montarRegistroImport(l, stageId, ownerId){
+function montarRegistroImport(l, stageId, ownerId, lista){
   return {
+    lista_origem: lista || null,
     title: l.title,
     razao_social: l.razao_social || null,
     contact_name: l.contact_name || null,
@@ -4285,6 +4426,12 @@ document.getElementById('import-file').addEventListener('change', async function
   importRegistros = []; importRows = []; importTitulos = []; importMapa = {};
   if(!file){ preview.textContent = ''; return; }
   importNomeArquivo = file.name || '';
+  // Sugere o nome da lista a partir do arquivo, sem a extensão. Só sugere:
+  // se o usuário já digitou algo, o que ele escreveu manda.
+  var campoLista = document.getElementById('import-lista');
+  if(campoLista && !campoLista.value.trim()){
+    campoLista.value = importNomeArquivo.replace(/\.[^.]+$/, '').slice(0, 120);
+  }
   preview.textContent = 'Lendo arquivo…';
 
   try {
@@ -4324,6 +4471,16 @@ document.getElementById('confirm-import-btn').addEventListener('click', async fu
   if(!importRegistros.length){ showToast('Selecione um arquivo válido primeiro.', 'err'); return; }
   var stageId = document.getElementById('import-stage').value;
 
+  // Nome da lista: obrigatório. É a marca que permite ao SDR reencontrar estes
+  // leads depois — importar 4.700 linhas sem ela é jogar a lista na base.
+  var campoLista = document.getElementById('import-lista');
+  var lista = campoLista ? campoLista.value.trim().slice(0, 120) : '';
+  if(!lista){
+    showToast('Dê um nome à lista antes de importar.', 'err');
+    if(campoLista) campoLista.focus();
+    return;
+  }
+
   // Dono dos leads: admin escolhe no seletor; vendedor recebe sempre a si mesmo.
   var ownerId = currentProfile.id;
   if(isAdmin()){
@@ -4340,7 +4497,7 @@ document.getElementById('confirm-import-btn').addEventListener('click', async fu
   for(i = 0; i < importRegistros.length; i++){
     d = soDigitos(importRegistros[i].cnpj);
     if(ignorar && d && dupSet[d]){ ignorados++; continue; }
-    aInserir.push(montarRegistroImport(importRegistros[i], stageId, ownerId));
+    aInserir.push(montarRegistroImport(importRegistros[i], stageId, ownerId, lista));
   }
   if(!aInserir.length){ showToast('Nada a importar (todas já existem no CRM).', 'err'); return; }
 
@@ -4373,12 +4530,13 @@ document.getElementById('confirm-import-btn').addEventListener('click', async fu
 
   // Telemetria/LGPD — não bloqueia o fluxo se falhar.
   try {
-    await db.rpc('registrar_evento', { p_event_type: 'import', p_entidade: 'deals', p_metadata: { total: inseridos, ignorados_duplicados: ignorados, arquivo: importNomeArquivo } });
+    await db.rpc('registrar_evento', { p_event_type: 'import', p_entidade: 'deals', p_metadata: { total: inseridos, ignorados_duplicados: ignorados, arquivo: importNomeArquivo, lista: lista } });
   } catch(e){ /* ignora */ }
 
-  showToast(inseridos + ' lead(s) importados' + (ignorados ? (' · ' + ignorados + ' ignorados por já existirem') : '') + '.', 'ok');
+  showToast(inseridos + ' lead(s) importados na lista "' + lista + '"' + (ignorados ? (' · ' + ignorados + ' ignorados por já existirem') : '') + '.', 'ok');
   importModal.classList.add('hidden');
   await loadDeals();
+  await carregarListas();
   renderAll();
 });
 
@@ -4874,6 +5032,8 @@ async function criarProspeccaoDeContato(contactId){
   // ==========================================================
   function corCobertura(v){ if(v === null || v === undefined) return ""; if(v < 50) return "rel-kpi__value--bad"; if(v > 70) return "rel-kpi__value--good"; return ""; }
   function corPrimeiro(v){ if(v === null || v === undefined) return ""; if(v > 12) return "rel-kpi__value--bad"; if(v < 6) return "rel-kpi__value--good"; return ""; }
+  // Comparecimento: abaixo de 60% a agenda está sendo furada com frequência.
+  function corComparecimento(v){ if(v === null || v === undefined) return ""; if(v < 60) return "rel-kpi__value--bad"; if(v >= 80) return "rel-kpi__value--good"; return ""; }
 
   function renderKpis(p){
     var cards = [
@@ -4883,6 +5043,8 @@ async function criarProspeccaoDeContato(contactId){
       { rotulo:"Follow-ups em dia", valor:pct(p.followup_em_dia_pct), foot:"agendados e cumpridos no prazo" },
       { rotulo:"Leads dormentes", valor:numOuTraco(p.dormentes), foot:"sem atividade há mais de " + numOuTraco(p.dormentes_dias) + " dias" },
       { rotulo:"Taxa de conversão", valor:pct(p.conversao_pct), foot:"ganhos ÷ (ganhos + perdidos)" },
+      { rotulo:"Reuniões realizadas", valor:numOuTraco(p.reunioes_realizadas), foot:numOuTraco(p.reunioes_nao_realizadas) + " não compareceram" },
+      { rotulo:"Comparecimento", valor:pct(p.reunioes_taxa_pct), foot:"realizadas ÷ (realizadas + não compareceu)", classe:corComparecimento(p.reunioes_taxa_pct) },
       { rotulo:"Valor ganho", valor:moeda(p.valor_ganho), foot:"fechado no período" },
       { rotulo:"Leads alterados", valor:numOuTraco(p.leads_alterados), foot:"por usuários reais no período" }
     ];
@@ -4924,7 +5086,13 @@ async function criarProspeccaoDeContato(contactId){
     var canal = objItens(p.por_canal, { telefone:"Telefone", whatsapp:"WhatsApp", email:"E-mail" }, null);
     if(canal.length) desenharBarras("rel-canal", canal); else estadoTexto("rel-canal", "Nenhuma atividade registrada neste período.");
 
-    var desf = objItens(p.por_desfecho, { atendeu:"Atendeu", nao_atendeu:"Não atendeu" }, null);
+    var desf = objItens(p.por_desfecho, {
+      atendeu:"Atendeu", nao_atendeu:"Não atendeu", caixa_postal:"Caixa postal",
+      numero_errado:"Número errado", respondeu:"Respondeu", visualizou:"Visualizou",
+      nao_visualizou:"Não visualizou", numero_invalido:"Número inválido",
+      sem_resposta:"Sem resposta", bounce:"Enviado",
+      realizada:"Reunião realizada", nao_compareceu:"Reunião — não compareceu"
+    }, null);
     if(desf.length) desenharBarras("rel-desfecho", desf); else estadoTexto("rel-desfecho", "Nenhum contato registrado neste período.");
 
     var perda = objItens(p.motivos_perda, null, function(k){ return k === "(não preenchido)" ? "var(--warn)" : "var(--lost)"; });
@@ -5241,6 +5409,7 @@ async function criarProspeccaoDeContato(contactId){
     if(k === "emails") return "E-mails";
     if(k === "conversas_efetivas") return "Efetivas";
     if(k === "reunioes") return "Reuniões";
+    if(k === "reunioes_nao_realizadas") return "No-show";
     if(k === "trabalhados") return "Trabalhados";
     if(k === "movimentacoes") return "Movim.";
     if(k === "ganhos") return "Ganhos";
