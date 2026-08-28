@@ -416,6 +416,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   .fu-flag-atraso{color:var(--lost); font-weight:600;}
   .fu-flag-hoje{color:var(--primary); font-weight:600;}
   .fu-flag-parado{color:var(--lost); font-weight:600;}
+  .fu-flag-alerta{color:var(--warn); font-weight:600;}
   .fu-actions{display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap;}
   .fu-quick{display:flex; gap:8px; font-size:18px;}
   .fu-quick a{text-decoration:none;}
@@ -3108,6 +3109,7 @@ const PROXIMO_OPCOES = [
 // Os intervalos são exatamente os chips que já existem em PROXIMO_OPCOES, para
 // o SDR reconhecer o que foi marcado e poder trocar num clique.
 // Escolha manual no "Próximo passo" SEMPRE vence a régua.
+const DIAS_ALERTA_SEM_CONTATO = 4;   // acima disso o lead ganha destaque na fila
 const CADENCIA_DIAS = [1, 3, 7, 15];               // após a 1ª, 2ª, 3ª e 4ª tentativa
 const CADENCIA_MAX  = CADENCIA_DIAS.length + 1;    // 5 toques e o lead sai da esteira
 const OUTCOME_EFETIVO = ['atendeu', 'respondeu', 'realizada'];
@@ -3789,8 +3791,12 @@ function fuFlagsHtml(it){
   // "Sem contato" e não "parado": desde a migration 0011 o contador só zera com
   // contato efetivo (atendeu / respondeu / reunião realizada). Ligação que o
   // cliente não atendeu é esforço registrado, não é lead alcançado.
+  // Quatro dias é o limite acordado: passou disso sem conversar com ninguém, o
+  // lead precisa de outra abordagem — telefone novo, outro canal, ou descarte.
+  // 30 dias continua sendo o vermelho de "isso aqui virou entulho".
   const parado = Number(it.dias_parado || 0);
-  flags.push(`<span class="${parado > 30 ? 'fu-flag-parado' : ''}" title="Dias sem contato efetivo. Tentativas sem resposta não zeram este contador.">${parado}d sem contato</span>`);
+  const clsParado = parado > 30 ? 'fu-flag-parado' : (parado >= DIAS_ALERTA_SEM_CONTATO ? 'fu-flag-alerta' : '');
+  flags.push(`<span class="${clsParado}" title="Dias sem contato efetivo. Tentativas sem resposta não zeram este contador.">${parado}d sem contato</span>`);
   flags.push(`<span>${it.total_atividades} atividade${Number(it.total_atividades)===1?'':'s'}</span>`);
   return flags.join(' · ');
 }
