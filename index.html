@@ -5055,7 +5055,7 @@ async function criarProspeccaoDeContato(contactId){
          + " v " + (h - r) + " h " + (-w) + " Z";
   }
 
-  function desenharColunasEmpilhadas(dias, series, cores, atendidas){
+  function desenharColunasEmpilhadas(dias, series, cores, atendidas, metaDia){
     var n = dias.length;
     if(!n) return "";
     var W = 960, H = 320, mL = 40, mR = 12, mT = 22, mB = 48;
@@ -5071,7 +5071,10 @@ async function criarProspeccaoDeContato(contactId){
       totais.push(v);
       if(v > maxTotal) maxTotal = v;
     }
-    var teto = tetoBonito(maxTotal || 1);
+    // A meta entra no teto: linha de referência fora da área desenhada não
+    // serve de referência para nada.
+    var alvo = (metaDia && metaDia > 0) ? metaDia : 0;
+    var teto = tetoBonito(Math.max(maxTotal, alvo) || 1);
     function y(val){ return mT + ph - (val / teto) * ph; }
     function xCol(k){ return mL + k * passo + (passo - larg) / 2; }
 
@@ -5095,6 +5098,15 @@ async function criarProspeccaoDeContato(contactId){
         +  '" stroke="#e5e7eb" stroke-width="1"/>';
       s += '<text x="' + (mL - 6) + '" y="' + (gy + 4) + '" text-anchor="end"'
         +  ' font-size="10" fill="#6b7280">' + rot + '</text>';
+    }
+
+    // Linha da meta do dia — soma das metas diárias de ligações de quem está no
+    // recorte. Fica atrás das colunas: é referência, não dado.
+    if(alvo > 0){
+      s += '<line x1="' + mL + '" y1="' + y(alvo) + '" x2="' + (W - mR) + '" y2="' + y(alvo)
+        +  '" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 4"/>';
+      s += '<text x="' + (W - mR) + '" y="' + (y(alvo) - 5) + '" text-anchor="end"'
+        +  ' font-size="10" fill="#6b7280">meta ' + alvo + '/dia</text>';
     }
 
     // colunas
@@ -5153,13 +5165,19 @@ async function criarProspeccaoDeContato(contactId){
     }
 
     // dias sem nenhuma ligação: o vazio precisa ser dito, não deduzido
-    var zerados = 0;
-    for(i = 0; i < n; i++){ if(totais[i] === 0 && !ehFimDeSemana(dias[i])) zerados++; }
-    s += '<text x="' + mL + '" y="' + (H - 8) + '" font-size="10" fill="#6b7280">'
-      +  escapar(zerados === 0 ? "Nenhum dia útil sem ligação no período"
+    var zerados = 0, uteis = 0, bateram = 0;
+    for(i = 0; i < n; i++){
+      if(ehFimDeSemana(dias[i])) continue;
+      uteis++;
+      if(totais[i] === 0) zerados++;
+      if(alvo > 0 && totais[i] >= alvo) bateram++;
+    }
+    var rodape = (zerados === 0 ? "Nenhum dia útil sem ligação no período"
                 : (zerados === 1 ? "1 dia útil sem nenhuma ligação"
-                                 : zerados + " dias úteis sem nenhuma ligação"))
-      +  '</text>';
+                                 : zerados + " dias úteis sem nenhuma ligação"));
+    if(alvo > 0){ rodape += "  ·  meta batida em " + bateram + " de " + uteis + " dias úteis"; }
+    s += '<text x="' + mL + '" y="' + (H - 8) + '" font-size="10" fill="#6b7280">'
+      +  escapar(rodape) + '</text>';
     s += "</svg>";
     return s;
   }
@@ -5518,12 +5536,37 @@ async function criarProspeccaoDeContato(contactId){
     return out;
   }
 
+  // Meta de ligações do dia para o recorte atual: soma das metas diárias das
+  // pessoas que metas_progresso devolveu. Com o filtro num vendedor, é a dele;
+  // em "Toda a equipe", é a soma. Quem não tem meta definida não aparece na RPC
+  // (ela só devolve valor > 0) e portanto não entra na soma.
+  function metaDiariaLigacoes(rows){
+    if(!rows || !rows.length) return 0;
+    var soma = 0, i, r;
+    for(i = 0; i < rows.length; i++){
+      r = rows[i];
+      if(r.indicador !== "ligacoes" || r.periodicidade !== "diaria") continue;
+      soma += Number(r.meta) || 0;
+    }
+    return Math.round(soma);
+  }
+
   async function carregarSerie(per, owner){
     estadoTexto("rel-serie", "Carregando…");
     try {
-      var r = await db.rpc("serie_ligacoes", { p_de: per.de, p_ate: per.ate, p_owner: owner });
+      // A meta do dia vem de metas_progresso porque ela já aplica
+      // rel_owner_efetivo: o vendedor recebe a própria, o gestor recebe a equipe,
+      // e o filtro do topo é respeitado sem uma segunda regra de escopo aqui.
+      // Falha ao buscar a meta não derruba o gráfico — a linha simplesmente
+      // não é desenhada.
+      var resp = await Promise.all([
+        db.rpc("serie_ligacoes", { p_de: per.de, p_ate: per.ate, p_owner: owner }),
+        db.rpc("metas_progresso", { p_owner: owner }).catch(function(){ return { error: true }; })
+      ]);
+      var r = resp[0], rm = resp[1];
       if(r.error) throw r.error;
       var linhas = r.data || [];
+      var metaDia = metaDiariaLigacoes(rm && !rm.error ? rm.data : null);
       ultimo.serie = linhas;
       if(!linhas.length){
         estadoTexto("rel-serie", "Nenhuma ligação registrada neste período.");
@@ -5561,7 +5604,7 @@ async function criarProspeccaoDeContato(contactId){
       var cores = [];
       for(i = 0; i < series.length; i++){ cores.push(COR_SERIE[i % COR_SERIE.length]); }
 
-      el("rel-serie").innerHTML = desenharColunasEmpilhadas(dias, series, cores, atendidas);
+      el("rel-serie").innerHTML = desenharColunasEmpilhadas(dias, series, cores, atendidas, metaDia);
       legendaLigacoes(series, cores, atendidas);
     } catch(e){ estadoErro("rel-serie"); }
   }

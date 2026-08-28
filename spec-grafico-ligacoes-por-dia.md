@@ -72,6 +72,25 @@ anterior (potência de 10) dava teto 9 para máximo 9 e grade em 2,25 / 4,5 / 6,
 
 **Total escrito no topo** de cada coluna quando a largura comporta.
 
+### A linha de meta
+
+Tracejada horizontal na **soma das metas diárias de ligações** de quem está no
+recorte: filtrando uma vendedora é a meta dela, em "Toda a equipe" é a soma. Vem
+de `metas_progresso`, que já aplica `rel_owner_efetivo` — assim o escopo da meta é
+o mesmo do resto do relatório, sem uma segunda regra escrita aqui.
+
+Três consequências de desenho:
+
+- a meta entra no cálculo do teto do eixo. Linha de referência fora da área
+  desenhada não serve de referência para nada;
+- fica **atrás** das colunas: é referência, não dado;
+- o rodapé passa a dizer *"meta batida em N de M dias úteis"* — o número que
+  responde "estamos no ritmo?" sem contar coluna por coluna.
+
+Quem não tem meta definida não aparece em `metas_progresso` (ela só devolve
+`valor > 0`) e não entra na soma. Sem nenhuma meta, a linha simplesmente não é
+desenhada. Falha ao buscar a meta não derruba o gráfico.
+
 ### A paleta
 
 A paleta antiga do CRM (`#2a2f8f`, `#16a34a`, `#dc2626`, `#b45309`) **reprovou**
@@ -119,5 +138,5 @@ Nenhuma função existente foi alterada. Rollback do backend é `drop function`.
 - [x] **Frontend** — ES5, light mode, `role="img"` + `aria-label`, `<title>` em cada segmento, legenda com nome e total
 - [x] **Dados** — o total do gráfico bate com a chave `ligacoes` do relatório no mesmo período (query de conferência na migration)
 - [x] **DevOps** — migration antes do frontend
-- [x] **QA** — `node --check` nos 4 blocos; 30 testes unitários (eixo, teto, fim de semana, path, SVG sem NaN, período vazio); paleta validada por script; render conferido em captura de tela
+- [x] **QA** — `node --check` nos 4 blocos; 43 testes unitários (eixo, teto, fim de semana, path, SVG sem NaN, período vazio, soma da meta, teto cobrindo a meta, contagem de dias batidos); paleta validada por script; render conferido em captura de tela
 - [ ] **Teste manual** — abrir Relatórios com "Toda a equipe" e 30 dias; conferir se o total da legenda bate com o KPI "Ligações"
