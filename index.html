@@ -533,6 +533,8 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   #page-relatorios .rel-lg-total::before{background:var(--primary);}
   #page-relatorios .rel-lg-media::before{background:#cbd5e1;}
   #page-relatorios .rel-legend--dyn span::before{background:var(--c);}
+  #page-relatorios .rel-legend b{color:var(--text); font-weight:700; margin-left:4px;}
+  #page-relatorios .rel-lg-atendidas::before{background:var(--text-muted); height:3px; border-radius:1px;}
   #page-relatorios .rel-audit-filtros{display:flex; flex-wrap:wrap; gap:var(--sp-3); margin-bottom:var(--sp-4);}
   #page-relatorios .rel-audit-filtros .rel-field select{font:inherit; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); min-width:150px;}
   #page-relatorios .rel-pager{display:flex; gap:var(--sp-2); align-items:center; justify-content:flex-end; margin-top:var(--sp-3); font-size:13px; color:var(--text-muted);}
@@ -1002,14 +1004,11 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
         </div>
         <div class="rel-panel">
           <div class="rel-panel__head">
-            <h3>Atividades registradas por dia</h3>
-            <span class="rel-hint">Contatos e notas registrados</span>
+            <h3>Ligações por dia</h3>
+            <span class="rel-hint">Uma coluna por dia, empilhada por vendedora — o traço escuro marca quantas foram atendidas</span>
           </div>
           <div id="rel-serie"></div>
-          <div class="rel-legend" id="rel-serie-legend">
-            <span class="rel-lg-total">Atividades no período</span>
-            <span class="rel-lg-media">Média diária</span>
-          </div>
+          <div class="rel-legend rel-legend--dyn" id="rel-serie-legend"></div>
         </div>
         <div class="rel-panel">
           <div class="rel-panel__head">
@@ -5012,117 +5011,171 @@ async function criarProspeccaoDeContato(contactId){
     var m = String(d || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
     return m ? (m[3] + "/" + m[2]) : "";
   }
-  function rotulosEixoX(dias, n, px, h){
-    var out = "", passo = Math.max(1, Math.round(n / 6)), ult = n - 1, marcados = [], i, txt;
-    for(i = 0; i < n; i += passo){ if(ult - i >= passo) marcados.push(i); }
-    marcados.push(ult);
-    for(i = 0; i < marcados.length; i++){
-      txt = (dias && dias[marcados[i]]) ? rotuloDia(dias[marcados[i]]) : "";
-      if(!txt) continue;
-      out += '<text x="' + px(marcados[i]) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="10" fill="#6b7280">' + txt + '</text>';
-    }
-    return out;
+
+
+
+  // ==========================================================
+  // COLUNAS EMPILHADAS — ligações por dia, por vendedora
+  // ==========================================================
+  // Coluna e não linha de propósito: a pergunta do gestor não é "a tendência
+  // sobe?", é "trabalhamos TODO dia, e quem trabalhou em cada dia?". Coluna
+  // mostra o buraco; linha o interpola e esconde.
+  //
+  // Decisões do desenho:
+  //  - fim de semana ganha faixa de fundo. Sem isso, um domingo zerado parece
+  //    falha de operação;
+  //  - as atendidas NÃO viram um segundo empilhamento (8 sub-segmentos com 4
+  //    vendedoras vira ruído). Viram um traço horizontal na altura do total
+  //    atendido do dia: uma marca por dia, volume e eficácia no mesmo lugar;
+  //  - o total vai escrito no topo da coluna quando cabe. As cores claras da
+  //    paleta ficam abaixo de 3:1 contra o branco, e rótulo visível é a
+  //    contrapartida exigida nesse caso.
+  // Teto do eixo Y sempre divisível pelas 4 linhas de grade — assim todo rótulo
+  // sai inteiro. A versão por potência de 10 dava teto 9 para máximo 9, e a
+  // grade virava 2,25 / 4,5 / 6,75.
+  function tetoBonito(max){
+    var m = Math.max(1, Math.ceil(max));
+    if(m <= 20)  return Math.ceil(m / 4) * 4;    // 9 -> 12 (0,3,6,9,12)
+    if(m <= 200) return Math.ceil(m / 8) * 8;    // 41 -> 48 (0,12,24,36,48)
+    return Math.ceil(m / 40) * 40;               // 539 -> 560
+  }
+  function ehFimDeSemana(iso){
+    var d = new Date(String(iso) + "T12:00:00");   // meio-dia evita virada de fuso
+    var w = d.getDay();
+    return w === 0 || w === 6;
+  }
+  // Retângulo com os DOIS cantos de cima arredondados. rect rx arredondaria os
+  // quatro e cortaria a emenda com o segmento de baixo.
+  function topoArredondado(x, y, w, h, r){
+    if(h <= r) r = Math.max(0, h - 1);
+    return "M " + x + " " + (y + r)
+         + " a " + r + " " + r + " 0 0 1 " + r + " " + (-r)
+         + " h " + (w - 2 * r)
+         + " a " + r + " " + r + " 0 0 1 " + r + " " + r
+         + " v " + (h - r) + " h " + (-w) + " Z";
   }
 
-  // Une as séries por DATA, não por posição no array. Duas séries de tamanhos
-  // diferentes (ou com dias faltando) deslocariam a linha inteira no eixo X.
-  function diasUniao(todas){
-    var visto = {}, lista = [], i, j, d;
-    for(i = 0; i < todas.length; i++){
-      for(j = 0; j < todas[i].length; j++){
-        d = todas[i][j].dia;
-        if(d && !visto[d]){ visto[d] = true; lista.push(d); }
+  function desenharColunasEmpilhadas(dias, series, cores, atendidas){
+    var n = dias.length;
+    if(!n) return "";
+    var W = 960, H = 320, mL = 40, mR = 12, mT = 22, mB = 48;
+    var pw = W - mL - mR, ph = H - mT - mB;
+    var passo = pw / n;
+    var larg = Math.min(28, Math.max(3, passo - 4));
+    var i, j, v;
+
+    var totais = [], maxTotal = 0;
+    for(i = 0; i < n; i++){
+      v = 0;
+      for(j = 0; j < series.length; j++){ v += Number(series[j].valores[i]) || 0; }
+      totais.push(v);
+      if(v > maxTotal) maxTotal = v;
+    }
+    var teto = tetoBonito(maxTotal || 1);
+    function y(val){ return mT + ph - (val / teto) * ph; }
+    function xCol(k){ return mL + k * passo + (passo - larg) / 2; }
+
+    var s = '<svg class="rel-colunas-svg" viewBox="0 0 ' + W + ' ' + H + '"'
+          + ' role="img" aria-label="Ligações por dia, empilhadas por vendedora"'
+          + ' xmlns="http://www.w3.org/2000/svg">';
+
+    // faixa de fim de semana, atrás de tudo
+    for(i = 0; i < n; i++){
+      if(!ehFimDeSemana(dias[i])) continue;
+      s += '<rect x="' + (mL + i * passo) + '" y="' + mT + '" width="' + passo
+        +  '" height="' + ph + '" fill="#f1f3f5"/>';
+    }
+
+    // grade + eixo Y
+    var linhas = 4, gy, rot;
+    for(i = 0; i <= linhas; i++){
+      gy = mT + (ph * i) / linhas;
+      rot = Math.round(teto - (teto * i) / linhas);
+      s += '<line x1="' + mL + '" y1="' + gy + '" x2="' + (W - mR) + '" y2="' + gy
+        +  '" stroke="#e5e7eb" stroke-width="1"/>';
+      s += '<text x="' + (mL - 6) + '" y="' + (gy + 4) + '" text-anchor="end"'
+        +  ' font-size="10" fill="#6b7280">' + rot + '</text>';
+    }
+
+    // colunas
+    var base, alt, topoIdx, px, py, corSeg, titulo;
+    for(i = 0; i < n; i++){
+      if(totais[i] === 0) continue;
+      px = xCol(i);
+      // índice do último segmento com valor: é ele que leva o canto arredondado
+      topoIdx = -1;
+      for(j = 0; j < series.length; j++){ if((Number(series[j].valores[i]) || 0) > 0) topoIdx = j; }
+      base = mT + ph;
+      for(j = 0; j < series.length; j++){
+        v = Number(series[j].valores[i]) || 0;
+        if(v <= 0) continue;
+        alt = (v / teto) * ph;
+        py = base - alt;
+        corSeg = cores[j % cores.length];
+        titulo = '<title>' + escapar(series[j].nome + " · " + rotuloDia(dias[i]) + " — "
+               + v + (v === 1 ? " ligação" : " ligações")) + '</title>';
+        if(j === topoIdx){
+          s += '<path d="' + topoArredondado(px, py, larg, alt, Math.min(4, larg / 2))
+            +  '" fill="' + corSeg + '">' + titulo + '</path>';
+        } else {
+          s += '<rect x="' + px + '" y="' + py + '" width="' + larg + '" height="' + alt
+            +  '" fill="' + corSeg + '">' + titulo + '</rect>';
+        }
+        base = py - 2;   // 2px de respiro entre segmentos, na cor da superfície
+      }
+      // Traço das atendidas. Vai por cima de qualquer cor da paleta, então leva
+      // um halo branco embaixo — sem ele, o escuro some dentro do azul.
+      if(atendidas && atendidas[i] > 0){
+        var ya = y(atendidas[i]);
+        s += '<line x1="' + px + '" y1="' + ya + '" x2="' + (px + larg) + '" y2="' + ya
+          +  '" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>';
+        s += '<line x1="' + px + '" y1="' + ya + '" x2="' + (px + larg) + '" y2="' + ya
+          +  '" stroke="#111827" stroke-width="2" stroke-linecap="round">'
+          +  '<title>' + escapar(rotuloDia(dias[i]) + " — " + atendidas[i] + " atendida(s) de " + totais[i]) + '</title>'
+          +  '</line>';
+      }
+      // total no topo, quando a coluna comporta o número
+      if(larg >= 14 || totais[i] === maxTotal){
+        s += '<text x="' + (px + larg / 2) + '" y="' + (y(totais[i]) - 6) + '" text-anchor="middle"'
+          +  ' font-size="10" font-weight="700" fill="#374151">' + totais[i] + '</text>';
       }
     }
-    lista.sort();
-    return lista;
-  }
-  function serieNosDias(linhas, dias, campo){
-    var idx = {}, out = [], i, v;
-    for(i = 0; i < linhas.length; i++){ idx[linhas[i].dia] = linhas[i]; }
-    for(i = 0; i < dias.length; i++){
-      v = idx[dias[i]] ? Number(idx[dias[i]][campo]) : 0;
-      out.push(isNaN(v) ? 0 : v);
-    }
-    return out;
-  }
 
-  function desenharLinha(pontos, dias){
-    var w = 720, h = 200, padL = 34, padR = 10, padT = 12, padB = 26;
-    var n = pontos.length;
-    if(n < 2) return "";
-    var max = 0, soma = 0, i;
-    for(i = 0; i < n; i++){ if(pontos[i] > max) max = pontos[i]; soma += pontos[i]; }
-    if(max === 0) max = 1;
-    var teto = Math.ceil(max * 1.15);
-    var media = soma / n;
-    var largura = w - padL - padR;
-    var altura = h - padT - padB;
-
-    function px(i){ return padL + (i * largura) / (n - 1); }
-    function py(v){ return padT + altura - (v / teto) * altura; }
-
-    var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Atividades registradas por dia no período">';
-
-    var linhas = 4, gy, rotulo;
-    for(i = 0; i <= linhas; i++){
-      gy = padT + (altura * i) / linhas;
-      rotulo = Math.round(teto - (teto * i) / linhas);
-      svg += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (w - padR) + '" y2="' + gy + '" stroke="#e2e5ea" stroke-width="1"/>';
-      svg += '<text x="' + (padL - 6) + '" y="' + (gy + 4) + '" text-anchor="end" font-size="10" fill="#6b7280">' + rotulo + '</text>';
+    // eixo base e rótulos de data
+    s += '<line x1="' + mL + '" y1="' + (mT + ph) + '" x2="' + (W - mR) + '" y2="' + (mT + ph)
+      +  '" stroke="#94a3b8" stroke-width="1"/>';
+    var passoRot = Math.max(1, Math.ceil(n / 12)), ult = n - 1, marcados = [];
+    for(i = 0; i < n; i += passoRot){ if(ult - i >= passoRot) marcados.push(i); }
+    marcados.push(ult);
+    for(i = 0; i < marcados.length; i++){
+      s += '<text x="' + (xCol(marcados[i]) + larg / 2) + '" y="' + (H - 28) + '" text-anchor="middle"'
+        +  ' font-size="10" fill="#6b7280">' + rotuloDia(dias[marcados[i]]) + '</text>';
     }
 
-    var d = "M " + px(0) + " " + py(pontos[0]);
-    for(i = 1; i < n; i++){ d += " L " + px(i) + " " + py(pontos[i]); }
-    var area = d + " L " + px(n - 1) + " " + (padT + altura) + " L " + px(0) + " " + (padT + altura) + " Z";
-    svg += '<path d="' + area + '" fill="#2a2f8f" fill-opacity="0.10"/>';
-    svg += '<path d="' + d + '" fill="none" stroke="#2a2f8f" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
-
-    svg += '<line x1="' + padL + '" y1="' + py(media) + '" x2="' + (w - padR) + '" y2="' + py(media) +
-           '" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="5 4"/>';
-
-    svg += rotulosEixoX(dias, n, px, h);
-
-    svg += "</svg>";
-    return svg;
+    // dias sem nenhuma ligação: o vazio precisa ser dito, não deduzido
+    var zerados = 0;
+    for(i = 0; i < n; i++){ if(totais[i] === 0 && !ehFimDeSemana(dias[i])) zerados++; }
+    s += '<text x="' + mL + '" y="' + (H - 8) + '" font-size="10" fill="#6b7280">'
+      +  escapar(zerados === 0 ? "Nenhum dia útil sem ligação no período"
+                : (zerados === 1 ? "1 dia útil sem nenhuma ligação"
+                                 : zerados + " dias úteis sem nenhuma ligação"))
+      +  '</text>';
+    s += "</svg>";
+    return s;
   }
 
-  // Paleta de séries (multi-linha). Cores distintas, light-mode.
-  var COR_SERIE = ["#2a2f8f", "#16a34a", "#dc2626", "#b45309", "#0891b2", "#7c3aed", "#db2777", "#4b5563"];
 
-  // Gráfico multi-linha: uma linha por série, sem área nem média (a legenda identifica).
-  function desenharLinhaMulti(series, cores, dias){
-    var w = 720, h = 200, padL = 34, padR = 10, padT = 12, padB = 26;
-    var n = 0, i, j;
-    for(i = 0; i < series.length; i++){ if(series[i].length > n) n = series[i].length; }
-    if(n < 2) return "";
-    var max = 0;
-    for(i = 0; i < series.length; i++){ for(j = 0; j < series[i].length; j++){ if(series[i][j] > max) max = series[i][j]; } }
-    if(max === 0) max = 1;
-    var teto = Math.ceil(max * 1.15);
-    var largura = w - padL - padR;
-    var altura = h - padT - padB;
-    function px(k){ return padL + (k * largura) / (n - 1); }
-    function py(v){ return padT + altura - (v / teto) * altura; }
-    var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Atividades por dia por vendedor">';
-    var linhasGrade = 4, gy, rotulo;
-    for(i = 0; i <= linhasGrade; i++){
-      gy = padT + (altura * i) / linhasGrade;
-      rotulo = Math.round(teto - (teto * i) / linhasGrade);
-      svg += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (w - padR) + '" y2="' + gy + '" stroke="#e2e5ea" stroke-width="1"/>';
-      svg += '<text x="' + (padL - 6) + '" y="' + (gy + 4) + '" text-anchor="end" font-size="10" fill="#6b7280">' + rotulo + '</text>';
-    }
-    for(i = 0; i < series.length; i++){
-      var pts = series[i];
-      if(pts.length < 2) continue;
-      var d = "M " + px(0) + " " + py(pts[0]);
-      for(j = 1; j < pts.length; j++){ d += " L " + px(j) + " " + py(pts[j]); }
-      svg += '<path d="' + d + '" fill="none" stroke="' + cores[i] + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
-    }
-    svg += rotulosEixoX(dias, n, px, h);
-    svg += "</svg>";
-    return svg;
-  }
+  // Paleta categórica das séries. Ordem fixa, nunca ciclada: a cor segue a
+  // pessoa, não a posição dela no ranking — filtrar um vendedor não pode
+  // repintar os outros.
+  // A paleta anterior reprovava em separação para daltonismo (vermelho #dc2626
+  // contra laranja #b45309 dava ΔE 2.8 em deuteranopia — indistinguíveis) e em
+  // visão normal (ΔE 9.9, abaixo do piso de 15). Esta passa em todos os checks
+  // com margem: pior par adjacente ΔE 9.1 em protanopia, 22.9 em visão normal.
+  // Os tons claros ficam abaixo de 3:1 contra o branco, o que obriga rótulo
+  // visível — daí o nome do vendedor na legenda e o total no topo da coluna.
+  var COR_SERIE = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
+
 
   // Vendedores ativos (perfil vendedor), para as séries por pessoa.
   function vendedoresAtivos(){
@@ -5136,43 +5189,8 @@ async function criarProspeccaoDeContato(contactId){
     return out;
   }
 
-  function legendaSeriePadrao(){
-    var host = el("rel-serie-legend");
-    if(!host) return;
-    host.className = "rel-legend";
-    host.innerHTML = '<span class="rel-lg-total">Atividades no período</span><span class="rel-lg-media">Média diária</span>';
-  }
 
-  function legendaSerieVendedores(nomes, cores){
-    var host = el("rel-serie-legend");
-    if(!host) return;
-    host.className = "rel-legend rel-legend--dyn";
-    var html = "", i;
-    for(i = 0; i < nomes.length; i++){
-      html += '<span style="--c:' + cores[i] + ';">' + escapar(nomes[i]) + '</span>';
-    }
-    host.innerHTML = html;
-  }
 
-  // Soma total/efetivas por dia entre as séries dos vendedores (para o export).
-  // Casamento por data: somar por posição atribuía o dia de um vendedor ao dia
-  // de outro assim que uma das séries viesse com tamanho diferente.
-  function agregarSeries(todas){
-    if(!todas.length) return [];
-    var dias = diasUniao(todas), out = [], idx, reg, i, j;
-    for(i = 0; i < dias.length; i++){ out.push({ dia: dias[i], total: 0, efetivas: 0 }); }
-    for(i = 0; i < todas.length; i++){
-      idx = {};
-      for(j = 0; j < todas[i].length; j++){ idx[todas[i][j].dia] = todas[i][j]; }
-      for(j = 0; j < dias.length; j++){
-        reg = idx[dias[j]];
-        if(!reg) continue;
-        out[j].total += Number(reg.total) || 0;
-        out[j].efetivas += Number(reg.efetivas) || 0;
-      }
-    }
-    return out;
-  }
 
   // ==========================================================
   // BARRAS (reaproveitado do mockup, classes rel-)
@@ -5486,52 +5504,82 @@ async function criarProspeccaoDeContato(contactId){
     }
   }
 
+  // Todos os dias do período, inclusive os sem nenhuma ligação — é justamente o
+  // dia vazio que o gráfico precisa mostrar. Aritmética em UTC ao meio-dia para
+  // não perder um dia na virada de fuso.
+  function diasDoPeriodo(de, ate){
+    var out = [], d = new Date(de + "T12:00:00Z"), fim = new Date(ate + "T12:00:00Z");
+    var guarda = 0;
+    while(d <= fim && guarda < 400){
+      out.push(d.toISOString().slice(0, 10));
+      d = new Date(d.getTime() + 86400000);
+      guarda++;
+    }
+    return out;
+  }
+
   async function carregarSerie(per, owner){
     estadoTexto("rel-serie", "Carregando…");
-    // Multi-linha só para quem tem visão de equipe em "Toda a equipe" (owner null)
-    // e havendo vendedores ativos.
-    var ativos = (ehVisaoEquipe() && owner === null) ? vendedoresAtivos() : [];
     try {
-      if(ativos.length){
-        var promessas = [], k;
-        for(k = 0; k < ativos.length; k++){
-          promessas.push(db.rpc("serie_atividades", { p_de: per.de, p_ate: per.ate, p_owner: ativos[k].id }));
-        }
-        var resultados = await Promise.all(promessas);
-        var series = [], nomes = [], cores = [], todas = [], soma = 0, i, j, pts;
-        for(i = 0; i < resultados.length; i++){
-          if(resultados[i].error) throw resultados[i].error;
-          todas.push(resultados[i].data || []);
-          nomes.push(ativos[i].full_name);
-          cores.push(COR_SERIE[i % COR_SERIE.length]);
-        }
-        // Eixo X comum, casado por data: cada linha é reprojetada sobre a união
-        // dos dias. Dia sem registro vale 0 em vez de encolher a série.
-        var dias = diasUniao(todas);
-        for(i = 0; i < todas.length; i++){
-          pts = serieNosDias(todas[i], dias, "total");
-          for(j = 0; j < pts.length; j++){ soma += pts[j]; }
-          series.push(pts);
-        }
-        ultimo.serie = agregarSeries(todas);   // export usa o agregado da equipe
-        if(soma === 0){ estadoTexto("rel-serie", "Nenhuma atividade registrada neste período."); legendaSeriePadrao(); return; }
-        el("rel-serie").innerHTML = desenharLinhaMulti(series, cores, dias);
-        legendaSerieVendedores(nomes, cores);
-      } else {
-        var r = await db.rpc("serie_atividades", { p_de: per.de, p_ate: per.ate, p_owner: owner });
-        if(r.error) throw r.error;
-        var linhas = r.data || [];
-        ultimo.serie = linhas;
-        var pontos = [], dias2 = [], soma2 = 0, i2, t2;
-        for(i2 = 0; i2 < linhas.length; i2++){
-          t2 = Number(linhas[i2].total) || 0;
-          pontos.push(t2); dias2.push(linhas[i2].dia); soma2 += t2;
-        }
-        if(!linhas.length || soma2 === 0){ estadoTexto("rel-serie", "Nenhuma atividade registrada neste período."); legendaSeriePadrao(); return; }
-        el("rel-serie").innerHTML = desenharLinha(pontos, dias2);
-        legendaSeriePadrao();
+      var r = await db.rpc("serie_ligacoes", { p_de: per.de, p_ate: per.ate, p_owner: owner });
+      if(r.error) throw r.error;
+      var linhas = r.data || [];
+      ultimo.serie = linhas;
+      if(!linhas.length){
+        estadoTexto("rel-serie", "Nenhuma ligação registrada neste período.");
+        el("rel-serie-legend").innerHTML = "";
+        return;
       }
+
+      var dias = diasDoPeriodo(per.de, per.ate);
+      var idxDia = {}, i, j, r1;
+      for(i = 0; i < dias.length; i++){ idxDia[dias[i]] = i; }
+
+      // Uma série por vendedor, na ordem do total no período (desc). A COR segue
+      // o vendedor pela posição nesta lista e é estável enquanto o filtro não
+      // muda — o que muda a lista é o filtro, não o desempenho do dia.
+      var porVend = {}, ordem = [], atendidas = [], k;
+      for(i = 0; i < dias.length; i++){ atendidas.push(0); }
+      for(i = 0; i < linhas.length; i++){
+        r1 = linhas[i];
+        k = r1.owner_id || "—";
+        if(!porVend[k]){
+          porVend[k] = { nome: r1.vendedor || "—", valores: [], total: 0 };
+          for(j = 0; j < dias.length; j++){ porVend[k].valores.push(0); }
+          ordem.push(k);
+        }
+        j = idxDia[String(r1.dia).slice(0, 10)];
+        if(j === undefined) continue;
+        porVend[k].valores[j] += Number(r1.ligacoes) || 0;
+        porVend[k].total     += Number(r1.ligacoes) || 0;
+        atendidas[j]         += Number(r1.atendidas) || 0;
+      }
+      var series = [];
+      for(i = 0; i < ordem.length; i++){ series.push(porVend[ordem[i]]); }
+      series.sort(function(a, b){ return b.total - a.total; });
+
+      var cores = [];
+      for(i = 0; i < series.length; i++){ cores.push(COR_SERIE[i % COR_SERIE.length]); }
+
+      el("rel-serie").innerHTML = desenharColunasEmpilhadas(dias, series, cores, atendidas);
+      legendaLigacoes(series, cores, atendidas);
     } catch(e){ estadoErro("rel-serie"); }
+  }
+
+  // Legenda com o total de cada um no período. O nome escrito ao lado da cor é
+  // o que sustenta as cores claras da paleta, que ficam abaixo de 3:1.
+  function legendaLigacoes(series, cores, atendidas){
+    var host = el("rel-serie-legend");
+    if(!host) return;
+    var html = "", i, somaAt = 0;
+    for(i = 0; i < series.length; i++){
+      html += '<span style="--c:' + cores[i] + ';">' + escapar(series[i].nome)
+            + ' <b>' + series[i].total + '</b></span>';
+    }
+    for(i = 0; i < atendidas.length; i++){ somaAt += atendidas[i]; }
+    html += '<span class="rel-lg-atendidas">Atendidas <b>' + somaAt + '</b></span>';
+    host.className = "rel-legend rel-legend--dyn";
+    host.innerHTML = html;
   }
 
   async function carregarFunil(per, owner){
@@ -6085,9 +6133,9 @@ async function criarProspeccaoDeContato(contactId){
       for(i = 0; i < fn.length; i++){ fnAoa.push([fn[i].etapa, fn[i].leads_agora, fn[i].entradas, fn[i].saidas, fn[i].dias_medio]); }
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(fnAoa), "Funil");
 
-      var se = ultimo.serie || [], seAoa = [["Dia", "Total", "Efetivas"]];
-      for(i = 0; i < se.length; i++){ seAoa.push([se[i].dia, se[i].total, se[i].efetivas]); }
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(seAoa), "Serie diaria");
+      var se = ultimo.serie || [], seAoa = [["Dia", "Vendedor", "Ligacoes", "Atendidas"]];
+      for(i = 0; i < se.length; i++){ seAoa.push([se[i].dia, se[i].vendedor, se[i].ligacoes, se[i].atendidas]); }
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(seAoa), "Ligacoes por dia");
 
       XLSX.writeFile(wb, "relatorio_" + per.de + "_" + per.ate + ".xlsx");
     } catch(e){
