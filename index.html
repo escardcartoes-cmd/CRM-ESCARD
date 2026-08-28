@@ -383,6 +383,8 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   .reg-row{display:flex; flex-direction:column; gap:6px;}
   .reg-form textarea{min-height:38px; resize:vertical;}
   .reg-chips{display:flex; flex-wrap:wrap; gap:6px;}
+  .reg-cadencia{margin:8px 0 0; font-size:12px; line-height:1.4; color:var(--text-muted);
+                border-left:3px solid var(--primary); padding:4px 0 4px 8px;}
   .chip{padding:6px 12px; border:1px solid var(--border); background:var(--surface); border-radius:20px; font-size:12px; font-weight:600; cursor:pointer; color:var(--text);}
   .chip:hover{border-color:#c7ccd4;}
   .chip.sel{background:var(--primary); border-color:var(--primary); color:#fff;}
@@ -1271,6 +1273,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
             <label>Próximo contato</label>
             <div class="reg-chips" id="reg-proximo"></div>
             <input type="date" id="reg-next-date" class="hidden">
+            <p class="reg-cadencia hidden" id="reg-cadencia-aviso" aria-live="polite"></p>
           </div>
           <div class="reg-actions">
             <button type="button" class="btn" id="reg-cancelar">Cancelar</button>
@@ -3099,6 +3102,57 @@ const PROXIMO_OPCOES = [
   { k:'sem',    label:'Sem próximo passo', dias:null },
 ];
 
+// ===== Régua de cadência — 5 toques em 15 dias =====
+// O SDR não decide quando voltar: o desfecho sem contato agenda o próximo toque
+// sozinho. Escolher para quem ligar é a tarefa mais cara do dia e acontece
+// dezenas de vezes; tirar a decisão da frente é o que faz o volume subir.
+// Os intervalos são exatamente os chips que já existem em PROXIMO_OPCOES, para
+// o SDR reconhecer o que foi marcado e poder trocar num clique.
+// Escolha manual no "Próximo passo" SEMPRE vence a régua.
+const CADENCIA_DIAS = [1, 3, 7, 15];               // após a 1ª, 2ª, 3ª e 4ª tentativa
+const CADENCIA_MAX  = CADENCIA_DIAS.length + 1;    // 5 toques e o lead sai da esteira
+const OUTCOME_EFETIVO = ['atendeu', 'respondeu', 'realizada'];
+const OUTCOME_RUIM    = ['numero_errado', 'numero_invalido'];   // insistir não resolve
+
+function ehContatoEfetivo(o){ return OUTCOME_EFETIVO.indexOf(o) >= 0; }
+function ehContatoRuim(o){ return OUTCOME_RUIM.indexOf(o) >= 0; }
+
+// Tentativas consecutivas sem contato efetivo, do mais recente para trás. Zera
+// no primeiro contato efetivo: quem atendeu uma vez recomeça a régua do zero.
+// Nota não é tentativa — não tem desfecho e não conta.
+function tentativasConsecutivas(lista){
+  let n = 0;
+  for(let i = 0; i < (lista || []).length; i++){
+    const a = lista[i];
+    if(a.channel === 'nota') continue;
+    if(ehContatoEfetivo(a.outcome)) break;
+    n++;
+  }
+  return n;
+}
+
+// Próximo passo a partir do nº de tentativas JÁ acumuladas (inclui a atual).
+// Devolve { data, dias } para seguir na esteira, ou { esgotou:true } para sair.
+function proximoDaCadencia(outcome, tentativas){
+  if(ehContatoRuim(outcome)) return { esgotou:true, motivo:'ruim' };
+  if(tentativas >= CADENCIA_MAX) return { esgotou:true, motivo:'regua' };
+  const dias = CADENCIA_DIAS[tentativas - 1];
+  if(!dias) return { esgotou:true, motivo:'regua' };
+  return { data: dataMaisDias(dias), dias:dias };
+}
+
+// Fonte da verdade no momento de salvar: o banco, não o que está em memória.
+// A tela pode ter sido aberta pelo Follow-up, onde a timeline não foi carregada.
+async function tentativasNoBanco(dealId){
+  const { data, error } = await db.from('deal_activities')
+    .select('outcome, channel, occurred_at')
+    .eq('deal_id', dealId)
+    .order('occurred_at', { ascending:false })
+    .limit(30);
+  if(error) throw error;
+  return tentativasConsecutivas(data || []);
+}
+
 // ----- Agenda de reuniões (canal presencial) -----
 // meeting_status é o dado de negócio; `outcome` é DERIVADO dele. Assim a meta
 // 'reunioes' (presencial + outcome 'realizada') e os relatórios seguem valendo
@@ -3163,7 +3217,7 @@ function dataMaisDias(dias){
 
 let atividadesDoDeal = [];
 let editandoAtividadeId = null;
-let regState = { canal:null, resultado:null, agendaStatus:null, agendaModo:null, proximoKey:'sem', proximo:null };
+let regState = { canal:null, resultado:null, agendaStatus:null, agendaModo:null, proximoKey:'sem', proximo:null, proximoTocado:false };
 let regContext = 'modal';   // 'modal' (timeline do lead) ou 'followup' (linha da fila)
 let regDealId = null;       // deal alvo do registro, independente do modal aberto
 
@@ -3248,7 +3302,11 @@ function renderRegResultados(){
   const el = document.getElementById('reg-resultados');
   const arr = ACTIVITY_OUTCOMES[regState.canal] || [];
   el.innerHTML = arr.map(o=>`<button type="button" class="chip${regState.resultado===o.v?' sel':''}" data-resultado="${o.v}">${escapeHtml(o.t)}</button>`).join('');
-  el.querySelectorAll('[data-resultado]').forEach(b=>b.addEventListener('click',()=>{ regState.resultado = b.dataset.resultado; renderRegResultados(); }));
+  el.querySelectorAll('[data-resultado]').forEach(b=>b.addEventListener('click',()=>{
+    regState.resultado = b.dataset.resultado;
+    renderRegResultados();
+    sugerirCadencia();
+  }));
 }
 // Alterna o formulário entre "registrar contato" e "agendar/atualizar reunião".
 function aplicarModoAgenda(ativo, prefill){
@@ -3304,6 +3362,8 @@ function renderRegProximo(){
   el.querySelectorAll('[data-prox]').forEach(b=>b.addEventListener('click',()=>selecionarProximo(b.dataset.prox)));
 }
 function selecionarProximo(k){
+  regState.proximoTocado = true;   // escolha manual desliga a régua para este registro
+  esconderAvisoCadencia();
   regState.proximoKey = k;
   const dateInput = document.getElementById('reg-next-date');
   const opc = PROXIMO_OPCOES.find(o=>o.k===k);
@@ -3313,9 +3373,49 @@ function selecionarProximo(k){
   renderRegProximo();
 }
 
+function esconderAvisoCadencia(){
+  const el = document.getElementById('reg-cadencia-aviso');
+  if(el){ el.textContent = ''; el.classList.add('hidden'); }
+}
+
+// Reflete a régua nos chips assim que o desfecho é escolhido. Não grava nada:
+// o cálculo que vale acontece no salvar, contra o banco. Se a timeline não
+// estiver carregada (registro aberto pelo Follow-up), a prévia assume a 1ª
+// tentativa e o salvar corrige — o toast final diz o que foi de fato agendado.
+function sugerirCadencia(){
+  if(regState.proximoTocado || editandoAtividadeId) return;
+  if(regState.canal === 'nota' || regState.canal === 'presencial') return;
+  if(!regState.resultado) return;
+  if(ehContatoEfetivo(regState.resultado)){ esconderAvisoCadencia(); return; }
+  const tent = tentativasConsecutivas(atividadesDoDeal) + 1;
+  const c = proximoDaCadencia(regState.resultado, tent);
+  const aviso = document.getElementById('reg-cadencia-aviso');
+  if(c.esgotou){
+    regState.proximoKey = 'sem';
+    regState.proximo = null;
+    document.getElementById('reg-next-date').classList.add('hidden');
+    if(aviso){
+      aviso.textContent = (c.motivo === 'ruim')
+        ? 'Contato inválido — o lead sai da esteira e fica marcado para revisão.'
+        : tent + 'ª tentativa sem contato — o lead sai da esteira e fica marcado para revisão.';
+      aviso.classList.remove('hidden');
+    }
+  } else {
+    const opc = PROXIMO_OPCOES.find(o=>o.dias === c.dias);
+    regState.proximoKey = opc ? opc.k : 'sem';
+    regState.proximo = opc ? c.data : null;
+    document.getElementById('reg-next-date').classList.add('hidden');
+    if(aviso){
+      aviso.textContent = tent + 'ª tentativa — próximo toque em ' + formatDate(c.data) + '. Troque no chip acima se quiser outra data.';
+      aviso.classList.remove('hidden');
+    }
+  }
+  renderRegProximo();
+}
+
 function resetCamposRegistro(){
   editandoAtividadeId = null;
-  regState = { canal:null, resultado:null, agendaStatus:null, agendaModo:null, proximoKey:'sem', proximo:null };
+  regState = { canal:null, resultado:null, agendaStatus:null, agendaModo:null, proximoKey:'sem', proximo:null, proximoTocado:false };
   document.getElementById('reg-canais').classList.remove('canal-travado');
   document.getElementById('reg-agenda-link').value = '';
   document.getElementById('reg-agenda-contato').value = '';
@@ -3327,6 +3427,7 @@ function resetCamposRegistro(){
   const dateInput = document.getElementById('reg-next-date');
   dateInput.value = ''; dateInput.classList.add('hidden');
   document.getElementById('reg-resultado-row').classList.add('hidden');
+  esconderAvisoCadencia();
   document.getElementById('reg-salvar').textContent = 'Salvar contato';
   renderRegCanais(); renderRegProximo();
 }
@@ -3380,6 +3481,7 @@ function abrirEdicaoAtividade(id){
     agendaModo: (a.channel === 'presencial') ? (a.meeting_mode || 'presencial') : null,
     proximoKey: a.next_action_date ? 'data' : 'sem',
     proximo: a.next_action_date || null,
+    proximoTocado: true,   // editar é decisão do usuário; a régua não interfere
   };
   document.getElementById('reg-agenda-link').value = a.meeting_link || '';
   document.getElementById('reg-agenda-contato').value = a.meeting_contact_name || '';
@@ -3492,20 +3594,54 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
       });
       if(error) throw error;
     }
-    // Seção 3 — loop do próximo passo: espelha em deals.next_followup_date (mesma operação).
-    // "Sem próximo passo" (nextDate null) não altera o follow-up do deal.
-    if(nextDate){
-      const { error: e2 } = await db.from('deals').update({ next_followup_date: nextDate }).eq('id', regDealId);
+    // Régua de cadência — só age em contato NOVO, de canal com desfecho, e
+    // quando o SDR não escolheu o próximo passo à mão. A contagem vem do banco
+    // porque a atividade recém-inserida já está lá e a timeline em memória pode
+    // não estar carregada (registro aberto pelo Follow-up).
+    let cadencia = null;
+    if(!editandoAtividadeId && !ehNota && !ehReuniao && !regState.proximoTocado){
+      try {
+        const tent = await tentativasNoBanco(regDealId);
+        cadencia = proximoDaCadencia(outcomeFinal, tent);
+        nextDate = cadencia.esgotou ? null : cadencia.data;
+      } catch(eCad){
+        cadencia = null;   // falha na régua não invalida o contato já registrado
+      }
+    }
+
+    // Seção 3 — loop do próximo passo: espelha em deals.next_followup_date.
+    // "Sem próximo passo" (nextDate null) continua não alterando o follow-up,
+    // exceto quando é a régua que decidiu tirar o lead da esteira.
+    const patchDeal = {};
+    if(nextDate){ patchDeal.next_followup_date = nextDate; }
+    if(cadencia && cadencia.esgotou){
+      patchDeal.next_followup_date = null;
+      patchDeal.cadencia_esgotada_em = new Date().toISOString();
+    } else if(ehContatoEfetivo(outcomeFinal) || (cadencia && cadencia.data)){
+      patchDeal.cadencia_esgotada_em = null;   // atendeu ou voltou à régua: reabre
+    }
+    if(Object.keys(patchDeal).length){
+      const { error: e2 } = await db.from('deals').update(patchDeal).eq('id', regDealId);
       if(e2) throw e2;
       const deal = deals.find(d=>d.id===regDealId);
-      if(deal) deal.next_followup_date = nextDate;
+      if(deal) Object.assign(deal, patchDeal);
       const fu = document.getElementById('deal-followup');
-      if(fu) fu.value = nextDate;
+      if(fu && Object.prototype.hasOwnProperty.call(patchDeal, 'next_followup_date')){
+        fu.value = patchDeal.next_followup_date || '';
+      }
       renderAll();
     }
-    const rotuloOk = ehReuniao
+    let rotuloOk = ehReuniao
       ? (editandoAtividadeId ? 'Reunião atualizada' : 'Reunião registrada na agenda')
       : (editandoAtividadeId ? 'Contato atualizado' : 'Contato registrado');
+    // O SDR precisa ver o que foi agendado por ele — senão a régua vira caixa-preta.
+    if(cadencia && cadencia.esgotou){
+      rotuloOk += (cadencia.motivo === 'ruim')
+        ? ' · contato inválido, lead saiu da esteira'
+        : ' · ' + CADENCIA_MAX + ' tentativas, lead saiu da esteira';
+    } else if(cadencia && cadencia.data){
+      rotuloOk += ' · próximo toque em ' + formatDate(cadencia.data);
+    }
     showToast(rotuloOk, 'ok');
     const ctxReg = regContext;
     const alvoReg = regDealId;
@@ -5119,7 +5255,8 @@ async function criarProspeccaoDeContato(contactId){
       { situacao:"Leads dormentes", valor:numOuTraco(p.dormentes), obs:"sem atividade há mais de " + numOuTraco(p.dormentes_dias) + " dias" },
       { situacao:"Follow-ups em dia", valor:pct(p.followup_em_dia_pct), obs:"quanto maior, melhor" },
       { situacao:"Contatos inválidos", valor:numOuTraco(p.contatos_invalidos), obs:"telefone/e-mail que não completam contato" },
-      { situacao:"Perdas sem motivo preenchido", valor:String(motivosNP), obs:"cega a análise de perda" }
+      { situacao:"Perdas sem motivo preenchido", valor:String(motivosNP), obs:"cega a análise de perda" },
+      { situacao:"Esgotados na régua", valor:numOuTraco(p.cadencia_esgotados), obs:"fora da esteira após 5 tentativas ou contato inválido — precisam de telefone novo ou descarte" }
     ];
     var html = '<div class="rel-table-wrap"><table class="rel-table"><thead><tr><th>Situação</th><th class="rel-num">Valor</th><th>Observação</th></tr></thead><tbody>';
     var i;
@@ -5327,6 +5464,16 @@ async function criarProspeccaoDeContato(contactId){
         var rla = await db.rpc("leads_alterados", { p_de: per.de, p_ate: per.ate, p_owner: owner });
         p.leads_alterados = (rla && !rla.error) ? rla.data : null;
       } catch(eLA){ p.leads_alterados = null; }
+      // Esgotados na régua: situação de HOJE, não do período — por isso a
+      // consulta é direta, sem filtro de data. A RLS de deals já limita o
+      // vendedor à própria carteira; o filtro de owner cobre a visão de equipe.
+      try {
+        var qEsg = db.from("deals").select("id", { count: "exact", head: true })
+                     .not("cadencia_esgotada_em", "is", null);
+        if(owner){ qEsg = qEsg.eq("owner_id", owner); }
+        var rEsg = await qEsg;
+        p.cadencia_esgotados = (rEsg && !rEsg.error) ? rEsg.count : null;
+      } catch(eEsg){ p.cadencia_esgotados = null; }
       renderKpis(p);
       renderAlertas(p);
       renderDistribuicoes(p);
