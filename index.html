@@ -383,6 +383,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   .reg-row{display:flex; flex-direction:column; gap:6px;}
   .reg-form textarea{min-height:38px; resize:vertical;}
   .reg-chips{display:flex; flex-wrap:wrap; gap:6px;}
+  .reg-input--travado{background:var(--bg); color:var(--text-muted); cursor:not-allowed;}
   .reg-cadencia{margin:8px 0 0; font-size:12px; line-height:1.4; color:var(--text-muted);
                 border-left:3px solid var(--primary); padding:4px 0 4px 8px;}
   .chip{padding:6px 12px; border:1px solid var(--border); background:var(--surface); border-radius:20px; font-size:12px; font-weight:600; cursor:pointer; color:var(--text);}
@@ -3320,7 +3321,31 @@ function aplicarModoAgenda(ativo, prefill){
   rowModo.classList.toggle('hidden', !ativo);
   rowContato.classList.toggle('hidden', !ativo);
   aplicarLinhaLink(ativo && regState.agendaModo === 'online');
-  label.textContent = ativo ? 'Data e hora da reunião' : 'Quando';
+  // "Registrado em" e não "Quando": o rótulo precisa dizer que o campo é
+  // automático, senão o operador continua tentando digitar nele.
+  label.textContent = ativo ? 'Data e hora da reunião' : 'Registrado em';
+  // Contato registra o que ACABOU de acontecer: a data é a do salvamento e não
+  // se digita. Em agosto/2026, 41 atividades foram gravadas com data futura
+  // porque o operador preenchia aqui a data do PRÓXIMO contato — 28 delas eram
+  // ligações, que sumiram da meta do dia em que foram feitas.
+  // Reunião é o oposto: a data é a da agenda e continua editável.
+  const campoQuando = document.getElementById('reg-occurred');
+  const linhaQuando = campoQuando ? campoQuando.closest('.reg-row') : null;
+  if(campoQuando){
+    if(ativo){
+      campoQuando.readOnly = false;
+      campoQuando.removeAttribute('max');
+      campoQuando.classList.remove('reg-input--travado');
+      campoQuando.title = 'Data e hora marcadas para a reunião';
+      if(linhaQuando) linhaQuando.classList.remove('hidden');
+    } else {
+      campoQuando.readOnly = true;
+      campoQuando.max = tsParaLocal(new Date().toISOString());
+      campoQuando.classList.add('reg-input--travado');
+      campoQuando.title = 'O contato é registrado no momento em que você salva. Para marcar o retorno, use "Próximo passo".';
+      if(linhaQuando) linhaQuando.classList.remove('hidden');
+    }
+  }
   const btnSalvar = document.getElementById('reg-salvar');
   if(btnSalvar && !editandoAtividadeId){ btnSalvar.textContent = ativo ? 'Salvar reunião' : 'Salvar contato'; }
   if(!ativo) return;
@@ -3424,7 +3449,7 @@ function resetCamposRegistro(){
   aplicarModoAgenda(false, false);
   document.getElementById('reg-note').value = '';
   document.getElementById('reg-note').placeholder = 'Observação (opcional)';
-  document.getElementById('reg-occurred').value = tsParaLocal(new Date().toISOString());
+  document.getElementById('reg-occurred').value = tsParaLocal(new Date().toISOString());   // só exibição; o valor gravado é o do salvamento
   const dateInput = document.getElementById('reg-next-date');
   dateInput.value = ''; dateInput.classList.add('hidden');
   document.getElementById('reg-resultado-row').classList.add('hidden');
@@ -3555,8 +3580,26 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
     agendaLink = bruto;
   }
 
+  // Reunião usa a data digitada (é a agenda). Contato usa o AGORA do salvamento
+  // — não o horário em que o modal foi aberto, que pode ter ficado parado.
+  // Editar um contato preserva a data original: reescrevê-la moveria a atividade
+  // de dia no relatório sem que nada tivesse acontecido.
   const occurredVal = document.getElementById('reg-occurred').value;
-  const occurred_at = occurredVal ? new Date(occurredVal).toISOString() : new Date().toISOString();
+  let occurred_at;
+  if(ehReuniao){
+    occurred_at = occurredVal ? new Date(occurredVal).toISOString() : new Date().toISOString();
+  } else if(editandoAtividadeId){
+    occurred_at = occurredVal ? new Date(occurredVal).toISOString() : new Date().toISOString();
+  } else {
+    occurred_at = new Date().toISOString();
+  }
+  // Rede de segurança: o banco repete a trava (trg_atividade_data_valida) para o
+  // caso de o registro chegar por outra via. 5 minutos de tolerância para
+  // relógio adiantado.
+  if(!ehReuniao && new Date(occurred_at).getTime() > Date.now() + 5*60*1000){
+    showToast('A data do contato não pode ser futura. Para agendar o retorno, use "Próximo passo".', 'err');
+    return;
+  }
   let nextDate = regState.proximo;
   if(regState.proximoKey === 'data'){ nextDate = document.getElementById('reg-next-date').value || null; }
 
