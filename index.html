@@ -230,6 +230,16 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   .deal-card .dc-value{font-weight:700; color:var(--won); margin-bottom:6px;}
   .deal-card .dc-meta{display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted);}
   .card-selos{display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;}
+  /* Só onde não há mouse: em desktop o arrastar continua sendo o caminho e um
+     select em cada card seria poluição. (hover:none) pega celular e tablet. */
+  .dc-mover{display:none;}
+  @media (hover: none), (max-width: 900px){
+    .dc-mover{display:flex; align-items:center; gap:6px; margin-top:8px;}
+  }
+  .dc-mover__rot{font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em;}
+  .dc-mover__sel{flex:1; min-width:0; font-size:12px; padding:6px 8px; border:1px solid var(--border);
+                 border-radius:8px; background:var(--surface); color:var(--text);}
+  .dc-mover__sel:disabled{opacity:.6;}
   .card-selo{font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; white-space:nowrap;}
   .selo-atrasado{background:#fef2f2; color:#dc2626;}
   .selo-hoje{background:#fff7ed; color:#ea580c;}
@@ -536,6 +546,9 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   #page-relatorios .rel-lg-media::before{background:#cbd5e1;}
   #page-relatorios .rel-legend--dyn span::before{background:var(--c);}
   #page-relatorios .rel-legend b{color:var(--text); font-weight:700; margin-left:4px;}
+  #page-relatorios .rel-state__detalhe{margin-top:var(--sp-2); font-size:11px; color:var(--text-muted);
+                                       word-break:break-word; max-width:520px; margin-left:auto; margin-right:auto;}
+  #page-relatorios .rel-stage__conv--fora{color:var(--warn); font-weight:600;}
   #page-relatorios .rel-lg-atendidas::before{background:var(--text-muted); height:3px; border-radius:1px;}
   #page-relatorios .rel-audit-filtros{display:flex; flex-wrap:wrap; gap:var(--sp-3); margin-bottom:var(--sp-4);}
   #page-relatorios .rel-audit-filtros .rel-field select{font:inherit; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); min-width:150px;}
@@ -2590,6 +2603,7 @@ function renderKanban(){
         ${selosDoCard(d, stage)}
         ${isAdmin() && d.owner_name ? `<span class="dc-owner">${escapeHtml(d.owner_name)}</span>` : ''}
         ${marcadorEdicao(d)}
+        ${seletorEtapaHtml(d, stage)}
       </div>
     `;
     }).join('');
@@ -2689,6 +2703,42 @@ function escapeHtml(str){
   return div.innerHTML;
 }
 
+// Arrastar card é HTML5 Drag & Drop, que NÃO dispara por toque no Safari iOS
+// nem no Chrome Android. A equipe usa celular: sem isto, mover um lead exige
+// abrir a ficha e caçar o select de etapa. O seletor abaixo aparece só onde não
+// há mouse — em desktop o arrastar continua sendo o caminho.
+function seletorEtapaHtml(d, stage){
+  const opts = (stages || []).map(s =>
+    `<option value="${escapeHtml(s.id)}"${s.id === stage.id ? ' selected' : ''}>${escapeHtml(s.name)}</option>`
+  ).join('');
+  return `<label class="dc-mover"><span class="dc-mover__rot">Mover para</span>
+            <select class="dc-mover__sel" data-mover-deal="${escapeHtml(d.id)}"
+                    data-mover-de="${escapeHtml(stage.id)}"
+                    aria-label="Mover ${escapeHtml(d.title)} para outra etapa">${opts}</select>
+          </label>`;
+}
+
+// Caminho ÚNICO de movimentação: o drop e o seletor entram os dois por aqui.
+// A regra de negócio (stage_changed_at junto, recarregar as duas colunas) fica
+// escrita uma vez só.
+async function moverDeal(dealId, oldStageId, newStageId){
+  if(!dealId || !newStageId || oldStageId === newStageId) return false;
+  const { error } = await db
+    .from('deals')
+    .update({ stage_id: newStageId, stage_changed_at: new Date().toISOString() })
+    .eq('id', dealId);
+  if(error){ showToast('Erro ao mover lead: ' + error.message, 'err'); return false; }
+  showToast('Lead movido', 'ok');
+  // Mantém o array consistente para o modal, sem recarga total (best-effort).
+  const dLocal = deals.find(d => d.id === dealId);
+  if(dLocal) dLocal.stage_id = newStageId;
+  // Recarrega contagem + apenas as duas colunas afetadas (preservando profundidade).
+  await recarregarContagem();
+  await Promise.all([ recarregarColuna(oldStageId), recarregarColuna(newStageId) ]);
+  renderKanban();
+  return true;
+}
+
 function attachKanbanEvents(){
   // Click para editar
   document.querySelectorAll('.deal-card').forEach(card=>{
@@ -2720,21 +2770,27 @@ function attachKanbanEvents(){
       // não conter o lead antigo agora visível pela RPC).
       const cardEl = document.querySelector('.deal-card[data-deal-id="' + dealId + '"]');
       const oldStageId = cardEl ? cardEl.dataset.stageId : null;
-      if(!oldStageId || oldStageId === newStageId) return;
+      if(!oldStageId) return;
+      await moverDeal(dealId, oldStageId, newStageId);
+    });
+  });
 
-      const { error } = await db
-        .from('deals')
-        .update({ stage_id: newStageId, stage_changed_at: new Date().toISOString() })
-        .eq('id', dealId);
-      if(error){ showToast('Erro ao mover lead: ' + error.message, 'err'); return; }
-      showToast('Lead movido', 'ok');
-      // Mantém o array consistente para o modal, sem recarga total (best-effort).
-      const dLocal = deals.find(d=>d.id===dealId);
-      if(dLocal) dLocal.stage_id = newStageId;
-      // Recarrega contagem + apenas as duas colunas afetadas (preservando profundidade).
-      await recarregarContagem();
-      await Promise.all([ recarregarColuna(oldStageId), recarregarColuna(newStageId) ]);
-      renderKanban();
+  // Seletor de etapa (toque). stopPropagation em toda a cadeia: sem isso, tocar
+  // no select abriria a ficha do lead por causa do click do card.
+  document.querySelectorAll('.dc-mover').forEach(lb=>{
+    lb.addEventListener('click', e=> e.stopPropagation());
+  });
+  document.querySelectorAll('[data-mover-deal]').forEach(sel=>{
+    sel.addEventListener('click', e=> e.stopPropagation());
+    sel.addEventListener('change', async (e)=>{
+      e.stopPropagation();
+      const de   = sel.dataset.moverDe;
+      const para = sel.value;
+      if(de === para) return;
+      sel.disabled = true;
+      const ok = await moverDeal(sel.dataset.moverDeal, de, para);
+      // Falhou: devolve o select à etapa de origem para a tela não mentir.
+      if(!ok){ sel.value = de; sel.disabled = false; }
     });
   });
 }
@@ -5029,10 +5085,31 @@ async function criarProspeccaoDeContato(contactId){
     b.addEventListener("click", function(){ carregarTudo(); });
     return b;
   }
-  function estadoErro(alvo){
+  // A mensagem do erro fica VISÍVEL. O bloco vermelho mudo obrigava abrir o F12
+  // para descobrir se era sessão expirada, permissão ou função faltando — e as
+  // três têm conserto diferente.
+  function textoDoErro(err){
+    if(!err) return "";
+    var m = err.message || err.error_description || err.details || err.hint || "";
+    if(!m && typeof err === "string") m = err;
+    if(!m) return "";
+    // O caso mais comum tem conserto de dez segundos: diga qual é.
+    if(err.code === "42501" || m.indexOf("autenticado") > -1){
+      return "Sua sessão expirou. Saia e entre de novo.";
+    }
+    return m;
+  }
+  function estadoErro(alvo, err){
     var c = el(alvo);
     c.innerHTML = '<div class="rel-state rel-state--err">Não foi possível carregar este bloco. </div>';
     c.firstChild.appendChild(botaoRetry());
+    var detalhe = textoDoErro(err);
+    if(detalhe){
+      var d = document.createElement("div");
+      d.className = "rel-state__detalhe";
+      d.textContent = detalhe;          // textContent: mensagem de erro é dado, não HTML
+      c.firstChild.appendChild(d);
+    }
   }
   function estadoTbody(alvo, cols, texto){
     el(alvo).innerHTML = '<tr><td colspan="' + cols + '"><div class="rel-state">' + escapar(texto) + '</div></td></tr>';
@@ -5441,13 +5518,27 @@ async function criarProspeccaoDeContato(contactId){
         entAtual = Number(linhas[i].entradas) || 0;
         entProx = Number(linhas[i+1].entradas) || 0;
         // Sem entrada na etapa anterior não há razão a exibir — 0% mentiria.
-        // O teto de 100% evita "180% avançam", que acontece quando a etapa
-        // seguinte recebe leads que não vieram desta (importação, salto de etapa).
+        //
+        // Acima de 100% o número NÃO é limitado. O teto que existia aqui escondia
+        // o sinal em vez de corrigir a conta: "180% avançam" não era erro de
+        // exibição, era o sintoma honesto de que entradas(n+1) ÷ entradas(n) não
+        // é conversão entre etapas — são coortes diferentes, e a etapa seguinte
+        // recebe lead que nunca passou pela anterior (importação direta, salto de
+        // etapa, movimentação manual). Limitado em 100%, o gestor lia "nada se
+        // perde"; cru e marcado, ele lê "entrou gente por fora".
         if(entAtual <= 0){
           html += '<p class="rel-stage__conv">↳ sem entradas nesta etapa no período</p>';
         } else {
-          conv = Math.min(100, Math.round((entProx / entAtual) * 100));
-          html += '<p class="rel-stage__conv">↳ ' + conv + '% avançam para ' + escapar(linhas[i+1].etapa) + '</p>';
+          conv = Math.round((entProx / entAtual) * 100);
+          if(conv > 100){
+            html += '<p class="rel-stage__conv rel-stage__conv--fora"'
+                 +  ' title="A etapa seguinte recebeu mais leads do que esta teve entradas no período.'
+                 +  ' Parte deles não veio daqui: importação direta na etapa, salto de etapa ou movimentação manual.'
+                 +  ' Não é conversão — é entrada por fora do funil.">'
+                 +  '↳ ' + conv + '% — entrou lead por fora de ' + escapar(linhas[i].etapa) + '</p>';
+          } else {
+            html += '<p class="rel-stage__conv">↳ ' + conv + '% avançam para ' + escapar(linhas[i+1].etapa) + '</p>';
+          }
         }
       }
     }
@@ -5564,10 +5655,10 @@ async function criarProspeccaoDeContato(contactId){
       renderDistribuicoes(p);
       renderComposicao(p);
     } catch(e){
-      estadoErro("rel-kpis"); estadoErro("rel-alertas");
-      estadoErro("rel-canal"); estadoErro("rel-desfecho");
-      estadoErro("rel-municipios"); estadoErro("rel-perda");
-      estadoErro("rel-composicao");
+      estadoErro("rel-kpis", e); estadoErro("rel-alertas", e);
+      estadoErro("rel-canal", e); estadoErro("rel-desfecho", e);
+      estadoErro("rel-municipios", e); estadoErro("rel-perda", e);
+      estadoErro("rel-composicao", e);
     }
   }
 
@@ -5655,7 +5746,7 @@ async function criarProspeccaoDeContato(contactId){
 
       el("rel-serie").innerHTML = desenharColunasEmpilhadas(dias, series, cores, atendidas, metaDia);
       legendaLigacoes(series, cores, atendidas);
-    } catch(e){ estadoErro("rel-serie"); }
+    } catch(e){ estadoErro("rel-serie", e); }
   }
 
   // Legenda com o total de cada um no período. O nome escrito ao lado da cor é
@@ -5685,7 +5776,7 @@ async function criarProspeccaoDeContato(contactId){
       if(!linhas.length){ estadoTexto("rel-funil", "Nenhuma etapa com movimento neste período."); estadoTexto("rel-aging", "Sem dados neste período."); return; }
       renderFunil(linhas);
       renderAging(linhas);
-    } catch(e){ estadoErro("rel-funil"); estadoErro("rel-aging"); }
+    } catch(e){ estadoErro("rel-funil", e); estadoErro("rel-aging", e); }
   }
 
   async function carregarRanking(per){
@@ -5947,7 +6038,7 @@ async function criarProspeccaoDeContato(contactId){
       var r = await db.rpc("metas_progresso", { p_owner: ownerParam() });
       if(r.error) throw r.error;
       renderMetasProgresso(r.data || []);
-    } catch(e){ estadoErro("rel-metas"); }
+    } catch(e){ estadoErro("rel-metas", e); }
   }
 
   // ==========================================================
