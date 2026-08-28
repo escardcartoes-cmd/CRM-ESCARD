@@ -5699,9 +5699,14 @@ async function criarProspeccaoDeContato(contactId){
       // e o filtro do topo é respeitado sem uma segunda regra de escopo aqui.
       // Falha ao buscar a meta não derruba o gráfico — a linha simplesmente
       // não é desenhada.
+      // db.rpc() devolve um PostgrestFilterBuilder: é thenable, mas NÃO tem
+      // .catch(). Chamar .catch() nele quebra o bloco inteiro com
+      // "db.rpc(...).catch is not a function". Promise.resolve() envolve o
+      // thenable numa Promise de verdade, e aí o catch existe.
       var resp = await Promise.all([
         db.rpc("serie_ligacoes", { p_de: per.de, p_ate: per.ate, p_owner: owner }),
-        db.rpc("metas_progresso", { p_owner: owner }).catch(function(){ return { error: true }; })
+        Promise.resolve(db.rpc("metas_progresso", { p_owner: owner }))
+               .catch(function(){ return { error: true }; })
       ]);
       var r = resp[0], rm = resp[1];
       if(r.error) throw r.error;
