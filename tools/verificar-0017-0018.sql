@@ -3,6 +3,28 @@
 -- Rodar inteiro no SQL Editor. Cada bloco tem o resultado esperado no comentário.
 -- Só leitura, exceto o teste 2 (que faz rollback sozinho).
 -- =============================================================================
+-- POR QUE NENHUMA RPC DE RELATÓRIO É CHAMADA AQUI
+--
+-- `metas_progresso`, `rel_metricas`, `serie_ligacoes` e companhia passam por
+-- `rel_owner_efetivo`, que exige `auth.uid()`. No SQL Editor não existe usuário
+-- autenticado, então elas devolvem:
+--
+--   ERROR: 42501: Relatorio exige usuario autenticado.
+--
+-- Isso é a proteção funcionando, não um defeito: sem ela, qualquer chamada sem
+-- identidade veria a carteira inteira. Por isso os blocos abaixo recalculam os
+-- números direto das tabelas, com a MESMA regra que as funções usam.
+--
+-- Se quiser mesmo executar as RPCs aqui, dá para vestir a identidade de alguém
+-- por uma transação (troque o uuid pelo de um admin real de public.profiles):
+--
+--   begin;
+--     set local role authenticated;
+--     set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000000"}';
+--     select * from public.metas_progresso(null) where periodicidade = 'diaria';
+--   rollback;
+--
+-- =============================================================================
 
 -- 1) AS FUNÇÕES FORAM MESMO SUBSTITUÍDAS?
 --    Esperado: as quatro linhas com 'ok'. Uma linha faltando = a migration não
@@ -102,13 +124,30 @@ select coalesce(p.full_name, '(sem nome)') as pessoa,
  order by 2 desc;
 
 
--- 6) A META DIÁRIA AGORA
+-- 6) A META DIÁRIA AGORA — recalculada com a mesma regra da metas_progresso
+--    (ligações de hoje, no fuso de São Paulo, creditadas a QUEM DISCOU).
 --    É a tela que a Heloísa cobra às 17h. Compare com o painel.
-select p.full_name, m.indicador, m.realizado, m.meta, m.pct
-  from public.metas_progresso(null) m
+with janela as (
+  select (now() at time zone 'America/Sao_Paulo')::date as hoje
+),
+realizado as (
+  select a.author_id as pid, count(*) as n
+    from public.deal_activities a, janela j
+   where a.channel = 'telefone'
+     and (coalesce(a.occurred_at, a.created_at) at time zone 'America/Sao_Paulo')::date = j.hoje
+   group by 1
+)
+select p.full_name,
+       coalesce(r.n, 0) as ligacoes_hoje,
+       m.valor          as meta_diaria,
+       case when m.valor > 0 then round(100.0 * coalesce(r.n, 0) / m.valor, 1) end as pct
+  from public.metas m
   join public.profiles p on p.id = m.owner_id
- where m.periodicidade = 'diaria'
- order by 3 desc;
+  left join realizado r  on r.pid = m.owner_id
+ where m.indicador = 'ligacoes'
+   and m.periodicidade = 'diaria'
+   and m.valor > 0
+ order by 2 desc;
 
 
 -- 7) O CASO QUE SOBROU: ligação registrada como "Nota"
