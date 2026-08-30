@@ -4,6 +4,10 @@ Projeto: CRM Funil de Vendas (Escard)
 Migration: `supabase/migrations/20260828_0012_reestrutura_etapas.sql`
 Frontend: `index.html`
 
+**Status:** migration aplicada em produção em 28/08/2026. Encerra a série
+0009 → 0012, todas aplicadas. Frontend publicado em `crm-72a.pages.dev` e
+versionado no commit `007c89a`.
+
 ---
 
 ## Antes e depois
