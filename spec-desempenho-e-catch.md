@@ -5,6 +5,9 @@ Migration: `supabase/migrations/20260828_0019_desempenho_relatorio.sql`
 Frontend: `index.html`
 Data: 28/08/2026
 
+**Status:** migration `0019` aplicada em produção em 30/08/2026. A correção do
+`.catch` foi publicada no commit `2d78cef`. Relatório restabelecido.
+
 ---
 
 ## Os dois erros apareceram porque a mensagem passou a ser exibida
