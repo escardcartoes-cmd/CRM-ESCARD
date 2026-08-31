@@ -2832,7 +2832,16 @@ async function openDealModal(dealId){
     document.getElementById('deal-close-date').value = deal.expected_close_date || '';
     // Origem: lê deals.origem; cai para o legado deals.source quando origem é null.
     document.getElementById('deal-source').value = (deal.origem != null ? deal.origem : deal.source) || '';
-    document.getElementById('deal-stage').value = deal.stage_id;
+    // Etapa: atribui e CONFERE. As options do select sao geradas uma unica vez no
+    // boot (loadStages). Se a etapa do lead nao estiver entre elas -- aba aberta
+    // desde antes de uma migration criar/renomear etapa -- o browser NAO acusa
+    // erro: mantem a primeira option, "Leads Novos", e o salvar rebaixa o lead.
+    var selEtapa = document.getElementById('deal-stage');
+    selEtapa.value = deal.stage_id;
+    if(selEtapa.value !== deal.stage_id){
+      selEtapa.value = '';
+      showToast('A etapa deste lead nao esta na lista. Recarregue a pagina (Ctrl+F5) antes de salvar.', 'err');
+    }
     document.getElementById('deal-lista').value = deal.lista_origem || '';
     document.getElementById('deal-followup').value = deal.next_followup_date || '';
     document.getElementById('deal-loss-reason').value = deal.loss_reason || '';
@@ -3093,7 +3102,11 @@ dealForm.addEventListener('submit', async (e)=>{
     value: document.getElementById('deal-value').value || 0,
     expected_close_date: document.getElementById('deal-close-date').value || null,
     origem: document.getElementById('deal-source').value.trim() || null,
-    stage_id: document.getElementById('deal-stage').value,
+    // Etapa so vai no payload se existir em stages. Fora disso devolve undefined,
+    // que o JSON.stringify do postgrest omite: o update nao toca stage_id e a
+    // etapa atual do banco fica preservada. Fecha tambem o submit implicito
+    // (Enter num input do bloco de registro dispara o submit deste form).
+    stage_id: (function(){ var el = document.getElementById('deal-stage'); var v = el ? el.value : ''; for(var i=0;i<stages.length;i++){ if(stages[i].id === v) return v; } return undefined; })(),
     lista_origem: document.getElementById('deal-lista').value.trim().slice(0, 120) || null,
     next_followup_date: document.getElementById('deal-followup').value || null,
     loss_reason: document.getElementById('deal-loss-reason').value || null,
