@@ -1221,6 +1221,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
         <div class="field">
           <label>📅 Próximo contato (follow-up)</label>
           <input type="date" id="deal-followup">
+          <div class="hidden" id="deal-followup-texto"></div>
         </div>
         <div class="field" id="loss-reason-field" style="display:none;">
           <label>Motivo da perda</label>
@@ -2830,6 +2831,7 @@ async function openDealModal(dealId){
     document.getElementById('deal-cnpj').value = deal.cnpj || '';
     document.getElementById('deal-value').value = deal.value || '';
     document.getElementById('deal-close-date').value = deal.expected_close_date || '';
+    document.getElementById('deal-followup').value = deal.next_followup_date || '';
     // Origem: lê deals.origem; cai para o legado deals.source quando origem é null.
     document.getElementById('deal-source').value = (deal.origem != null ? deal.origem : deal.source) || '';
     // Etapa: atribui e CONFERE. As options do select sao geradas uma unica vez no
@@ -2843,7 +2845,6 @@ async function openDealModal(dealId){
       showToast('A etapa deste lead nao esta na lista. Recarregue a pagina (Ctrl+F5) antes de salvar.', 'err');
     }
     document.getElementById('deal-lista').value = deal.lista_origem || '';
-    document.getElementById('deal-followup').value = deal.next_followup_date || '';
     document.getElementById('deal-loss-reason').value = deal.loss_reason || '';
     if(isAdmin()) document.getElementById('deal-owner').value = deal.owner_id;
     fecharFormRegistro();
@@ -2853,6 +2854,7 @@ async function openDealModal(dealId){
     document.getElementById('deal-stage').value = stages[0]?.id || '';
     if(isAdmin()) document.getElementById('deal-owner').value = currentProfile.id;
   }
+  aplicarModoFollowup(dealId);
   atualizarCampoMotivoPerda();
   atualizarLinksContato();
   preencherICPModal(dealId);
@@ -2997,6 +2999,15 @@ function renderTimeline(linhas){
   if(tgl){ tgl.addEventListener('click', alternarTimeline); }
 })();
 
+function aplicarModoFollowup(dealId){
+  var input = document.getElementById('deal-followup');
+  var txt   = document.getElementById('deal-followup-texto');
+  var edicao = !dealId;
+  input.classList.toggle('hidden', !edicao);
+  txt.classList.toggle('hidden', edicao);
+  txt.textContent = edicao ? '' : (input.value ? formatDate(input.value) : 'Nenhum retorno agendado');
+}
+
 // Mostra o campo "motivo da perda" só quando a etapa selecionada for de perda
 function atualizarCampoMotivoPerda(){
   const stageId = document.getElementById('deal-stage').value;
@@ -3108,7 +3119,6 @@ dealForm.addEventListener('submit', async (e)=>{
     // (Enter num input do bloco de registro dispara o submit deste form).
     stage_id: (function(){ var el = document.getElementById('deal-stage'); var v = el ? el.value : ''; for(var i=0;i<stages.length;i++){ if(stages[i].id === v) return v; } return undefined; })(),
     lista_origem: document.getElementById('deal-lista').value.trim().slice(0, 120) || null,
-    next_followup_date: document.getElementById('deal-followup').value || null,
     loss_reason: document.getElementById('deal-loss-reason').value || null,
   };
 
@@ -3119,6 +3129,7 @@ dealForm.addEventListener('submit', async (e)=>{
     showToast('Lead atualizado', 'ok');
   } else {
     payload.owner_id = isAdmin() ? document.getElementById('deal-owner').value : currentProfile.id;
+    payload.next_followup_date = document.getElementById('deal-followup').value || null;
     const { error } = await db.from('deals').insert(payload);
     if(error){ showToast('Erro ao criar: ' + error.message, 'err'); return; }
     showToast('Lead criado', 'ok');
@@ -3741,6 +3752,9 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
       const fu = document.getElementById('deal-followup');
       if(fu && Object.prototype.hasOwnProperty.call(patchDeal, 'next_followup_date')){
         fu.value = patchDeal.next_followup_date || '';
+        if(editingDealId && editingDealId === regDealId){
+          aplicarModoFollowup(editingDealId);
+        }
       }
       renderAll();
     }

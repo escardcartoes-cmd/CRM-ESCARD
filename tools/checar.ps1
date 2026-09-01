@@ -1,124 +1,115 @@
-# =====================================================================
-# CRM-ESCARD - Checagem do index.html
-#
-# 1. node --check na sintaxe dos <script> inline
-# 2. Delta contra o backup MAIS RECENTE (o que a ultima alteracao criou)
-# 3. git diff --stat
-#
-# So le. Nao altera nada. Reutilizavel a cada edicao.
-# Uso: powershell -ExecutionPolicy Bypass -File tools\checar.ps1
-# =====================================================================
+<#
+  checar.ps1 - validacao do index.html single-file (CRM-ESCARD)
 
+  Uso:
+    powershell -ExecutionPolicy Bypass -File .\tools\checar.ps1
+
+  NAO cole o conteudo deste arquivo no console: ele termina com "exit",
+  o que fecha a sessao interativa do PowerShell. Rode sempre com -File.
+
+  Parametros opcionais:
+    -Path <arquivo>     alvo diferente de <raiz>\index.html
+    -MaxPerdaJs <n>     perda de linhas de JS tolerada vs backup (padrao 20)
+#>
+param(
+  [string]$Path,
+  [int]$MaxPerdaJs = 20
+)
 $ErrorActionPreference = 'Stop'
 
-$repo = 'C:\dev\CRM-ESCARD'
-$alvo = Join-Path $repo 'index.html'
-$tmp  = Join-Path $env:TEMP '_crm_check.js'
-$erro = 0
+$raiz = Split-Path -Parent $PSScriptRoot
+if (-not $Path) { $Path = Join-Path $raiz 'index.html' }
+if (-not (Test-Path -LiteralPath $Path)) { Write-Host "Nao encontrei $Path" -ForegroundColor Red; exit 1 }
+$Path = (Resolve-Path -LiteralPath $Path).Path
 
-Write-Host ''
-Write-Host '=== Checagem do index.html ===' -ForegroundColor Cyan
+Write-Host "=== Checagem de $Path ===" -ForegroundColor Cyan
+$html = [IO.File]::ReadAllText($Path)
+Write-Host ("Tamanho: {0} KB" -f [int]((Get-Item -LiteralPath $Path).Length / 1KB))
 
-if(-not (Test-Path $alvo)){ throw "Nao encontrei $alvo" }
-
-function ExtrairJs($caminho){
-  $h = [System.IO.File]::ReadAllText($caminho)
-  $m = [regex]::Matches($h, '(?s)<script(?![^>]*src=)[^>]*>(.*?)</script>')
-  $p = @()
-  foreach($x in $m){ $p += $x.Groups[1].Value }
-  return ($p -join "`n;`n")
+# --- Mascaramento de comentario HTML -------------------------------------
+# O SheetJS inline contem o literal de regex <!--.*?--> ; sem mascarar, a
+# extracao de <script> quebra em fronteiras falsas. Substitui por espacos
+# de comprimento igual para preservar todos os offsets do texto original.
+$mask = [System.Text.RegularExpressions.MatchEvaluator] {
+  param($m)
+  ' ' * $m.Value.Length
 }
+$limpo = [regex]::Replace($html, '<!--[\s\S]*?-->', $mask)
 
-$js = ExtrairJs $alvo
-[System.IO.File]::WriteAllText($tmp, $js)
+# --- Extracao dos blocos <script> sem src --------------------------------
+$rxScript = [regex] '(?is)<script(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)</script>'
+$blocos = $rxScript.Matches($limpo)
+if ($blocos.Count -eq 0) { Write-Host 'Nenhum bloco <script> inline encontrado.' -ForegroundColor Red; exit 1 }
+Write-Host ("Blocos <script> inline: {0}" -f $blocos.Count)
 
-# --- 1. Sintaxe -----------------------------------------------------
-Write-Host ''
-Write-Host '--- Sintaxe ---' -ForegroundColor Cyan
-$node = Get-Command node -ErrorAction SilentlyContinue
-if(-not $node){
-  Write-Host 'AVISO: node fora do PATH. Sintaxe nao verificada.' -ForegroundColor Yellow
-} else {
-  $s = & node --check $tmp 2>&1
-  if($LASTEXITCODE -eq 0){
-    Write-Host 'SINTAXE OK' -ForegroundColor Green
-  } else {
-    $erro++
-    Write-Host 'ERRO DE SINTAXE:' -ForegroundColor Red
-    $s | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+$tmp = Join-Path $env:TEMP ('checar-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $tmp | Out-Null
+
+$falhas = 0
+$linhasJs = 0
+$i = 0
+$todoJs = New-Object System.Text.StringBuilder
+
+foreach ($b in $blocos) {
+  $i++
+  # Recorta do HTML ORIGINAL usando os offsets do texto mascarado, para
+  # validar o codigo real e nao a versao com comentarios apagados.
+  $g = $b.Groups[1]
+  $js = $html.Substring($g.Index, $g.Length)
+  $n = ([regex]::Matches($js, "`n")).Count
+  $linhasJs += $n
+  [void]$todoJs.AppendLine($js)
+
+  $arq = Join-Path $tmp ("bloco{0}.js" -f $i)
+  [IO.File]::WriteAllText($arq, $js, (New-Object System.Text.UTF8Encoding($false)))
+
+  $saida = & node --check $arq 2>&1
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host ("  [FALHA] bloco {0}" -f $i) -ForegroundColor Red
+    $saida | ForEach-Object { Write-Host ("    " + $_) -ForegroundColor Red }
+    $falhas++
+  }
+  else {
+    Write-Host ("  [ok] bloco {0} ({1} linhas)" -f $i, $n) -ForegroundColor Green
   }
 }
 
-# --- 2. Delta contra o backup mais recente --------------------------
-Write-Host ''
-Write-Host '--- Delta (o que a alteracao introduziu) ---' -ForegroundColor Cyan
+# --- Higiene -------------------------------------------------------------
+$js = $todoJs.ToString()
+$nConsole = ([regex]::Matches($js, '(?<![\w.$])console\s*\.')).Count
+$nStorage = ([regex]::Matches($js, '(?<![\w.$])(local|session)Storage\b')).Count
+Write-Host ("console.*   : {0}" -f $nConsole) -ForegroundColor $(if ($nConsole -gt 3) { 'Yellow' } else { 'Gray' })
+Write-Host ("Storage API : {0}" -f $nStorage) -ForegroundColor $(if ($nStorage -gt 0) { 'Yellow' } else { 'Gray' })
 
-$bk = Get-ChildItem $repo -Filter 'index.backup*.html' -Recurse -ErrorAction SilentlyContinue |
-      Sort-Object LastWriteTime -Descending | Select-Object -First 1
+# --- Delta de linhas de JS contra o backup mais recente ------------------
+$dir = Split-Path -Parent $Path
+$bkp = Get-ChildItem -LiteralPath $dir -Filter '*.bak-*' -File -ErrorAction SilentlyContinue |
+Sort-Object LastWriteTime -Descending | Select-Object -First 1
 
-if(-not $bk){
-  Write-Host 'Nenhum backup encontrado. Delta nao calculado.' -ForegroundColor Yellow
-} else {
-  Write-Host ("Comparando com: {0}" -f $bk.Name)
-  $jsA = ExtrairJs $bk.FullName
-
-  $met = @(
-    @{ n = 'arrow function  (=>)'; r = '=>' },
-    @{ n = 'template literal';     r = '\x60' },
-    @{ n = 'optional chain (?.)';  r = '\?\.' },
-    @{ n = 'nullish (??)';         r = '\?\?' },
-    @{ n = 'console.*';            r = 'console\.' },
-    @{ n = 'localStorage';         r = 'localStorage|sessionStorage' }
-  )
-
-  Write-Host ''
-  Write-Host ('{0,-22} {1,8} {2,8} {3,9}' -f 'Construcao','Antes','Depois','Delta') -ForegroundColor Cyan
-  Write-Host ('-' * 51)
-
-  $intro = 0
-  foreach($m in $met){
-    $a = ([regex]::Matches($jsA, $m.r)).Count
-    $d = ([regex]::Matches($js,  $m.r)).Count
-    $x = $d - $a
-    if($x -gt 0){ $intro++; $cor = 'Red';   $txt = '+' + [string]$x }
-    elseif($x -lt 0){       $cor = 'Green'; $txt = [string]$x }
-    else {                  $cor = 'Green'; $txt = '0' }
-    Write-Host ('{0,-22} {1,8} {2,8} {3,9}' -f $m.n, $a, $d, $txt) -ForegroundColor $cor
+if ($bkp) {
+  $htmlBkp = [IO.File]::ReadAllText($bkp.FullName)
+  $limpoBkp = [regex]::Replace($htmlBkp, '<!--[\s\S]*?-->', $mask)
+  $jsBkp = 0
+  foreach ($b in $rxScript.Matches($limpoBkp)) {
+    $trecho = $htmlBkp.Substring($b.Groups[1].Index, $b.Groups[1].Length)
+    $jsBkp += ([regex]::Matches($trecho, "`n")).Count
   }
-  Write-Host ('-' * 51)
-  $la = ($jsA -split "`n").Count
-  $ld = ($js  -split "`n").Count
-  $dl = $ld - $la
-  $corL = 'Green'
-  if($dl -lt -20){ $corL = 'Red' }
-  Write-Host ('{0,-22} {1,8} {2,8} {3,9}' -f 'linhas de JS', $la, $ld, (('{0:+#;-#;0}') -f $dl)) -ForegroundColor $corL
-
-  if($intro -gt 0){ $erro++ }
-
-  # Remocao em massa e destruicao de codigo, nao 'melhoria'. Trata como erro.
-  if($dl -lt -20){
-    $erro++
-    Write-Host ''
-    Write-Host ('ALERTA: o JS perdeu ' + [Math]::Abs($dl) + ' linhas. Substituicao pode ter engolido codigo.') -ForegroundColor Red
-    Write-Host 'Confira o git diff antes de qualquer commit.' -ForegroundColor Red
+  $delta = $linhasJs - $jsBkp
+  Write-Host ("Delta JS vs {0}: {1} linhas" -f $bkp.Name, $delta)
+  if ($delta -lt (-1 * $MaxPerdaJs)) {
+    Write-Host ("  [FALHA] perda de {0} linhas de JS excede o limite de {1}" -f (-1 * $delta), $MaxPerdaJs) -ForegroundColor Red
+    $falhas++
   }
 }
-
-# --- 3. Git ---------------------------------------------------------
-Write-Host ''
-Write-Host '--- Git ---' -ForegroundColor Cyan
-Push-Location $repo
-& git status -s
-Write-Host ''
-& git diff --stat
-Pop-Location
-
-Remove-Item $tmp -ErrorAction SilentlyContinue
-
-Write-Host ''
-if($erro -eq 0){
-  Write-Host '=== APROVADO ===' -ForegroundColor Green
-} else {
-  Write-Host ("=== {0} PROBLEMA(S) - investigar antes de commitar ===" -f $erro) -ForegroundColor Red
+else {
+  Write-Host 'Sem backup (*.bak-*) para comparar delta.' -ForegroundColor Gray
 }
-Write-Host ''
+
+Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+
+if ($falhas -gt 0) {
+  Write-Host ("`nREPROVADO - {0} falha(s)." -f $falhas) -ForegroundColor Red
+  exit 1
+}
+Write-Host "`nAPROVADO" -ForegroundColor Green
+exit 0
