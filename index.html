@@ -4364,7 +4364,18 @@ var IMPORT_SINONIMOS = {
 var IMPORT_TEL_FONTES = { telefone:1, telefone1:1, telefone2:1, telefonefixo:1, telefonecelular:1, fone:1, tel:1, celular:1, whatsapp:1, whats:1, zap:1, outrostelefones:1 };
 
 function mapearColuna(titulo){ return IMPORT_SINONIMOS[normalizarTitulo(titulo)] || null; }
-function ehColunaTelefone(titulo){ return !!IMPORT_TEL_FONTES[normalizarTitulo(titulo)]; }
+// Variantes de titulo ("Telefone Corrigido", "Celular 1"...) sao aceitas por prefixo.
+// Colunas de valor historico/status ("Telefone Original", "Status WhatsApp") sao ignoradas.
+var IMPORT_TEL_PREFIXOS = ['telefone','celular','fone','whatsapp','whats','zap'];
+var IMPORT_TEL_IGNORAR  = ['original','antigo','anterior','status','resultado','observacao'];
+function ehColunaTelefone(titulo){
+  var t = normalizarTitulo(titulo), i;
+  if(!t) return false;
+  for(i = 0; i < IMPORT_TEL_IGNORAR.length; i++){ if(t.indexOf(IMPORT_TEL_IGNORAR[i]) !== -1) return false; }
+  if(IMPORT_TEL_FONTES[t]) return true;
+  for(i = 0; i < IMPORT_TEL_PREFIXOS.length; i++){ if(t.indexOf(IMPORT_TEL_PREFIXOS[i]) === 0) return true; }
+  return false;
+}
 
 // Município: mesma regra da 0003. Minúsculo em tudo, 1ª letra de cada palavra
 // maiúscula, EXCETO de/do/da/dos/das/e quando não são a primeira palavra.
@@ -4416,6 +4427,8 @@ function extrairTelefones(row, titulos){
   }
   for(i = 0; i < restantes.length; i++){ if(restantes[i].length === 10){ telefone = restantes[i]; break; } }
   if(telefone === null && restantes.length) telefone = restantes[0];
+  // Lead so com celular: espelha no telefone para o link de ligacao funcionar.
+  if(telefone === null && whats !== null) telefone = whats;
   return { whatsapp: whats, contact_phone: telefone };
 }
 
