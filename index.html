@@ -357,6 +357,22 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   .intel-obj-campo{display:flex; gap:6px; margin-top:8px;}
   .intel-obj-campo input{flex:1; min-width:0; font-size:13px; padding:6px 8px;}
   .intel-registrado{font-size:13px; font-weight:600; color:#0f766e; padding:6px 0;}
+  .intel-prod, .intel-conc{border:1px solid var(--border); border-radius:8px; padding:6px 10px; margin-top:6px; background:#fafbfc;}
+  .intel-prod > summary, .intel-conc > summary{cursor:pointer; font-size:13px; color:var(--text); list-style:none;}
+  .intel-prod > summary::-webkit-details-marker, .intel-conc > summary::-webkit-details-marker{display:none;}
+  .intel-prod > summary::before, .intel-conc > summary::before{content:'▸ '; color:var(--text-muted);}
+  .intel-prod[open] > summary::before, .intel-conc[open] > summary::before{content:'▾ ';}
+  .intel-fala{font-size:14px; color:var(--text); line-height:1.5; margin:8px 0 6px;}
+  .intel-fala .btn{margin-left:6px; vertical-align:middle;}
+  .intel-linha{font-size:13px; color:var(--text); line-height:1.45; margin-top:4px;}
+  .intel-quando{color:var(--text-muted); font-size:12px;}
+  .intel-rot{font-weight:700; color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:.3px;}
+  .intel-alerta{margin-top:6px; padding:6px 8px; background:#fff7e6; border-radius:6px; font-size:12px; color:#8a5a00;}
+  .intel-passo{padding:8px 0; border-bottom:1px dashed var(--border);}
+  .intel-passo:last-child{border-bottom:none;}
+  .intel-ultima{padding:8px 10px; background:var(--primary-bg); border-radius:8px; font-size:14px; color:var(--text); line-height:1.5;}
+  .intel-consult{border:1px solid var(--border); border-radius:8px; padding:10px; background:#fafbfc;}
+  .intel-pergunta{margin-top:10px; padding:8px 10px; background:#fff7e6; border-radius:8px; font-weight:600;}
   @media (max-width:480px){
     .intel{padding:10px;}
     .intel-score{width:42px; height:42px; font-size:16px;}
@@ -2946,6 +2962,11 @@ function preencherICPModal(dealId){
 var intelFrases = [];
 var intelObjecoes = [];
 var intelAprendizado = [];
+var intelArgumentos = [];
+var intelConcorrentes = [];
+var intelRoteiro = [];
+var intelConsultivo = [];
+var INTEL_MODO_ROT = { abordagem: 'Abordagem', proposta: 'Proposta', carteira: 'Carteira' };
 var intelAtual = null;
 var INTEL_FIT = { S: 50, A: 40, B: 25, C: 10, DESCARTE: 0 };
 
@@ -2954,6 +2975,14 @@ async function carregarIntelBase(){
   if(!f.error){ intelFrases = f.data || []; }
   var o = await db.from('vw_intel_objecoes').select('id,arquetipo,objecao,resposta');
   if(!o.error){ intelObjecoes = o.data || []; }
+  var g = await db.from('vw_intel_argumentos').select('id,arquetipo,produto,ordem,titulo,fala,se_ja_tem,quando');
+  if(!g.error){ intelArgumentos = g.data || []; }
+  var k = await db.from('vw_intel_concorrentes').select('id,operadora,tipo,provavel_em,contra,alerta');
+  if(!k.error){ intelConcorrentes = k.data || []; }
+  var rt = await db.from('vw_intel_roteiro').select('id,bloco,arquetipo,ordem,rotulo,fala,nota');
+  if(!rt.error){ intelRoteiro = rt.data || []; }
+  var cs = await db.from('vw_intel_consultivo').select('id,arquetipo,cnae_divisao,padrao,ja_tentaram,o_que_muda,pergunta');
+  if(!cs.error){ intelConsultivo = cs.data || []; }
   await recarregarIntelAprendizado();
 }
 
@@ -3148,6 +3177,65 @@ function intelObjecoesRecentes(arq){
   return out;
 }
 
+
+// Munição de venda: produtos do arquétipo (ordem 1 = principal) + genéricos no fim.
+// Roteiro do manual: passos do bloco, específicos do arquétipo na frente dos genéricos.
+function intelRoteiroDo(bloco, arquetipo){
+  var esp = [], gen = [];
+  for(var i = 0; i < intelRoteiro.length; i++){
+    var r = intelRoteiro[i];
+    if(r.bloco !== bloco){ continue; }
+    if(r.arquetipo === arquetipo){ esp.push(r); }
+    else if(!r.arquetipo){ gen.push(r); }
+  }
+  function porOrdem(x, y){ return Number(x.ordem) - Number(y.ordem); }
+  return esp.concat(gen).sort(porOrdem);
+}
+
+function intelConsultivoDo(arquetipo){
+  var gen = null;
+  for(var i = 0; i < intelConsultivo.length; i++){
+    if(intelConsultivo[i].arquetipo === arquetipo){ return intelConsultivo[i]; }
+    if(!intelConsultivo[i].arquetipo && !gen){ gen = intelConsultivo[i]; }
+  }
+  return gen;
+}
+
+function intelArgumentosDo(arquetipo){
+  var esp = [], gen = [];
+  for(var i = 0; i < intelArgumentos.length; i++){
+    var a = intelArgumentos[i];
+    if(a.arquetipo === arquetipo){ esp.push(a); }
+    else if(!a.arquetipo){ gen.push(a); }
+  }
+  function porOrdem(x, y){ return Number(x.ordem) - Number(y.ordem); }
+  esp.sort(porOrdem); gen.sort(porOrdem);
+  return esp.concat(gen);
+}
+
+// Concorrentes prováveis — apresentado como probabilidade, nunca como fato.
+var INTEL_CONC_POR_ARQ = {
+  'Empregador puro': ['Alelo', 'VR', 'Ticket / Edenred', 'Nenhum / paga em dinheiro'],
+  'Prestador de recorrência': ['Alelo', 'Caju', 'Nenhum / paga em dinheiro'],
+  'Varejista': ['Nenhum / paga em dinheiro', 'MaxCard / Convcard / FortCard'],
+  'Varejo-empregador': ['Alelo', 'Le Card / Comprocard', 'Nenhum / paga em dinheiro']
+};
+function intelConcorrentesDo(arquetipo, qtd){
+  var nomes = INTEL_CONC_POR_ARQ[arquetipo] || ['Alelo', 'VR', 'Nenhum / paga em dinheiro'];
+  if(qtd != null && qtd >= 50){ nomes = ['Alelo', 'VR', 'Ticket / Edenred', 'Flash']; }
+  var out = [];
+  for(var i = 0; i < nomes.length; i++){
+    for(var j = 0; j < intelConcorrentes.length; j++){
+      if(intelConcorrentes[j].operadora === nomes[i]){ out.push(intelConcorrentes[j]); break; }
+    }
+  }
+  // demais entram como lista de consulta, para quando o cliente citar outro nome
+  for(var k = 0; k < intelConcorrentes.length; k++){
+    if(out.indexOf(intelConcorrentes[k]) < 0){ out.push(intelConcorrentes[k]); }
+  }
+  return out;
+}
+
 function intelMontarPitch(ctx, deal, sinais, score){
   var arq = ctx.arquetipo || null;
   var forte = sinais.length ? sinais[0] : null;
@@ -3174,6 +3262,9 @@ function intelMontarPitch(ctx, deal, sinais, score){
   pitch.objecao = intelObjecao(arq);
   pitch.objecoes_recentes = intelObjecoesRecentes(arq);
   pitch.gatilho = forte ? forte.tipo : null;
+  pitch.argumentos = intelArgumentosDo(arq);
+  pitch.concorrentes = intelConcorrentesDo(arq, intelQtdFunc(ctx));
+  pitch.consultivo = intelConsultivoDo(arq);
   return pitch;
 }
 
@@ -3211,17 +3302,45 @@ async function preencherIntelModal(dealId){
   var sinais = intelSinaisDoContexto(ctx);
   var score = intelScore(ctx, deal, sinais);
   var pitch = intelMontarPitch(ctx, deal, sinais, score);
-  intelAtual = { dealId: dealId, ctx: ctx, sinais: sinais, score: score, pitch: pitch, feedbackEnviado: false };
+  var modo = intelModoDaEtapa(ctx);
+  var ultima = await intelUltimaFrase(dealId);
+  if(editingDealId !== dealId){ return; }
+  intelAtual = { dealId: dealId, ctx: ctx, sinais: sinais, score: score, pitch: pitch,
+                 modo: modo, ultimaFrase: ultima, feedbackEnviado: false };
   intelRender(corpo, intelAtual);
+}
+
+// Modo por etapa: abordagem (SDR) / proposta (reunião, negociação) / carteira (ganho).
+function intelModoDaEtapa(ctx){
+  if(ctx.is_won){ return 'carteira'; }
+  var e = String(ctx.stage || '').toLowerCase();
+  if(e.indexOf('reuni') >= 0 || e.indexOf('negocia') >= 0 || e.indexOf('proposta') >= 0){ return 'proposta'; }
+  return 'abordagem';
+}
+
+// Última nota registrada: a frase dele abre a próxima ligação.
+async function intelUltimaFrase(dealId){
+  try {
+    var r = await db.from('deal_activities').select('note,occurred_at')
+             .eq('deal_id', dealId).not('note', 'is', null)
+             .order('occurred_at', { ascending: false }).limit(1);
+    if(r.error || !r.data || !r.data.length){ return null; }
+    var t = String(r.data[0].note || '').trim();
+    if(t.length < 12){ return null; }
+    return t.length > 260 ? t.slice(0, 260) + '…' : t;
+  } catch(e){ return null; }
 }
 
 function intelRender(corpo, st){
   var s = st.score, p = st.pitch, ctx = st.ctx;
+  var modo = st.modo;
   var h = '';
+
   h += '<div class="intel-topo">';
   h += '<span class="intel-score ' + intelClasseScore(s.health) + '" title="' + escapeHtml(s.motivo.join(' · ')) + '">' + s.health + '</span>';
   h += '<div class="intel-topo-txt"><div class="intel-motivo">' + escapeHtml(s.motivo.join(' · ')) + '</div>';
-  h += '<div class="intel-meta">' + (ctx.arquetipo ? escapeHtml(ctx.arquetipo) + ' · ' : '') + 'Produto: <b>' + escapeHtml(p.produto) + '</b>' +
+  h += '<div class="intel-meta">' + (ctx.arquetipo ? escapeHtml(ctx.arquetipo) + ' · ' : '') +
+       '<b>' + escapeHtml(INTEL_MODO_ROT[modo] || modo) + '</b>' +
        (ctx.qtd_funcionarios_rf ? ' · ' + escapeHtml(String(ctx.qtd_funcionarios_rf)) + ' func. (RF)' : '') + '</div></div>';
   h += '</div>';
 
@@ -3229,6 +3348,14 @@ function intelRender(corpo, st){
     h += '<div class="intel-bloqueio">Não prospectar. ' + escapeHtml(s.motivo[s.motivo.length - 1]) + '</div>';
     corpo.innerHTML = h;
     return;
+  }
+
+  // Frase da última conversa: o que mais gera confiança na segunda tentativa.
+  if(st.ultimaFrase){
+    h += '<div class="intel-sub">Ele te disse da última vez</div>';
+    h += '<div class="intel-ultima">“' + escapeHtml(st.ultimaFrase) + '”' +
+         ' <button type="button" class="btn btn-slim intel-copiar-txt" data-txt="' + escapeHtml(st.ultimaFrase) + '">Copiar</button>' +
+         '<div class="intel-quando">Abra citando isso. É de graça e vale mais que qualquer script.</div></div>';
   }
 
   if(st.sinais.length){
@@ -3241,33 +3368,127 @@ function intelRender(corpo, st){
       h += '</li>';
     }
     h += '</ul>';
-  } else {
-    h += '<div class="intel-sub">Sem gatilho vivo — abordagem por perfil</div>';
   }
 
-  var ordem = [p.principal];
-  var todos = ['dono', 'financeiro', 'rh'];
-  for(var j = 0; j < todos.length; j++){ if(todos[j] !== p.principal){ ordem.push(todos[j]); } }
-  for(var k = 0; k < ordem.length; k++){
-    var a = ordem[k], aberto = (k === 0);
-    h += '<details class="intel-angulo"' + (aberto ? ' open' : '') + '>';
-    h += '<summary>' + escapeHtml(INTEL_ROTULO[a]) + (aberto ? ' <span class="intel-principal">ângulo principal</span>' : '') + '</summary>';
-    h += '<div class="intel-hook">' + escapeHtml(p[a].hook || '—') + ' <button type="button" class="btn btn-slim intel-copiar" data-angulo="' + a + '">Copiar</button></div>';
-    h += '<div class="intel-proposta">' + escapeHtml(p[a].proposta || '') + '</div>';
+  if(modo === 'abordagem'){ h += intelRenderAbordagem(st); }
+  else if(modo === 'proposta'){ h += intelRenderProposta(st); }
+  else { h += intelRenderCarteira(st); }
+
+  h += intelRenderFeedback();
+  corpo.innerHTML = h;
+  intelLigarBotoes(corpo, st);
+}
+
+// ===== ABORDAGEM (Leads Novos, Sem Contato, Contato Feito) — o manual na tela =====
+function intelRenderAbordagem(st){
+  var p = st.pitch, h = '';
+
+  h += intelBloco('Se a recepção atender', 'recepcao', st, false);
+  h += intelBloco('Quando o decisor atender', 'abertura', st, true);
+
+  if(p.consultivo){
+    var c = p.consultivo;
+    h += '<div class="intel-sub">Leitura do ramo — para conversar, não para perguntar</div>';
+    h += '<div class="intel-consult">';
+    h += '<div class="intel-linha"><span class="intel-rot">Costuma acontecer:</span> ' + escapeHtml(c.padrao) + '</div>';
+    h += '<div class="intel-linha"><span class="intel-rot">Já tentaram:</span> ' + escapeHtml(c.ja_tentaram) + '</div>';
+    h += '<div class="intel-linha"><span class="intel-rot">O que muda:</span> ' + escapeHtml(c.o_que_muda) + '</div>';
+    h += '<div class="intel-fala intel-pergunta">' + escapeHtml(c.pergunta) +
+         ' <button type="button" class="btn btn-slim intel-copiar-txt" data-txt="' + escapeHtml(c.pergunta) + '">Copiar</button>';
+    h += '<div class="intel-quando">Ele não sabe responder. É isso que faz ele querer a reunião.</div></div>';
+    h += '</div>';
+  }
+
+  h += intelBloco('As 5 coisas a descobrir', 'descobrir', st, false);
+  h += intelBloco('Marcar a reunião', 'fechar', st, true);
+  h += intelBloco('Se perguntar de valor', 'cerca', st, true);
+  h += intelBloco('Objeções do seu turno', 'porta', st, false);
+
+  if(p.objecoes_recentes.length){
+    h += '<div class="intel-sub">Objeções que a equipe ouviu (30 dias)</div><ul class="intel-recentes">';
+    for(var m = 0; m < p.objecoes_recentes.length; m++){ h += '<li>' + escapeHtml(p.objecoes_recentes[m]) + '</li>'; }
+    h += '</ul>';
+  }
+  return h;
+}
+
+// ===== PROPOSTA (Reunião, Negociação) — munição de produto e concorrência =====
+function intelRenderProposta(st){
+  var p = st.pitch, h = '';
+  h += '<div class="intel-sub">O que ofertar — e como falar</div>';
+  for(var q = 0; q < p.argumentos.length; q++){
+    var g = p.argumentos[q], principal = (q === 0);
+    h += '<details class="intel-prod"' + (principal ? ' open' : '') + '>';
+    h += '<summary><b>' + escapeHtml(g.produto) + '</b> — ' + escapeHtml(g.titulo) +
+         (principal ? ' <span class="intel-principal">entrada</span>' : '') + '</summary>';
+    h += '<div class="intel-fala">' + escapeHtml(g.fala) +
+         ' <button type="button" class="btn btn-slim intel-copiar-txt" data-txt="' + escapeHtml(g.fala) + '">Copiar</button></div>';
+    if(g.se_ja_tem){ h += '<div class="intel-linha"><span class="intel-rot">Se já tem:</span> ' + escapeHtml(g.se_ja_tem) + '</div>'; }
+    if(g.quando){ h += '<div class="intel-linha intel-quando"><span class="intel-rot">Quando puxar:</span> ' + escapeHtml(g.quando) + '</div>'; }
     h += '</details>';
   }
 
+  h += '<div class="intel-sub">Se ele disser quem atende hoje</div>';
+  var nomes = [];
+  for(var n = 0; n < Math.min(3, p.concorrentes.length); n++){ nomes.push(p.concorrentes[n].operadora); }
+  h += '<div class="intel-linha intel-quando">Provável neste perfil: ' + escapeHtml(nomes.join(' · ')) + ' — confirme, não afirme.</div>';
+  for(var c2 = 0; c2 < p.concorrentes.length; c2++){
+    var cc = p.concorrentes[c2];
+    h += '<details class="intel-conc"' + (c2 < 2 ? ' open' : '') + '>';
+    h += '<summary>' + escapeHtml(cc.operadora) + '</summary>';
+    h += '<div class="intel-fala">' + escapeHtml(cc.contra) +
+         ' <button type="button" class="btn btn-slim intel-copiar-txt" data-txt="' + escapeHtml(cc.contra) + '">Copiar</button></div>';
+    if(cc.alerta){ h += '<div class="intel-alerta">' + escapeHtml(cc.alerta) + '</div>'; }
+    h += '</details>';
+  }
+
+  h += '<div class="intel-alerta">Preço e condição saem do Consultor de Oferta, com os dados do cliente. Não improvise número.</div>';
   if(p.objecao){
     h += '<div class="intel-sub">Objeção provável</div>';
     h += '<div class="intel-objecao"><b>' + escapeHtml(p.objecao.objecao) + '</b><br>' + escapeHtml(p.objecao.resposta) + '</div>';
   }
-  if(p.objecoes_recentes.length){
-    h += '<div class="intel-sub">Objeções recentes da equipe (30 dias)</div><ul class="intel-recentes">';
-    for(var m = 0; m < p.objecoes_recentes.length; m++){ h += '<li>' + escapeHtml(p.objecoes_recentes[m]) + '</li>'; }
-    h += '</ul>';
-  }
+  return h;
+}
 
-  h += '<div class="intel-feedback" id="intel-feedback">';
+// ===== CARTEIRA (Fechado Ganho) =====
+function intelRenderCarteira(st){
+  var h = '<div class="intel-sub">Cliente ativo</div>';
+  h += '<div class="intel-linha">Assinou. O que vale agora é a primeira carga — contrato sem carga não é receita.</div>';
+  h += '<div class="intel-fala">Oi, [nome], tudo certo? Passei só para saber se ficou alguma dúvida na hora de fazer a primeira carga. Consigo resolver por aqui agora mesmo.' +
+       ' <button type="button" class="btn btn-slim intel-copiar-txt" data-txt="Oi, tudo certo? Passei so para saber se ficou alguma duvida na hora de fazer a primeira carga. Consigo resolver por aqui agora mesmo.">Copiar</button></div>';
+  var p = st.pitch;
+  if(p.argumentos.length > 1){
+    h += '<div class="intel-sub">Segundo produto, quando a carga estabilizar</div>';
+    var g = p.argumentos[1];
+    h += '<div class="intel-linha"><b>' + escapeHtml(g.produto) + '</b> — ' + escapeHtml(g.titulo) + '</div>';
+    h += '<div class="intel-fala">' + escapeHtml(g.fala) +
+         ' <button type="button" class="btn btn-slim intel-copiar-txt" data-txt="' + escapeHtml(g.fala) + '">Copiar</button></div>';
+  }
+  return h;
+}
+
+// Bloco do roteiro (manual) — falas com Copiar, notas como lembrete
+function intelBloco(titulo, bloco, st, aberto){
+  var itens = intelRoteiroDo(bloco, st.ctx.arquetipo);
+  if(!itens.length){ return ''; }
+  var h = '<details class="intel-prod"' + (aberto ? ' open' : '') + '>';
+  h += '<summary><b>' + escapeHtml(titulo) + '</b></summary>';
+  for(var i = 0; i < itens.length; i++){
+    var r = itens[i];
+    h += '<div class="intel-passo"><div class="intel-rot">' + escapeHtml(r.rotulo) + '</div>';
+    if(r.fala){
+      h += '<div class="intel-fala">' + escapeHtml(r.fala) +
+           ' <button type="button" class="btn btn-slim intel-copiar-txt" data-txt="' + escapeHtml(r.fala) + '">Copiar</button></div>';
+    }
+    if(r.nota){ h += '<div class="intel-linha intel-quando">' + escapeHtml(r.nota) + '</div>'; }
+    h += '</div>';
+  }
+  h += '</details>';
+  return h;
+}
+
+function intelRenderFeedback(){
+  var h = '<div class="intel-feedback" id="intel-feedback">';
   h += '<span class="intel-sub">Resultado da tentativa</span>';
   h += '<select id="intel-canal" class="intel-canal"><option value="telefone">Telefone</option><option value="whatsapp">WhatsApp</option><option value="visita">Visita</option></select>';
   h += '<div class="intel-fb-botoes">';
@@ -3277,15 +3498,13 @@ function intelRender(corpo, st){
   h += '<button type="button" class="btn btn-slim intel-fb" data-resultado="sem_resposta">Sem resposta</button>';
   h += '</div>';
   h += '<div class="intel-obj-campo hidden" id="intel-obj-campo"><input type="text" id="intel-obj-texto" maxlength="300" placeholder="Qual foi a objeção? (curto)"> <button type="button" class="btn btn-slim btn-primary" id="intel-obj-ok">Registrar</button></div>';
-  h += '</div>';
-  corpo.innerHTML = h;
+  return h;
+}
 
-  var copiar = corpo.querySelectorAll('.intel-copiar');
-  for(var c = 0; c < copiar.length; c++){
-    copiar[c].addEventListener('click', function(ev){
-      var ang = ev.currentTarget.getAttribute('data-angulo');
-      intelCopiar((st.pitch[ang].hook || '') + '\n\n' + (st.pitch[ang].proposta || ''));
-    });
+function intelLigarBotoes(corpo, st){
+  var copiarTxt = corpo.querySelectorAll('.intel-copiar-txt');
+  for(var ct = 0; ct < copiarTxt.length; ct++){
+    copiarTxt[ct].addEventListener('click', function(ev){ intelCopiar(ev.currentTarget.getAttribute('data-txt') || ''); });
   }
   var fbs = corpo.querySelectorAll('.intel-fb');
   for(var f = 0; f < fbs.length; f++){
