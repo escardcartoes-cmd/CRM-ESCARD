@@ -319,6 +319,66 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   .icp-legenda-def p + p{margin-top:8px;}
   .icp-legenda-item .acao{color:var(--primary); font-weight:700;}
 
+  /* ===== Motor de Inteligência (regras) — painel no modal do lead (aditivo) ===== */
+  .intel{margin:10px 0 14px; padding:12px 14px; border:1px solid var(--border); border-radius:10px; background:#ffffff;}
+  .intel-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;}
+  .intel-title{font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:var(--text-muted);}
+  .intel-carregando{font-size:13px; color:var(--text-muted); padding:6px 0;}
+  .intel-topo{display:flex; align-items:center; gap:12px; margin-bottom:10px;}
+  .intel-score{flex:none; width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:800; color:#fff;}
+  .intel-score--alto{background:#0f766e;}
+  .intel-score--medio{background:#b45309;}
+  .intel-score--baixo{background:#6b7280;}
+  .intel-topo-txt{min-width:0;}
+  .intel-motivo{font-size:11px; color:var(--text-muted); line-height:1.4;}
+  .intel-meta{font-size:12px; color:var(--text); margin-top:2px;}
+  .intel-bloqueio{padding:8px 10px; background:#fee2e2; color:#991b1b; border-radius:8px; font-size:13px; font-weight:600;}
+  .intel-sub{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; color:var(--text-muted); margin:10px 0 4px;}
+  .intel-sinais{list-style:none; margin:0; padding:0; font-size:13px;}
+  .intel-sinais li{padding:4px 0; border-bottom:1px dashed var(--border);}
+  .intel-sinais a{color:var(--primary); font-weight:600; font-size:12px;}
+  .intel-tag{display:inline-block; font-size:10px; font-weight:800; padding:1px 7px; border-radius:20px; background:var(--primary-bg); color:var(--primary); margin-right:4px;}
+  .intel-fonte{font-size:11px; color:var(--text-muted);}
+  .intel-angulo{border:1px solid var(--border); border-radius:8px; padding:6px 10px; margin-top:6px; background:#fafbfc;}
+  .intel-angulo > summary{cursor:pointer; font-size:13px; font-weight:700; color:var(--text); list-style:none;}
+  .intel-angulo > summary::-webkit-details-marker{display:none;}
+  .intel-angulo > summary::before{content:'▸ '; color:var(--text-muted);}
+  .intel-angulo[open] > summary::before{content:'▾ ';}
+  .intel-principal{font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.3px; color:#0f766e; background:#d7f2ee; padding:1px 7px; border-radius:20px; margin-left:6px;}
+  .intel-hook{font-size:14px; font-weight:600; color:var(--text); margin:8px 0 6px; line-height:1.45;}
+  .intel-hook .btn{margin-left:6px; vertical-align:middle;}
+  .intel-proposta{font-size:13px; color:var(--text); line-height:1.5;}
+  .intel-objecao{font-size:13px; line-height:1.5; padding:8px 10px; background:#fff7e6; border-radius:8px; color:var(--text);}
+  .intel-recentes{margin:0; padding-left:18px; font-size:12px; color:var(--text);}
+  .intel-feedback{margin-top:12px; padding-top:10px; border-top:1px solid var(--border);}
+  .intel-feedback .intel-sub{display:block; margin:0 0 6px;}
+  .intel-canal{margin-bottom:6px; font-size:12px; padding:4px 8px;}
+  .intel-fb-botoes{display:flex; flex-wrap:wrap; gap:6px;}
+  .intel-obj-campo{display:flex; gap:6px; margin-top:8px;}
+  .intel-obj-campo input{flex:1; min-width:0; font-size:13px; padding:6px 8px;}
+  .intel-registrado{font-size:13px; font-weight:600; color:#0f766e; padding:6px 0;}
+  .intel-prod, .intel-conc{border:1px solid var(--border); border-radius:8px; padding:6px 10px; margin-top:6px; background:#fafbfc;}
+  .intel-prod > summary, .intel-conc > summary{cursor:pointer; font-size:13px; color:var(--text); list-style:none;}
+  .intel-prod > summary::-webkit-details-marker, .intel-conc > summary::-webkit-details-marker{display:none;}
+  .intel-prod > summary::before, .intel-conc > summary::before{content:'▸ '; color:var(--text-muted);}
+  .intel-prod[open] > summary::before, .intel-conc[open] > summary::before{content:'▾ ';}
+  .intel-fala{font-size:14px; color:var(--text); line-height:1.5; margin:8px 0 6px;}
+  .intel-fala .btn{margin-left:6px; vertical-align:middle;}
+  .intel-linha{font-size:13px; color:var(--text); line-height:1.45; margin-top:4px;}
+  .intel-quando{color:var(--text-muted); font-size:12px;}
+  .intel-rot{font-weight:700; color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:.3px;}
+  .intel-alerta{margin-top:6px; padding:6px 8px; background:#fff7e6; border-radius:6px; font-size:12px; color:#8a5a00;}
+  .intel-passo{padding:8px 0; border-bottom:1px dashed var(--border);}
+  .intel-passo:last-child{border-bottom:none;}
+  .intel-ultima{padding:8px 10px; background:var(--primary-bg); border-radius:8px; font-size:14px; color:var(--text); line-height:1.5;}
+  .intel-consult{border:1px solid var(--border); border-radius:8px; padding:10px; background:#fafbfc;}
+  .intel-pergunta{margin-top:10px; padding:8px 10px; background:#fff7e6; border-radius:8px; font-weight:600;}
+  @media (max-width:480px){
+    .intel{padding:10px;}
+    .intel-score{width:42px; height:42px; font-size:16px;}
+    .intel-fb-botoes .btn{flex:1 1 45%;}
+  }
+
   /* ===== Linha do tempo do lead (Fase 5B) ===== */
   .tl-body{margin-top:8px;}
   .tl-item{display:flex; gap:8px; padding:8px 0; border-bottom:1px solid var(--border);}
@@ -1162,6 +1222,15 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
         <div class="icp-detail-full"><dt>Motivo da afinidade</dt><dd id="deal-icp-motivo">—</dd></div>
       </dl>
     </section>
+
+    <!-- Motor de Inteligência: bloco SOMENTE de exibição/feedback, fora do <form> — nunca entra no payload de save. -->
+    <section id="deal-intel-section" class="intel hidden" aria-label="Inteligência de abordagem">
+      <div class="intel-head">
+        <span class="intel-title">Inteligência de abordagem</span>
+        <span class="intel-fonte">score = fit ICP + gatilhos + acesso</span>
+      </div>
+      <div id="deal-intel-body"></div>
+    </section>
     <form id="deal-form">
       <div class="field">
         <label>Nome do lead / empresa *</label>
@@ -1874,6 +1943,7 @@ async function loadProfileAndInit(){
   try { await loadProfiles(); } catch(e){}
   try { await loadDeals(); } catch(e){}
   try { await carregarPriorizacaoICP(); } catch(e){}
+  carregarIntelBase().catch(function(){}); // motor de inteligência (não bloqueia o boot)
   try { await carregarListas(); } catch(e){}
   try { await loadCompanies(); } catch(e){}
   try { await loadContacts(); } catch(e){}
@@ -2858,6 +2928,7 @@ async function openDealModal(dealId){
   atualizarCampoMotivoPerda();
   atualizarLinksContato();
   preencherICPModal(dealId);
+  preencherIntelModal(dealId).catch(function(){});
   dealModal.classList.remove('hidden');
 }
 
@@ -2882,6 +2953,622 @@ function preencherICPModal(dealId){
   document.getElementById('deal-icp-afinidade').textContent = icp.afinidade_private || '—';
   document.getElementById('deal-icp-motivo').textContent = icp.motivo_afinidade || '—';
   sec.classList.remove('hidden');
+}
+
+// ===== Motor de Inteligência (regras, 100% no navegador) — aditivo =====
+// Lê: vw_intel_frases, vw_intel_objecoes, vw_intel_aprendizado (boot) e
+// fn_intel_contexto(deal) ao abrir o card. Grava só no feedback (fn_intel_feedback).
+// Score é determinístico: fit (ICP) 0-50 + timing (sinais) 0-35 + acesso 0-15 - penalidades.
+var intelFrases = [];
+var intelObjecoes = [];
+var intelAprendizado = [];
+var intelArgumentos = [];
+var intelConcorrentes = [];
+var intelRoteiro = [];
+var intelConsultivo = [];
+var INTEL_MODO_ROT = { abordagem: 'Abordagem', proposta: 'Proposta', carteira: 'Carteira' };
+var intelAtual = null;
+var INTEL_FIT = { S: 50, A: 40, B: 25, C: 10, DESCARTE: 0 };
+
+async function carregarIntelBase(){
+  var f = await db.from('vw_intel_frases').select('id,arquetipo,angulo,gatilho_tipo,hook,proposta');
+  if(!f.error){ intelFrases = f.data || []; }
+  var o = await db.from('vw_intel_objecoes').select('id,arquetipo,objecao,resposta');
+  if(!o.error){ intelObjecoes = o.data || []; }
+  var g = await db.from('vw_intel_argumentos').select('id,arquetipo,produto,ordem,titulo,fala,se_ja_tem,quando');
+  if(!g.error){ intelArgumentos = g.data || []; }
+  var k = await db.from('vw_intel_concorrentes').select('id,operadora,tipo,provavel_em,contra,alerta');
+  if(!k.error){ intelConcorrentes = k.data || []; }
+  var rt = await db.from('vw_intel_roteiro').select('id,bloco,arquetipo,ordem,rotulo,fala,nota');
+  if(!rt.error){ intelRoteiro = rt.data || []; }
+  var cs = await db.from('vw_intel_consultivo').select('id,arquetipo,cnae_divisao,padrao,ja_tentaram,o_que_muda,pergunta');
+  if(!cs.error){ intelConsultivo = cs.data || []; }
+  await recarregarIntelAprendizado();
+}
+
+async function recarregarIntelAprendizado(){
+  var a = await db.from('vw_intel_aprendizado').select('*');
+  if(!a.error){ intelAprendizado = a.data || []; }
+}
+
+// --- score -------------------------------------------------------------
+function intelFatorIdade(dataEvento){
+  if(!dataEvento){ return 0.6; }
+  var d = new Date(dataEvento + 'T00:00:00Z');
+  if(isNaN(d.getTime())){ return 0.6; }
+  var dias = Math.max(0, (Date.now() - d.getTime()) / 86400000);
+  return Math.max(0.1, 1 - dias / 135);
+}
+function intelFatorEscopo(s){
+  if(s.escopo === 'empresa'){ return 1; }
+  if(s.escopo === 'setorial'){ return 0.7; }
+  return 0.5;
+}
+function intelPesoEfetivo(s){
+  return Number(s.peso || 0) * intelFatorIdade(s.data_evento) * intelFatorEscopo(s);
+}
+
+function intelSinaisDoContexto(ctx){
+  var lista = (ctx.sinais || []).slice();
+  if(ctx.cct && ctx.cct.dias != null && ctx.cct.dias <= 60){
+    lista.push({
+      id: null, categoria: 'HR', tipo: 'dissidio', peso: 15, escopo: 'setorial', data_evento: null, url: null,
+      fonte: ctx.cct.fonte || 'Calendário de CCT',
+      descricao: 'Dissídio da categoria' + (ctx.cct.sindicato ? ' (' + ctx.cct.sindicato + ')' : '') +
+                 ' em ~' + ctx.cct.dias + ' dias' + (ctx.cct.exige_va_vr ? '; CCT prevê VA/VR' : '') + '.'
+    });
+  }
+  lista.sort(function(a, b){ return intelPesoEfetivo(b) - intelPesoEfetivo(a); });
+  return lista;
+}
+
+function intelScore(ctx, deal, sinais){
+  var motivo = [];
+  var tier = ctx.tier ? String(ctx.tier).toUpperCase() : null;
+  var fit = tier ? (INTEL_FIT[tier] != null ? INTEL_FIT[tier] : 15) : 15;
+  var timing = 0, usados = [];
+  for(var i = 0; i < sinais.length; i++){
+    var p = intelPesoEfetivo(sinais[i]);
+    if(p > 0){ timing += p; if(sinais[i].id){ usados.push(sinais[i].id); } }
+  }
+  timing = Math.min(35, Math.round(timing));
+  var acesso = 0;
+  var temWhats = !!(deal.whatsapp && String(deal.whatsapp).trim());
+  var temTel = !!(deal.contact_phone && String(deal.contact_phone).trim());
+  if(temWhats){ acesso += 8; } else if(temTel){ acesso += 6; }
+  var decisor = (deal.contact_name && String(deal.contact_name).trim()) || ctx.socio || '';
+  if(decisor){ acesso += 7; }
+  acesso = Math.min(15, acesso);
+  var penalidade = 0;
+  motivo.push('fit ' + fit + '/50 (tier ' + (tier || 'não classificado') + ')');
+  motivo.push('timing ' + timing + '/35 (' + sinais.length + ' sinal' + (sinais.length === 1 ? '' : 'is') + ')');
+  motivo.push('acesso ' + acesso + '/15');
+  if(ctx.excluido){ penalidade = 100; motivo.push('EXCLUÍDO: CNPJ da Escard ou lista de exclusão'); }
+  if(ctx.situacao_cadastral && !/ativa/i.test(ctx.situacao_cadastral)){
+    penalidade = 100; motivo.push('Receita: ' + ctx.situacao_cadastral + ' — não prospectar');
+  }
+  if(ctx.is_won){ penalidade = 100; motivo.push('já é cliente — carteira, não prospecção'); }
+  if(ctx.is_lost && ctx.perdido_ha_dias != null && ctx.perdido_ha_dias < 90){
+    penalidade = Math.max(penalidade, 20); motivo.push('perdido há ' + ctx.perdido_ha_dias + ' dias — quarentena de 90');
+  }
+  var health = Math.max(0, Math.min(100, fit + timing + acesso - penalidade));
+  return { health: health, fit: fit, timing: timing, acesso: acesso, penalidade: penalidade, motivo: motivo, usados: usados, decisor: decisor };
+}
+
+// --- ângulo, produto, frases --------------------------------------------
+function intelQtdFunc(ctx){
+  var f = String(ctx.faixa_func || ctx.qtd_funcionarios_rf || '');
+  var m = f.match(/\d+/g);
+  if(!m){ return null; }
+  var maior = 0;
+  for(var i = 0; i < m.length; i++){ maior = Math.max(maior, Number(m[i])); }
+  return maior;
+}
+
+function intelTaxa(arq, angulo){
+  var t = 0, pos = 0;
+  for(var i = 0; i < intelAprendizado.length; i++){
+    var a = intelAprendizado[i];
+    if(a.arquetipo === arq && a.angulo_usado === angulo){ t += Number(a.tentativas || 0); pos += Number(a.positivos || 0); }
+  }
+  return { tentativas: t, taxa: t ? (100 * pos / t) : null };
+}
+
+function intelEscolherAngulo(ctx, sinais){
+  var arq = ctx.arquetipo || '';
+  var principal = 'dono';
+  var forte = sinais.length ? sinais[0] : null;
+  if(forte){
+    if(forte.categoria === 'HR' || forte.tipo === 'dissidio' || forte.tipo === 'vaga'){ principal = 'rh'; }
+    else if(forte.categoria === 'Financial' || forte.tipo === 'transporte' || forte.tipo === 'custo_logistico'){ principal = 'financeiro'; }
+  } else {
+    var q = intelQtdFunc(ctx);
+    if(q != null && q >= 30 && arq !== 'Varejista'){ principal = 'rh'; }
+  }
+  // Aprendizado: rebaixa o ângulo com taxa claramente pior (>=10 tentativas, diferença >=15 pontos)
+  var ang = ['dono', 'financeiro', 'rh'], melhor = null, melhorTaxa = -1, atual = intelTaxa(arq, principal);
+  for(var i = 0; i < ang.length; i++){
+    var tx = intelTaxa(arq, ang[i]);
+    if(tx.tentativas >= 10 && tx.taxa != null && tx.taxa > melhorTaxa){ melhorTaxa = tx.taxa; melhor = ang[i]; }
+  }
+  if(melhor && melhor !== principal && atual.tentativas >= 10 && atual.taxa != null && (melhorTaxa - atual.taxa) >= 15){
+    principal = melhor;
+  }
+  return principal;
+}
+
+function intelProduto(ctx){
+  var arq = ctx.arquetipo || '';
+  if(arq === 'Varejista'){ return 'Private Label'; }
+  if(arq === 'Varejo-empregador'){ return 'Hybrid'; }
+  if(arq === 'Empregador puro'){ return 'Corporate Benefits'; }
+  if(arq === 'Prestador de recorrência'){ return /cobran/i.test(ctx.produto_entrada || '') ? 'Cobrança' : 'Corporate Benefits'; }
+  if(/private/i.test(ctx.produto_entrada || '')){ return 'Private Label'; }
+  if(/cobran/i.test(ctx.produto_entrada || '')){ return 'Cobrança'; }
+  return 'Corporate Benefits';
+}
+
+function intelHash(str){
+  var h = 0;
+  for(var i = 0; i < str.length; i++){ h = ((h << 5) - h + str.charCodeAt(i)) | 0; }
+  return Math.abs(h);
+}
+function intelSemanaISO(){
+  var d = new Date(); var inicio = new Date(d.getFullYear(), 0, 1);
+  return d.getFullYear() + '-' + Math.floor((d - inicio) / (7 * 86400000));
+}
+function intelEscolher(lista, chave){
+  if(!lista.length){ return null; }
+  return lista[intelHash(chave + '|' + intelSemanaISO()) % lista.length];
+}
+function intelFiltrar(arq, angulo, gatilho, campo){
+  var out = [];
+  for(var i = 0; i < intelFrases.length; i++){
+    var f = intelFrases[i];
+    if(f.angulo !== angulo){ continue; }
+    if((f.arquetipo || null) !== arq){ continue; }
+    if((f.gatilho_tipo || null) !== gatilho){ continue; }
+    if(!f[campo]){ continue; }
+    out.push(f);
+  }
+  return out;
+}
+function intelFraseCampo(arq, angulo, gatilho, campo, chave){
+  var tentativas = [[arq, gatilho], [null, gatilho], [arq, null], [null, null]];
+  for(var i = 0; i < tentativas.length; i++){
+    var lista = intelFiltrar(tentativas[i][0], angulo, tentativas[i][1], campo);
+    if(lista.length){ var f = intelEscolher(lista, chave + campo + angulo); return f[campo]; }
+  }
+  return '';
+}
+function intelNomeEmpresa(deal){
+  var n = String(deal.title || deal.razao_social || 'sua empresa').replace(/\s+(ltda|me|epp|eireli|s\/?a)\.?$/i, '').trim();
+  // Título vem em caixa alta da importação; na frase falada fica melhor em Caixa Inicial.
+  return n.toLowerCase().replace(/(^|\s|-)(\S)/g, function(m, a, b){ return a + b.toUpperCase(); })
+          .replace(/\b(De|Do|Da|Dos|Das|E)\b/g, function(m){ return m.toLowerCase(); });
+}
+function intelPreencher(texto, vars){
+  if(!texto){ return ''; }
+  var t = texto;
+  if(vars.decisor){ t = t.split('{decisor}').join(vars.decisor); }
+  else { t = t.replace(/\{decisor\},\s*/g, ''); t = t.charAt(0).toUpperCase() + t.slice(1); }
+  t = t.split('{empresa}').join(vars.empresa).split('{cidade}').join(vars.cidade)
+       .split('{sinal}').join(vars.sinal).split('{dias}').join(vars.dias);
+  return t;
+}
+function intelObjecao(arq){
+  var esp = null, gen = null;
+  for(var i = 0; i < intelObjecoes.length; i++){
+    var o = intelObjecoes[i];
+    if(o.arquetipo === arq && !esp){ esp = o; }
+    if(!o.arquetipo && !gen){ gen = o; }
+  }
+  return esp || gen;
+}
+function intelObjecoesRecentes(arq){
+  var out = [];
+  for(var i = 0; i < intelAprendizado.length; i++){
+    var a = intelAprendizado[i];
+    if(a.arquetipo !== arq || !a.objecoes_recentes){ continue; }
+    for(var j = 0; j < a.objecoes_recentes.length && out.length < 3; j++){
+      if(a.objecoes_recentes[j] && out.indexOf(a.objecoes_recentes[j]) < 0){ out.push(a.objecoes_recentes[j]); }
+    }
+  }
+  return out;
+}
+
+
+// Munição de venda: produtos do arquétipo (ordem 1 = principal) + genéricos no fim.
+// Roteiro do manual: passos do bloco, específicos do arquétipo na frente dos genéricos.
+function intelRoteiroDo(bloco, arquetipo){
+  var esp = [], gen = [];
+  for(var i = 0; i < intelRoteiro.length; i++){
+    var r = intelRoteiro[i];
+    if(r.bloco !== bloco){ continue; }
+    if(r.arquetipo === arquetipo){ esp.push(r); }
+    else if(!r.arquetipo){ gen.push(r); }
+  }
+  function porOrdem(x, y){ return Number(x.ordem) - Number(y.ordem); }
+  return esp.concat(gen).sort(porOrdem);
+}
+
+function intelConsultivoDo(arquetipo){
+  var gen = null;
+  for(var i = 0; i < intelConsultivo.length; i++){
+    if(intelConsultivo[i].arquetipo === arquetipo){ return intelConsultivo[i]; }
+    if(!intelConsultivo[i].arquetipo && !gen){ gen = intelConsultivo[i]; }
+  }
+  return gen;
+}
+
+function intelArgumentosDo(arquetipo){
+  var esp = [], gen = [];
+  for(var i = 0; i < intelArgumentos.length; i++){
+    var a = intelArgumentos[i];
+    if(a.arquetipo === arquetipo){ esp.push(a); }
+    else if(!a.arquetipo){ gen.push(a); }
+  }
+  function porOrdem(x, y){ return Number(x.ordem) - Number(y.ordem); }
+  esp.sort(porOrdem); gen.sort(porOrdem);
+  return esp.concat(gen);
+}
+
+// Concorrentes prováveis — apresentado como probabilidade, nunca como fato.
+var INTEL_CONC_POR_ARQ = {
+  'Empregador puro': ['Alelo', 'VR', 'Ticket / Edenred', 'Nenhum / paga em dinheiro'],
+  'Prestador de recorrência': ['Alelo', 'Caju', 'Nenhum / paga em dinheiro'],
+  'Varejista': ['Nenhum / paga em dinheiro', 'MaxCard / Convcard / FortCard'],
+  'Varejo-empregador': ['Alelo', 'Le Card / Comprocard', 'Nenhum / paga em dinheiro']
+};
+function intelConcorrentesDo(arquetipo, qtd){
+  var nomes = INTEL_CONC_POR_ARQ[arquetipo] || ['Alelo', 'VR', 'Nenhum / paga em dinheiro'];
+  if(qtd != null && qtd >= 50){ nomes = ['Alelo', 'VR', 'Ticket / Edenred', 'Flash']; }
+  var out = [];
+  for(var i = 0; i < nomes.length; i++){
+    for(var j = 0; j < intelConcorrentes.length; j++){
+      if(intelConcorrentes[j].operadora === nomes[i]){ out.push(intelConcorrentes[j]); break; }
+    }
+  }
+  // demais entram como lista de consulta, para quando o cliente citar outro nome
+  for(var k = 0; k < intelConcorrentes.length; k++){
+    if(out.indexOf(intelConcorrentes[k]) < 0){ out.push(intelConcorrentes[k]); }
+  }
+  return out;
+}
+
+function intelMontarPitch(ctx, deal, sinais, score){
+  var arq = ctx.arquetipo || null;
+  var forte = sinais.length ? sinais[0] : null;
+  var gat = forte ? forte.tipo : null;
+  var decisor = score.decisor ? score.decisor.split(/\s+/)[0] : '';
+  decisor = decisor ? decisor.charAt(0).toUpperCase() + decisor.slice(1).toLowerCase() : '';
+  var vars = {
+    decisor: decisor,
+    empresa: intelNomeEmpresa(deal),
+    cidade: deal.city || 'Vitória',
+    sinal: forte ? String(forte.descricao || '').slice(0, 70) : '',
+    dias: (ctx.cct && ctx.cct.dias != null) ? String(ctx.cct.dias) : ''
+  };
+  var angulos = ['dono', 'financeiro', 'rh'], pitch = {};
+  for(var i = 0; i < angulos.length; i++){
+    var a = angulos[i];
+    pitch[a] = {
+      hook: intelPreencher(intelFraseCampo(arq, a, gat, 'hook', deal.id), vars),
+      proposta: intelPreencher(intelFraseCampo(arq, a, null, 'proposta', deal.id), vars)
+    };
+  }
+  pitch.principal = intelEscolherAngulo(ctx, sinais);
+  pitch.produto = intelProduto(ctx);
+  pitch.objecao = intelObjecao(arq);
+  pitch.objecoes_recentes = intelObjecoesRecentes(arq);
+  pitch.gatilho = forte ? forte.tipo : null;
+  pitch.argumentos = intelArgumentosDo(arq);
+  pitch.concorrentes = intelConcorrentesDo(arq, intelQtdFunc(ctx));
+  pitch.consultivo = intelConsultivoDo(arq);
+  return pitch;
+}
+
+// --- render ---------------------------------------------------------------
+var INTEL_ROTULO = { dono: 'Dono', financeiro: 'Financeiro', rh: 'RH' };
+var INTEL_CAT = { Financial: 'Financeiro', Operational: 'Operação', HR: 'Pessoas', Tech: 'Tecnologia', Regional: 'Regional' };
+
+function intelClasseScore(h){
+  if(h >= 70){ return 'intel-score--alto'; }
+  if(h >= 40){ return 'intel-score--medio'; }
+  return 'intel-score--baixo';
+}
+
+async function preencherIntelModal(dealId){
+  var sec = document.getElementById('deal-intel-section');
+  if(!sec){ return; }
+  intelAtual = null;
+  if(!dealId){ sec.classList.add('hidden'); return; }
+  var deal = null;
+  for(var i = 0; i < deals.length; i++){ if(deals[i].id === dealId){ deal = deals[i]; break; } }
+  if(!deal){ sec.classList.add('hidden'); return; }
+  sec.classList.remove('hidden');
+  var corpo = document.getElementById('deal-intel-body');
+  corpo.innerHTML = '<div class="intel-carregando">Montando abordagem…</div>';
+  var r;
+  try {
+    r = await db.rpc('fn_intel_contexto', { p_deal_id: dealId });
+  } catch(e){ r = { error: e }; }
+  if(!r || r.error || !r.data){
+    corpo.innerHTML = '<div class="intel-carregando">Sem contexto para este lead' + (r && r.error ? ' (' + escapeHtml(r.error.message || '') + ')' : '') + '.</div>';
+    return;
+  }
+  if(editingDealId !== dealId){ return; } // usuário já trocou de card
+  var ctx = r.data;
+  var sinais = intelSinaisDoContexto(ctx);
+  var score = intelScore(ctx, deal, sinais);
+  var pitch = intelMontarPitch(ctx, deal, sinais, score);
+  var modo = intelModoDaEtapa(ctx);
+  var ultima = await intelUltimaFrase(dealId);
+  if(editingDealId !== dealId){ return; }
+  intelAtual = { dealId: dealId, ctx: ctx, sinais: sinais, score: score, pitch: pitch,
+                 modo: modo, ultimaFrase: ultima, feedbackEnviado: false };
+  intelRender(corpo, intelAtual);
+}
+
+// Modo por etapa: abordagem (SDR) / proposta (reunião, negociação) / carteira (ganho).
+function intelModoDaEtapa(ctx){
+  if(ctx.is_won){ return 'carteira'; }
+  var e = String(ctx.stage || '').toLowerCase();
+  if(e.indexOf('reuni') >= 0 || e.indexOf('negocia') >= 0 || e.indexOf('proposta') >= 0){ return 'proposta'; }
+  return 'abordagem';
+}
+
+// Última nota registrada: a frase dele abre a próxima ligação.
+async function intelUltimaFrase(dealId){
+  try {
+    var r = await db.from('deal_activities').select('note,occurred_at')
+             .eq('deal_id', dealId).not('note', 'is', null)
+             .order('occurred_at', { ascending: false }).limit(1);
+    if(r.error || !r.data || !r.data.length){ return null; }
+    var t = String(r.data[0].note || '').trim();
+    if(t.length < 12){ return null; }
+    return t.length > 260 ? t.slice(0, 260) + '…' : t;
+  } catch(e){ return null; }
+}
+
+function intelRender(corpo, st){
+  var s = st.score, p = st.pitch, ctx = st.ctx;
+  var modo = st.modo;
+  var h = '';
+
+  h += '<div class="intel-topo">';
+  h += '<span class="intel-score ' + intelClasseScore(s.health) + '" title="' + escapeHtml(s.motivo.join(' · ')) + '">' + s.health + '</span>';
+  h += '<div class="intel-topo-txt"><div class="intel-motivo">' + escapeHtml(s.motivo.join(' · ')) + '</div>';
+  h += '<div class="intel-meta">' + (ctx.arquetipo ? escapeHtml(ctx.arquetipo) + ' · ' : '') +
+       '<b>' + escapeHtml(INTEL_MODO_ROT[modo] || modo) + '</b>' +
+       (ctx.qtd_funcionarios_rf ? ' · ' + escapeHtml(String(ctx.qtd_funcionarios_rf)) + ' func. (RF)' : '') + '</div></div>';
+  h += '</div>';
+
+  if(s.penalidade >= 100){
+    h += '<div class="intel-bloqueio">Não prospectar. ' + escapeHtml(s.motivo[s.motivo.length - 1]) + '</div>';
+    corpo.innerHTML = h;
+    return;
+  }
+
+  // Frase da última conversa: o que mais gera confiança na segunda tentativa.
+  if(st.ultimaFrase){
+    h += '<div class="intel-sub">Ele te disse da última vez</div>';
+    h += '<div class="intel-ultima">“' + escapeHtml(st.ultimaFrase) + '”' +
+         ' <button type="button" class="btn btn-slim intel-copiar-txt" data-txt="' + escapeHtml(st.ultimaFrase) + '">Copiar</button>' +
+         '<div class="intel-quando">Abra citando isso. É de graça e vale mais que qualquer script.</div></div>';
+  }
+
+  if(st.sinais.length){
+    h += '<div class="intel-sub">Gatilhos</div><ul class="intel-sinais">';
+    for(var i = 0; i < Math.min(4, st.sinais.length); i++){
+      var sg = st.sinais[i];
+      h += '<li><span class="intel-tag">' + escapeHtml(INTEL_CAT[sg.categoria] || sg.categoria) + '</span> ' + escapeHtml(sg.descricao);
+      h += ' <span class="intel-fonte">' + escapeHtml(sg.fonte || '') + (sg.data_evento ? ' · ' + escapeHtml(sg.data_evento) : '') + '</span>';
+      if(sg.url){ h += ' <a href="' + escapeHtml(sg.url) + '" target="_blank" rel="noopener">abrir</a>'; }
+      h += '</li>';
+    }
+    h += '</ul>';
+  }
+
+  if(modo === 'abordagem'){ h += intelRenderAbordagem(st); }
+  else if(modo === 'proposta'){ h += intelRenderProposta(st); }
+  else { h += intelRenderCarteira(st); }
+
+  h += intelRenderFeedback();
+  corpo.innerHTML = h;
+  intelLigarBotoes(corpo, st);
+}
+
+// ===== ABORDAGEM (Leads Novos, Sem Contato, Contato Feito) — o manual na tela =====
+function intelRenderAbordagem(st){
+  var p = st.pitch, h = '';
+
+  h += intelBloco('Se a recepção atender', 'recepcao', st, false);
+  h += intelBloco('Quando o decisor atender', 'abertura', st, true);
+
+  if(p.consultivo){
+    var c = p.consultivo;
+    h += '<div class="intel-sub">Leitura do ramo — para conversar, não para perguntar</div>';
+    h += '<div class="intel-consult">';
+    h += '<div class="intel-linha"><span class="intel-rot">Costuma acontecer:</span> ' + escapeHtml(c.padrao) + '</div>';
+    h += '<div class="intel-linha"><span class="intel-rot">Já tentaram:</span> ' + escapeHtml(c.ja_tentaram) + '</div>';
+    h += '<div class="intel-linha"><span class="intel-rot">O que muda:</span> ' + escapeHtml(c.o_que_muda) + '</div>';
+    h += '<div class="intel-fala intel-pergunta">' + escapeHtml(c.pergunta) +
+         ' <button type="button" class="btn btn-slim intel-copiar-txt" data-txt="' + escapeHtml(c.pergunta) + '">Copiar</button>';
+    h += '<div class="intel-quando">Ele não sabe responder. É isso que faz ele querer a reunião.</div></div>';
+    h += '</div>';
+  }
+
+  h += intelBloco('As 5 coisas a descobrir', 'descobrir', st, false);
+  h += intelBloco('Marcar a reunião', 'fechar', st, true);
+  h += intelBloco('Se perguntar de valor', 'cerca', st, true);
+  h += intelBloco('Objeções do seu turno', 'porta', st, false);
+
+  if(p.objecoes_recentes.length){
+    h += '<div class="intel-sub">Objeções que a equipe ouviu (30 dias)</div><ul class="intel-recentes">';
+    for(var m = 0; m < p.objecoes_recentes.length; m++){ h += '<li>' + escapeHtml(p.objecoes_recentes[m]) + '</li>'; }
+    h += '</ul>';
+  }
+  return h;
+}
+
+// ===== PROPOSTA (Reunião, Negociação) — munição de produto e concorrência =====
+function intelRenderProposta(st){
+  var p = st.pitch, h = '';
+  h += '<div class="intel-sub">O que ofertar — e como falar</div>';
+  for(var q = 0; q < p.argumentos.length; q++){
+    var g = p.argumentos[q], principal = (q === 0);
+    h += '<details class="intel-prod"' + (principal ? ' open' : '') + '>';
+    h += '<summary><b>' + escapeHtml(g.produto) + '</b> — ' + escapeHtml(g.titulo) +
+         (principal ? ' <span class="intel-principal">entrada</span>' : '') + '</summary>';
+    h += '<div class="intel-fala">' + escapeHtml(g.fala) +
+         ' <button type="button" class="btn btn-slim intel-copiar-txt" data-txt="' + escapeHtml(g.fala) + '">Copiar</button></div>';
+    if(g.se_ja_tem){ h += '<div class="intel-linha"><span class="intel-rot">Se já tem:</span> ' + escapeHtml(g.se_ja_tem) + '</div>'; }
+    if(g.quando){ h += '<div class="intel-linha intel-quando"><span class="intel-rot">Quando puxar:</span> ' + escapeHtml(g.quando) + '</div>'; }
+    h += '</details>';
+  }
+
+  h += '<div class="intel-sub">Se ele disser quem atende hoje</div>';
+  var nomes = [];
+  for(var n = 0; n < Math.min(3, p.concorrentes.length); n++){ nomes.push(p.concorrentes[n].operadora); }
+  h += '<div class="intel-linha intel-quando">Provável neste perfil: ' + escapeHtml(nomes.join(' · ')) + ' — confirme, não afirme.</div>';
+  for(var c2 = 0; c2 < p.concorrentes.length; c2++){
+    var cc = p.concorrentes[c2];
+    h += '<details class="intel-conc"' + (c2 < 2 ? ' open' : '') + '>';
+    h += '<summary>' + escapeHtml(cc.operadora) + '</summary>';
+    h += '<div class="intel-fala">' + escapeHtml(cc.contra) +
+         ' <button type="button" class="btn btn-slim intel-copiar-txt" data-txt="' + escapeHtml(cc.contra) + '">Copiar</button></div>';
+    if(cc.alerta){ h += '<div class="intel-alerta">' + escapeHtml(cc.alerta) + '</div>'; }
+    h += '</details>';
+  }
+
+  h += '<div class="intel-alerta">Preço e condição saem do Consultor de Oferta, com os dados do cliente. Não improvise número.</div>';
+  if(p.objecao){
+    h += '<div class="intel-sub">Objeção provável</div>';
+    h += '<div class="intel-objecao"><b>' + escapeHtml(p.objecao.objecao) + '</b><br>' + escapeHtml(p.objecao.resposta) + '</div>';
+  }
+  return h;
+}
+
+// ===== CARTEIRA (Fechado Ganho) =====
+function intelRenderCarteira(st){
+  var h = '<div class="intel-sub">Cliente ativo</div>';
+  h += '<div class="intel-linha">Assinou. O que vale agora é a primeira carga — contrato sem carga não é receita.</div>';
+  h += '<div class="intel-fala">Oi, [nome], tudo certo? Passei só para saber se ficou alguma dúvida na hora de fazer a primeira carga. Consigo resolver por aqui agora mesmo.' +
+       ' <button type="button" class="btn btn-slim intel-copiar-txt" data-txt="Oi, tudo certo? Passei so para saber se ficou alguma duvida na hora de fazer a primeira carga. Consigo resolver por aqui agora mesmo.">Copiar</button></div>';
+  var p = st.pitch;
+  if(p.argumentos.length > 1){
+    h += '<div class="intel-sub">Segundo produto, quando a carga estabilizar</div>';
+    var g = p.argumentos[1];
+    h += '<div class="intel-linha"><b>' + escapeHtml(g.produto) + '</b> — ' + escapeHtml(g.titulo) + '</div>';
+    h += '<div class="intel-fala">' + escapeHtml(g.fala) +
+         ' <button type="button" class="btn btn-slim intel-copiar-txt" data-txt="' + escapeHtml(g.fala) + '">Copiar</button></div>';
+  }
+  return h;
+}
+
+// Bloco do roteiro (manual) — falas com Copiar, notas como lembrete
+function intelBloco(titulo, bloco, st, aberto){
+  var itens = intelRoteiroDo(bloco, st.ctx.arquetipo);
+  if(!itens.length){ return ''; }
+  var h = '<details class="intel-prod"' + (aberto ? ' open' : '') + '>';
+  h += '<summary><b>' + escapeHtml(titulo) + '</b></summary>';
+  for(var i = 0; i < itens.length; i++){
+    var r = itens[i];
+    h += '<div class="intel-passo"><div class="intel-rot">' + escapeHtml(r.rotulo) + '</div>';
+    if(r.fala){
+      h += '<div class="intel-fala">' + escapeHtml(r.fala) +
+           ' <button type="button" class="btn btn-slim intel-copiar-txt" data-txt="' + escapeHtml(r.fala) + '">Copiar</button></div>';
+    }
+    if(r.nota){ h += '<div class="intel-linha intel-quando">' + escapeHtml(r.nota) + '</div>'; }
+    h += '</div>';
+  }
+  h += '</details>';
+  return h;
+}
+
+function intelRenderFeedback(){
+  var h = '<div class="intel-feedback" id="intel-feedback">';
+  h += '<span class="intel-sub">Resultado da tentativa</span>';
+  h += '<select id="intel-canal" class="intel-canal"><option value="telefone">Telefone</option><option value="whatsapp">WhatsApp</option><option value="visita">Visita</option></select>';
+  h += '<div class="intel-fb-botoes">';
+  h += '<button type="button" class="btn btn-slim intel-fb" data-resultado="respondeu">Respondeu</button>';
+  h += '<button type="button" class="btn btn-slim intel-fb" data-resultado="reuniao_agendada">Reunião</button>';
+  h += '<button type="button" class="btn btn-slim intel-fb" data-resultado="objecao">Objeção</button>';
+  h += '<button type="button" class="btn btn-slim intel-fb" data-resultado="sem_resposta">Sem resposta</button>';
+  h += '</div>';
+  h += '<div class="intel-obj-campo hidden" id="intel-obj-campo"><input type="text" id="intel-obj-texto" maxlength="300" placeholder="Qual foi a objeção? (curto)"> <button type="button" class="btn btn-slim btn-primary" id="intel-obj-ok">Registrar</button></div>';
+  return h;
+}
+
+function intelLigarBotoes(corpo, st){
+  var copiarTxt = corpo.querySelectorAll('.intel-copiar-txt');
+  for(var ct = 0; ct < copiarTxt.length; ct++){
+    copiarTxt[ct].addEventListener('click', function(ev){ intelCopiar(ev.currentTarget.getAttribute('data-txt') || ''); });
+  }
+  var fbs = corpo.querySelectorAll('.intel-fb');
+  for(var f = 0; f < fbs.length; f++){
+    fbs[f].addEventListener('click', function(ev){
+      var res = ev.currentTarget.getAttribute('data-resultado');
+      if(res === 'objecao'){
+        document.getElementById('intel-obj-campo').classList.remove('hidden');
+        document.getElementById('intel-obj-texto').focus();
+        return;
+      }
+      registrarIntelFeedback(res, '');
+    });
+  }
+  var ok = document.getElementById('intel-obj-ok');
+  if(ok){ ok.addEventListener('click', function(){ registrarIntelFeedback('objecao', document.getElementById('intel-obj-texto').value); }); }
+}
+
+function intelCopiar(texto){
+  function feito(){ showToast('Copiado.', 'ok'); }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(texto).then(feito, function(){ intelCopiarFallback(texto); feito(); });
+  } else { intelCopiarFallback(texto); feito(); }
+}
+function intelCopiarFallback(texto){
+  var ta = document.createElement('textarea');
+  ta.value = texto; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.left = '-9999px';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); } catch(e){}
+  document.body.removeChild(ta);
+}
+
+async function registrarIntelFeedback(resultado, objecao){
+  var st = intelAtual;
+  if(!st || st.feedbackEnviado){ return; }
+  if(resultado === 'objecao' && !String(objecao || '').trim()){ showToast('Escreva a objeção antes de registrar.', 'err'); return; }
+  var anguloUsado = st.pitch.principal;
+  var abertos = document.querySelectorAll('#deal-intel-body details');
+  for(var i = 0; i < abertos.length; i++){
+    if(abertos[i].hasAttribute('open')){
+      var txt = (abertos[i].querySelector('summary') || {}).textContent || '';
+      if(/^Financeiro/.test(txt)){ anguloUsado = 'financeiro'; } else if(/^RH/.test(txt)){ anguloUsado = 'rh'; } else if(/^Dono/.test(txt)){ anguloUsado = 'dono'; }
+      break;
+    }
+  }
+  var canal = (document.getElementById('intel-canal') || {}).value || 'telefone';
+  var payload = {
+    principal: st.pitch.principal, produto: st.pitch.produto, gatilho: st.pitch.gatilho,
+    dono: st.pitch.dono, financeiro: st.pitch.financeiro, rh: st.pitch.rh,
+    objecao_prevista: st.pitch.objecao ? st.pitch.objecao.objecao : null,
+    motivo: st.score.motivo
+  };
+  var r = await db.rpc('fn_intel_feedback', {
+    p_deal_id: st.dealId, p_angulo: anguloUsado, p_canal: canal, p_resultado: resultado,
+    p_objecao: objecao || null, p_payload: payload,
+    p_health: st.score.health, p_fit: st.score.fit, p_timing: st.score.timing, p_acesso: st.score.acesso,
+    p_segmento: (intelQtdFunc(st.ctx) || 0) > 100 ? 'Enterprise' : 'PME',
+    p_produto: st.pitch.produto, p_sinais: st.score.usados
+  });
+  if(r.error){ showToast('Não registrou: ' + (r.error.message || 'erro'), 'err'); return; }
+  st.feedbackEnviado = true;
+  var box = document.getElementById('intel-feedback');
+  if(box){ box.innerHTML = '<div class="intel-registrado">Registrado: ' + escapeHtml(resultado.replace('_', ' ')) + ' · ' + escapeHtml(INTEL_ROTULO[anguloUsado]) + ' · ' + escapeHtml(canal) + '</div>'; }
+  showToast('Resultado registrado.', 'ok');
+  try { await recarregarIntelAprendizado(); } catch(e){}
 }
 
 // ===== Linha do tempo do lead (Fase 5B) — ES5-safe, lazy load ao expandir =====
