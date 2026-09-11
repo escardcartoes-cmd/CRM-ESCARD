@@ -1936,8 +1936,11 @@ async function loadProfileAndInit(){
   try { await loadDeals(); } catch(e){}
   try { await carregarPriorizacaoICP(); } catch(e){}
   carregarIntelBase().catch(function(){}); // motor de inteligência (não bloqueia o boot)
+  // onclick (e não addEventListener): loadProfileAndInit roda mais de uma vez por sessão
+  // — getSession inicial + onAuthStateChange. Com addEventListener os handlers acumulavam
+  // e o clique alternava duas vezes, voltando ao estado original: o painel não abria.
   var btIntel = document.getElementById('intel-toggle');
-  if(btIntel){ btIntel.addEventListener('click', function(){ intelExibir = !intelExibir; intelAplicarVisibilidade(); }); }
+  if(btIntel){ btIntel.onclick = function(){ intelExibir = !intelExibir; intelAplicarVisibilidade(); }; }
   try { await carregarListas(); } catch(e){}
   try { await loadCompanies(); } catch(e){}
   try { await loadContacts(); } catch(e){}
