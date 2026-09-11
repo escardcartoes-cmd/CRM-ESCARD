@@ -204,6 +204,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   /* ===== Kanban ===== */
   .funnel-toolbar{display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center;}
   .funnel-toolbar input, .funnel-toolbar select{width:auto; min-width:160px;}
+  .funnel-toolbar input[type="search"]{-webkit-appearance:textfield; appearance:textfield;} /* mesmo visual dos outros campos no Safari */
   .kanban{display:flex; gap:14px; overflow-x:auto; padding-bottom:12px;}
   .kanban-col{
     background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
@@ -893,6 +894,8 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
         <input type="text" id="search-deals" placeholder="Buscar por nome, empresa ou contato...">
         <select id="filter-owner" class="hidden"></select>
         <select id="filter-lista" class="hidden" aria-label="Filtrar por lista de origem"></select>
+        <input type="search" id="filter-cidade" class="hidden" list="cidades-datalist" placeholder="Cidade" aria-label="Filtrar por cidade" autocomplete="off" maxlength="120">
+        <datalist id="cidades-datalist"></datalist>
         <div class="icp-filtro hidden" id="icp-filtro-wrap" aria-label="Filtros ICP">
           <div class="icp-filtro__linha" role="group" aria-label="Prioridade ICP">
             <span class="icp-filtro__rotulo">Prioridade</span>
@@ -942,6 +945,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
         </select>
         <select id="fu-owner" class="hidden"></select>
         <select id="fu-lista" class="hidden" aria-label="Filtrar por lista de origem"></select>
+        <input type="search" id="fu-cidade" class="hidden" list="cidades-datalist" placeholder="Cidade" aria-label="Filtrar por cidade" autocomplete="off" maxlength="120">
       </div>
       <div class="fu-count" id="fu-count"></div>
       <div class="fu-list" id="fu-list"></div>
@@ -1627,6 +1631,7 @@ let kanbanOwner = null;
 // '__sem__' do seletor liga o segundo e zera o primeiro.
 let kanbanLista = null;
 let kanbanSemLista = false;
+let kanbanCidade = null;
 let profiles = [];          // todos os profiles (apenas admin carrega de fato)
 let companies = [];         // empresas
 let contacts = [];          // pessoas/contatos
@@ -1942,6 +1947,7 @@ async function loadProfileAndInit(){
   var btIntel = document.getElementById('intel-toggle');
   if(btIntel){ btIntel.onclick = function(){ intelExibir = !intelExibir; intelAplicarVisibilidade(); }; }
   try { await carregarListas(); } catch(e){}
+  carregarCidades();   // só alimenta o datalist; não bloqueia o boot e trata o próprio erro
   try { await loadCompanies(); } catch(e){}
   try { await loadContacts(); } catch(e){}
   try { await carregarContadores(); } catch(e){}
@@ -2036,6 +2042,81 @@ function paramsLista(lista, sem){
   if(sem) return { p_lista: null, p_sem_lista: true };
   if(lista) return { p_lista: lista, p_sem_lista: false };
   return {};
+}
+
+// ------------------------------------------------------------
+// Filtro por cidade (migration 0026). Mesmo desenho do filtro de lista:
+// a RPC cidades_disponiveis NÃO é security definer (RLS do chamador — o
+// vendedor só vê as cidades em que tem lead), o parâmetro p_cidade só vai
+// para as RPCs quando há filtro ativo, e os dois campos ficam escondidos
+// enquanto não houver cidade nenhuma. Falha aqui é silenciosa: sem cidade
+// o campo simplesmente não aparece e nada mais deixa de funcionar.
+var cidadesDisponiveis = [];
+
+async function carregarCidades(){
+  try {
+    const { data, error } = await db.rpc('cidades_disponiveis');
+    if(error) throw error;
+    cidadesDisponiveis = (data || []).map(function(r){ return r.cidade; }).filter(Boolean);
+  } catch(err){
+    cidadesDisponiveis = [];
+  }
+  preencherDatalistCidades();
+}
+
+function preencherDatalistCidades(){
+  const dl = document.getElementById('cidades-datalist');
+  if(!dl) return;
+  dl.innerHTML = '';
+  cidadesDisponiveis.forEach(function(nome){
+    const opt = document.createElement('option');
+    opt.value = nome;          // por propriedade: nome de cidade nunca entra em HTML
+    dl.appendChild(opt);
+  });
+  ['filter-cidade', 'fu-cidade'].forEach(function(id){
+    const el = document.getElementById(id);
+    if(el) el.classList.toggle('hidden', cidadesDisponiveis.length === 0);
+  });
+}
+
+function paramsCidade(cidade){
+  return cidade ? { p_cidade: cidade } : {};
+}
+
+// O banco filtra por igualdade exata com deals.city. Quem digita "vitoria"
+// ou "cachoeiro" sem escolher no datalist ganha a grafia canônica: primeiro
+// igualdade sem caixa/acento, depois prefixo único. Sem correspondência,
+// vai como digitado — o resultado vazio é honesto, e um toast avisa.
+function normalizarTextoCidade(t){
+  return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+function resolverCidade(digitado){
+  const alvo = normalizarTextoCidade(digitado);
+  if(!alvo) return null;
+  const exata = cidadesDisponiveis.filter(function(c){ return normalizarTextoCidade(c) === alvo; });
+  if(exata.length) return exata[0];
+  const prefixo = cidadesDisponiveis.filter(function(c){ return normalizarTextoCidade(c).indexOf(alvo) === 0; });
+  if(prefixo.length === 1) return prefixo[0];
+  return String(digitado).trim();
+}
+function ligarFiltroCidade(inputId, aoMudar){
+  const el = document.getElementById(inputId);
+  if(!el) return;
+  let ultimo = null;
+  const aplicar = function(){
+    const cidade = resolverCidade(el.value);
+    if(cidade && cidadesDisponiveis.indexOf(cidade) === -1){
+      showToast('Nenhum lead na cidade "' + cidade + '".', 'err');
+    }
+    if(cidade) el.value = cidade;   // mostra a grafia que o banco vai receber
+    if(cidade === ultimo) return;
+    ultimo = cidade;
+    aoMudar(cidade);
+  };
+  el.addEventListener('change', aplicar);
+  // Botão nativo de limpar do type="search" (e apagar tudo) dispara input
+  // com valor vazio, sem change: zera o filtro na hora.
+  el.addEventListener('input', function(){ if(el.value === '') aplicar(); });
 }
 
 // Monta os dois seletores de lista (funil e follow-up). Ficam escondidos
@@ -2429,6 +2510,13 @@ ownerFilter.addEventListener('change', (e)=>{ kanbanOwner = e.target.value || nu
   });
 })();
 
+// Filtro por cidade no funil — servidor, mesma regra do filtro de lista.
+ligarFiltroCidade('filter-cidade', function(cidade){
+  kanbanCidade = cidade;
+  kanbanCards = {};
+  carregarKanban();
+});
+
 // Filtros do funil - dois eixos independentes, combinados por E:
 //   icpFiltroTiers    = prioridade ICP (S/A/B/C)
 //   icpFiltroProdutos = produto de entrada (beneficios/cobranca/private)
@@ -2709,7 +2797,7 @@ function renderKanban(){
 // eles chamam renderAll, que agora recarrega o Kanban do banco.
 async function recarregarContagem(){
   try {
-    const { data, error } = await db.rpc('kanban_contagem', Object.assign({ p_owner: kanbanOwner, p_busca: kanbanBusca || null }, paramsLista(kanbanLista, kanbanSemLista)));
+    const { data, error } = await db.rpc('kanban_contagem', Object.assign({ p_owner: kanbanOwner, p_busca: kanbanBusca || null }, paramsLista(kanbanLista, kanbanSemLista), paramsCidade(kanbanCidade)));
     if(error) throw error;
     const novo = {};
     (data || []).forEach(r=>{ novo[r.stage_id] = { total: Number(r.total), valor: Number(r.soma_valor) }; });
@@ -2722,7 +2810,7 @@ async function recarregarContagem(){
 async function recarregarColuna(stageId){
   const limite = Math.max(100, (kanbanCards[stageId] && kanbanCards[stageId].carregados) || 0);
   try {
-    const { data, error } = await db.rpc('kanban_cards', Object.assign({ p_stage: stageId, p_owner: kanbanOwner, p_busca: kanbanBusca || null, p_limit: limite, p_offset: 0 }, paramsLista(kanbanLista, kanbanSemLista)));
+    const { data, error } = await db.rpc('kanban_cards', Object.assign({ p_stage: stageId, p_owner: kanbanOwner, p_busca: kanbanBusca || null, p_limit: limite, p_offset: 0 }, paramsLista(kanbanLista, kanbanSemLista), paramsCidade(kanbanCidade)));
     if(error) throw error;
     const cards = data || [];
     kanbanCards[stageId] = { cards, carregados: cards.length, total: kanbanCounts[stageId] ? kanbanCounts[stageId].total : cards.length };
@@ -2737,7 +2825,7 @@ async function carregarKanban(){
     // Preserva a profundidade: colunas expandidas não voltam a 100 num renderAll.
     const limite = Math.max(100, (kanbanCards[s.id] && kanbanCards[s.id].carregados) || 0);
     try {
-      const { data, error } = await db.rpc('kanban_cards', Object.assign({ p_stage: s.id, p_owner: kanbanOwner, p_busca: kanbanBusca || null, p_limit: limite, p_offset: 0 }, paramsLista(kanbanLista, kanbanSemLista)));
+      const { data, error } = await db.rpc('kanban_cards', Object.assign({ p_stage: s.id, p_owner: kanbanOwner, p_busca: kanbanBusca || null, p_limit: limite, p_offset: 0 }, paramsLista(kanbanLista, kanbanSemLista), paramsCidade(kanbanCidade)));
       if(error) throw error;
       const cards = data || [];
       novos[s.id] = { cards, carregados: cards.length, total: kanbanCounts[s.id] ? kanbanCounts[s.id].total : cards.length };
@@ -2757,7 +2845,7 @@ async function carregarMaisColuna(stageId){
     const { data, error } = await db.rpc('kanban_cards', Object.assign({
       p_stage: stageId, p_owner: kanbanOwner, p_busca: kanbanBusca || null,
       p_limit: 100, p_offset: col.carregados,
-    }, paramsLista(kanbanLista, kanbanSemLista)));
+    }, paramsLista(kanbanLista, kanbanSemLista), paramsCidade(kanbanCidade)));
     if(error) throw error;
     col.cards = col.cards.concat(data || []);
     col.carregados = col.cards.length;
@@ -4466,6 +4554,7 @@ const FU_FILTROS = [
 let fuFiltro = 'esteira';
 let fuLista = null;
 let fuSemLista = false;
+let fuCidade = null;
 let fuBusca = '';
 let fuMinDias = 0;
 let fuStage = null;
@@ -4480,7 +4569,7 @@ function fuOwnerParam(){ return isAdmin() ? (fuOwner || null) : null; }
 
 async function carregarContadores(){
   try {
-    const { data, error } = await db.rpc('followups_contadores', Object.assign({ p_owner: fuOwnerParam(), p_min_dias: fuMinDias, p_stage: fuStage }, paramsLista(fuLista, fuSemLista)));
+    const { data, error } = await db.rpc('followups_contadores', Object.assign({ p_owner: fuOwnerParam(), p_min_dias: fuMinDias, p_stage: fuStage }, paramsLista(fuLista, fuSemLista), paramsCidade(fuCidade)));
     if(error) throw error;
     fuContadores = data || {};
     renderContadores();
@@ -4550,7 +4639,7 @@ async function carregarFollowups(opts){
       p_stage:    fuStage,
       p_limit:    limit,
       p_offset:   offset,
-    }, paramsLista(fuLista, fuSemLista)));
+    }, paramsLista(fuLista, fuSemLista), paramsCidade(fuCidade)));
     if(error) throw error;
     const rows = data || [];
     if(rows.length){ fuTotal = Number(rows[0].total_registros); }
@@ -4710,6 +4799,12 @@ document.getElementById('fu-lista').addEventListener('change', (e)=>{
   const v = e.target.value;
   fuSemLista = (v === '__sem__');
   fuLista = (v && v !== '__sem__') ? v : null;
+  fecharFormRegistro();
+  carregarContadores();
+  carregarFollowups({ reset:true });
+});
+ligarFiltroCidade('fu-cidade', function(cidade){
+  fuCidade = cidade;
   fecharFormRegistro();
   carregarContadores();
   carregarFollowups({ reset:true });
@@ -5476,6 +5571,7 @@ document.getElementById('confirm-import-btn').addEventListener('click', async fu
   importModal.classList.add('hidden');
   await loadDeals();
   await carregarListas();
+  carregarCidades();
   renderAll();
 });
 
