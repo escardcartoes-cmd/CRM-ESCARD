@@ -2573,7 +2573,9 @@ function selosDoCard(d, stage){
     }
   }
 
-  if(!stage.is_won && !stage.is_lost && d.stage_changed_at){
+  // "Dias parado" só faz sentido em etapa de esteira. Em Leads Novos (in_followup=false)
+  // o lead nunca foi trabalhado: a data vem da importação e o selo só polui a coluna.
+  if(!stage.is_won && !stage.is_lost && stage.in_followup && d.stage_changed_at){
     const entrou = new Date(d.stage_changed_at);
     const diasParado = Math.floor((Date.now() - entrou.getTime()) / 86400000);
     if(diasParado >= 7){
@@ -2786,17 +2788,34 @@ function seletorEtapaHtml(d, stage){
 // Caminho ÚNICO de movimentação: o drop e o seletor entram os dois por aqui.
 // A regra de negócio (stage_changed_at junto, recarregar as duas colunas) fica
 // escrita uma vez só.
+// Data de follow-up pertence à etapa em que foi combinada. Ao mover o lead, uma data
+// já vencida só faria ele reaparecer como "atrasado" numa esteira da qual ele saiu —
+// foi o que a Priscila reportou ao mandar leads para Sem Contato. Vencida: limpa.
+function followupVencido(dealId){
+  const d = deals.find(x => x.id === dealId);
+  if(!d || !d.next_followup_date) return false;
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const fu = new Date(d.next_followup_date + 'T00:00:00');
+  return fu < hoje;
+}
+
 async function moverDeal(dealId, oldStageId, newStageId){
   if(!dealId || !newStageId || oldStageId === newStageId) return false;
+  const payload = { stage_id: newStageId, stage_changed_at: new Date().toISOString() };
+  const limpou = followupVencido(dealId);
+  if(limpou) payload.next_followup_date = null;
   const { error } = await db
     .from('deals')
-    .update({ stage_id: newStageId, stage_changed_at: new Date().toISOString() })
+    .update(payload)
     .eq('id', dealId);
   if(error){ showToast('Erro ao mover lead: ' + error.message, 'err'); return false; }
-  showToast('Lead movido', 'ok');
+  showToast(limpou ? 'Lead movido. Follow-up vencido foi limpo.' : 'Lead movido', 'ok');
   // Mantém o array consistente para o modal, sem recarga total (best-effort).
   const dLocal = deals.find(d => d.id === dealId);
-  if(dLocal) dLocal.stage_id = newStageId;
+  if(dLocal){
+    dLocal.stage_id = newStageId;
+    if(limpou) dLocal.next_followup_date = null;
+  }
   // Recarrega contagem + apenas as duas colunas afetadas (preservando profundidade).
   await recarregarContagem();
   await Promise.all([ recarregarColuna(oldStageId), recarregarColuna(newStageId) ]);
@@ -3757,6 +3776,11 @@ dealForm.addEventListener('submit', async (e)=>{
 
   if(editingDealId){
     if(isAdmin()) payload.owner_id = document.getElementById('deal-owner').value;
+    // Mesma regra do arrastar: mudou de etapa com follow-up vencido, a data velha sai junto.
+    var dAtual = deals.find(function(x){ return x.id === editingDealId; });
+    if(payload.stage_id && dAtual && dAtual.stage_id !== payload.stage_id && followupVencido(editingDealId)){
+      payload.next_followup_date = null;
+    }
     const { error } = await db.from('deals').update(payload).eq('id', editingDealId);
     if(error){ showToast('Erro ao salvar: ' + error.message, 'err'); return; }
     showToast('Lead atualizado', 'ok');
