@@ -350,13 +350,6 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   .intel-proposta{font-size:13px; color:var(--text); line-height:1.5;}
   .intel-objecao{font-size:13px; line-height:1.5; padding:8px 10px; background:#fff7e6; border-radius:8px; color:var(--text);}
   .intel-recentes{margin:0; padding-left:18px; font-size:12px; color:var(--text);}
-  .intel-feedback{margin-top:12px; padding-top:10px; border-top:1px solid var(--border);}
-  .intel-feedback .intel-sub{display:block; margin:0 0 6px;}
-  .intel-canal{margin-bottom:6px; font-size:12px; padding:4px 8px;}
-  .intel-fb-botoes{display:flex; flex-wrap:wrap; gap:6px;}
-  .intel-obj-campo{display:flex; gap:6px; margin-top:8px;}
-  .intel-obj-campo input{flex:1; min-width:0; font-size:13px; padding:6px 8px;}
-  .intel-registrado{font-size:13px; font-weight:600; color:#0f766e; padding:6px 0;}
   .intel-prod, .intel-conc{border:1px solid var(--border); border-radius:8px; padding:6px 10px; margin-top:6px; background:#fafbfc;}
   .intel-prod > summary, .intel-conc > summary{cursor:pointer; font-size:13px; color:var(--text); list-style:none;}
   .intel-prod > summary::-webkit-details-marker, .intel-conc > summary::-webkit-details-marker{display:none;}
@@ -376,7 +369,6 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   @media (max-width:480px){
     .intel{padding:10px;}
     .intel-score{width:42px; height:42px; font-size:16px;}
-    .intel-fb-botoes .btn{flex:1 1 45%;}
   }
 
   /* ===== Linha do tempo do lead (Fase 5B) ===== */
@@ -1227,7 +1219,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
     <section id="deal-intel-section" class="intel hidden" aria-label="Inteligência de abordagem">
       <div class="intel-head">
         <span class="intel-title">Inteligência de abordagem</span>
-        <span class="intel-fonte">score = fit ICP + gatilhos + acesso</span>
+        <button type="button" id="intel-toggle" class="btn btn-slim">Exibir</button>
       </div>
       <div id="deal-intel-body"></div>
     </section>
@@ -1944,6 +1936,8 @@ async function loadProfileAndInit(){
   try { await loadDeals(); } catch(e){}
   try { await carregarPriorizacaoICP(); } catch(e){}
   carregarIntelBase().catch(function(){}); // motor de inteligência (não bloqueia o boot)
+  var btIntel = document.getElementById('intel-toggle');
+  if(btIntel){ btIntel.addEventListener('click', function(){ intelExibir = !intelExibir; intelAplicarVisibilidade(); }); }
   try { await carregarListas(); } catch(e){}
   try { await loadCompanies(); } catch(e){}
   try { await loadContacts(); } catch(e){}
@@ -2579,7 +2573,9 @@ function selosDoCard(d, stage){
     }
   }
 
-  if(!stage.is_won && !stage.is_lost && d.stage_changed_at){
+  // "Dias parado" só faz sentido em etapa de esteira. Em Leads Novos (in_followup=false)
+  // o lead nunca foi trabalhado: a data vem da importação e o selo só polui a coluna.
+  if(!stage.is_won && !stage.is_lost && stage.in_followup && d.stage_changed_at){
     const entrou = new Date(d.stage_changed_at);
     const diasParado = Math.floor((Date.now() - entrou.getTime()) / 86400000);
     if(diasParado >= 7){
@@ -2792,17 +2788,34 @@ function seletorEtapaHtml(d, stage){
 // Caminho ÚNICO de movimentação: o drop e o seletor entram os dois por aqui.
 // A regra de negócio (stage_changed_at junto, recarregar as duas colunas) fica
 // escrita uma vez só.
+// Data de follow-up pertence à etapa em que foi combinada. Ao mover o lead, uma data
+// já vencida só faria ele reaparecer como "atrasado" numa esteira da qual ele saiu —
+// foi o que a Priscila reportou ao mandar leads para Sem Contato. Vencida: limpa.
+function followupVencido(dealId){
+  const d = deals.find(x => x.id === dealId);
+  if(!d || !d.next_followup_date) return false;
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const fu = new Date(d.next_followup_date + 'T00:00:00');
+  return fu < hoje;
+}
+
 async function moverDeal(dealId, oldStageId, newStageId){
   if(!dealId || !newStageId || oldStageId === newStageId) return false;
+  const payload = { stage_id: newStageId, stage_changed_at: new Date().toISOString() };
+  const limpou = followupVencido(dealId);
+  if(limpou) payload.next_followup_date = null;
   const { error } = await db
     .from('deals')
-    .update({ stage_id: newStageId, stage_changed_at: new Date().toISOString() })
+    .update(payload)
     .eq('id', dealId);
   if(error){ showToast('Erro ao mover lead: ' + error.message, 'err'); return false; }
-  showToast('Lead movido', 'ok');
+  showToast(limpou ? 'Lead movido. Follow-up vencido foi limpo.' : 'Lead movido', 'ok');
   // Mantém o array consistente para o modal, sem recarga total (best-effort).
   const dLocal = deals.find(d => d.id === dealId);
-  if(dLocal) dLocal.stage_id = newStageId;
+  if(dLocal){
+    dLocal.stage_id = newStageId;
+    if(limpou) dLocal.next_followup_date = null;
+  }
   // Recarrega contagem + apenas as duas colunas afetadas (preservando profundidade).
   await recarregarContagem();
   await Promise.all([ recarregarColuna(oldStageId), recarregarColuna(newStageId) ]);
@@ -3306,7 +3319,7 @@ async function preencherIntelModal(dealId){
   var ultima = await intelUltimaFrase(dealId);
   if(editingDealId !== dealId){ return; }
   intelAtual = { dealId: dealId, ctx: ctx, sinais: sinais, score: score, pitch: pitch,
-                 modo: modo, ultimaFrase: ultima, feedbackEnviado: false };
+                 modo: modo, ultimaFrase: ultima };
   intelRender(corpo, intelAtual);
 }
 
@@ -3331,6 +3344,19 @@ async function intelUltimaFrase(dealId){
   } catch(e){ return null; }
 }
 
+// Painel abre fechado. A escolha de exibir vale para os próximos leads desta sessão.
+var intelExibir = false;
+function intelAplicarVisibilidade(){
+  var sec = document.getElementById('deal-intel-section');
+  if(!sec){ return; }
+  var itens = sec.querySelectorAll('.intel-mais');
+  for(var i = 0; i < itens.length; i++){
+    if(intelExibir){ itens[i].classList.remove('hidden'); } else { itens[i].classList.add('hidden'); }
+  }
+  var bt = document.getElementById('intel-toggle');
+  if(bt){ bt.textContent = intelExibir ? 'Guardar' : 'Exibir'; }
+}
+
 function intelRender(corpo, st){
   var s = st.score, p = st.pitch, ctx = st.ctx;
   var modo = st.modo;
@@ -3338,7 +3364,7 @@ function intelRender(corpo, st){
 
   h += '<div class="intel-topo">';
   h += '<span class="intel-score ' + intelClasseScore(s.health) + '" title="' + escapeHtml(s.motivo.join(' · ')) + '">' + s.health + '</span>';
-  h += '<div class="intel-topo-txt"><div class="intel-motivo">' + escapeHtml(s.motivo.join(' · ')) + '</div>';
+  h += '<div class="intel-topo-txt intel-mais"><div class="intel-motivo">' + escapeHtml(s.motivo.join(' · ')) + '</div>';
   h += '<div class="intel-meta">' + (ctx.arquetipo ? escapeHtml(ctx.arquetipo) + ' · ' : '') +
        '<b>' + escapeHtml(INTEL_MODO_ROT[modo] || modo) + '</b>' +
        (ctx.qtd_funcionarios_rf ? ' · ' + escapeHtml(String(ctx.qtd_funcionarios_rf)) + ' func. (RF)' : '') + '</div></div>';
@@ -3352,14 +3378,14 @@ function intelRender(corpo, st){
 
   // Frase da última conversa: o que mais gera confiança na segunda tentativa.
   if(st.ultimaFrase){
-    h += '<div class="intel-sub">Ele te disse da última vez</div>';
-    h += '<div class="intel-ultima">“' + escapeHtml(st.ultimaFrase) + '”' +
+    h += '<div class="intel-sub intel-mais">Ele te disse da última vez</div>';
+    h += '<div class="intel-ultima intel-mais">“' + escapeHtml(st.ultimaFrase) + '”' +
          ' <button type="button" class="btn btn-slim intel-copiar-txt" data-txt="' + escapeHtml(st.ultimaFrase) + '">Copiar</button>' +
          '<div class="intel-quando">Abra citando isso. É de graça e vale mais que qualquer script.</div></div>';
   }
 
   if(st.sinais.length){
-    h += '<div class="intel-sub">Gatilhos</div><ul class="intel-sinais">';
+    h += '<div class="intel-sub intel-mais">Gatilhos</div><ul class="intel-sinais intel-mais">';
     for(var i = 0; i < Math.min(4, st.sinais.length); i++){
       var sg = st.sinais[i];
       h += '<li><span class="intel-tag">' + escapeHtml(INTEL_CAT[sg.categoria] || sg.categoria) + '</span> ' + escapeHtml(sg.descricao);
@@ -3370,12 +3396,14 @@ function intelRender(corpo, st){
     h += '</ul>';
   }
 
-  if(modo === 'abordagem'){ h += intelRenderAbordagem(st); }
-  else if(modo === 'proposta'){ h += intelRenderProposta(st); }
-  else { h += intelRenderCarteira(st); }
+  var resto = '';
+  if(modo === 'abordagem'){ resto = intelRenderAbordagem(st); }
+  else if(modo === 'proposta'){ resto = intelRenderProposta(st); }
+  else { resto = intelRenderCarteira(st); }
+  h += '<div class="intel-mais">' + resto + '</div>';
 
-  h += intelRenderFeedback();
   corpo.innerHTML = h;
+  intelAplicarVisibilidade();
   intelLigarBotoes(corpo, st);
 }
 
@@ -3487,39 +3515,11 @@ function intelBloco(titulo, bloco, st, aberto){
   return h;
 }
 
-function intelRenderFeedback(){
-  var h = '<div class="intel-feedback" id="intel-feedback">';
-  h += '<span class="intel-sub">Resultado da tentativa</span>';
-  h += '<select id="intel-canal" class="intel-canal"><option value="telefone">Telefone</option><option value="whatsapp">WhatsApp</option><option value="visita">Visita</option></select>';
-  h += '<div class="intel-fb-botoes">';
-  h += '<button type="button" class="btn btn-slim intel-fb" data-resultado="respondeu">Respondeu</button>';
-  h += '<button type="button" class="btn btn-slim intel-fb" data-resultado="reuniao_agendada">Reunião</button>';
-  h += '<button type="button" class="btn btn-slim intel-fb" data-resultado="objecao">Objeção</button>';
-  h += '<button type="button" class="btn btn-slim intel-fb" data-resultado="sem_resposta">Sem resposta</button>';
-  h += '</div>';
-  h += '<div class="intel-obj-campo hidden" id="intel-obj-campo"><input type="text" id="intel-obj-texto" maxlength="300" placeholder="Qual foi a objeção? (curto)"> <button type="button" class="btn btn-slim btn-primary" id="intel-obj-ok">Registrar</button></div>';
-  return h;
-}
-
 function intelLigarBotoes(corpo, st){
   var copiarTxt = corpo.querySelectorAll('.intel-copiar-txt');
   for(var ct = 0; ct < copiarTxt.length; ct++){
     copiarTxt[ct].addEventListener('click', function(ev){ intelCopiar(ev.currentTarget.getAttribute('data-txt') || ''); });
   }
-  var fbs = corpo.querySelectorAll('.intel-fb');
-  for(var f = 0; f < fbs.length; f++){
-    fbs[f].addEventListener('click', function(ev){
-      var res = ev.currentTarget.getAttribute('data-resultado');
-      if(res === 'objecao'){
-        document.getElementById('intel-obj-campo').classList.remove('hidden');
-        document.getElementById('intel-obj-texto').focus();
-        return;
-      }
-      registrarIntelFeedback(res, '');
-    });
-  }
-  var ok = document.getElementById('intel-obj-ok');
-  if(ok){ ok.addEventListener('click', function(){ registrarIntelFeedback('objecao', document.getElementById('intel-obj-texto').value); }); }
 }
 
 function intelCopiar(texto){
@@ -3534,41 +3534,6 @@ function intelCopiarFallback(texto){
   document.body.appendChild(ta); ta.select();
   try { document.execCommand('copy'); } catch(e){}
   document.body.removeChild(ta);
-}
-
-async function registrarIntelFeedback(resultado, objecao){
-  var st = intelAtual;
-  if(!st || st.feedbackEnviado){ return; }
-  if(resultado === 'objecao' && !String(objecao || '').trim()){ showToast('Escreva a objeção antes de registrar.', 'err'); return; }
-  var anguloUsado = st.pitch.principal;
-  var abertos = document.querySelectorAll('#deal-intel-body details');
-  for(var i = 0; i < abertos.length; i++){
-    if(abertos[i].hasAttribute('open')){
-      var txt = (abertos[i].querySelector('summary') || {}).textContent || '';
-      if(/^Financeiro/.test(txt)){ anguloUsado = 'financeiro'; } else if(/^RH/.test(txt)){ anguloUsado = 'rh'; } else if(/^Dono/.test(txt)){ anguloUsado = 'dono'; }
-      break;
-    }
-  }
-  var canal = (document.getElementById('intel-canal') || {}).value || 'telefone';
-  var payload = {
-    principal: st.pitch.principal, produto: st.pitch.produto, gatilho: st.pitch.gatilho,
-    dono: st.pitch.dono, financeiro: st.pitch.financeiro, rh: st.pitch.rh,
-    objecao_prevista: st.pitch.objecao ? st.pitch.objecao.objecao : null,
-    motivo: st.score.motivo
-  };
-  var r = await db.rpc('fn_intel_feedback', {
-    p_deal_id: st.dealId, p_angulo: anguloUsado, p_canal: canal, p_resultado: resultado,
-    p_objecao: objecao || null, p_payload: payload,
-    p_health: st.score.health, p_fit: st.score.fit, p_timing: st.score.timing, p_acesso: st.score.acesso,
-    p_segmento: (intelQtdFunc(st.ctx) || 0) > 100 ? 'Enterprise' : 'PME',
-    p_produto: st.pitch.produto, p_sinais: st.score.usados
-  });
-  if(r.error){ showToast('Não registrou: ' + (r.error.message || 'erro'), 'err'); return; }
-  st.feedbackEnviado = true;
-  var box = document.getElementById('intel-feedback');
-  if(box){ box.innerHTML = '<div class="intel-registrado">Registrado: ' + escapeHtml(resultado.replace('_', ' ')) + ' · ' + escapeHtml(INTEL_ROTULO[anguloUsado]) + ' · ' + escapeHtml(canal) + '</div>'; }
-  showToast('Resultado registrado.', 'ok');
-  try { await recarregarIntelAprendizado(); } catch(e){}
 }
 
 // ===== Linha do tempo do lead (Fase 5B) — ES5-safe, lazy load ao expandir =====
@@ -3811,6 +3776,11 @@ dealForm.addEventListener('submit', async (e)=>{
 
   if(editingDealId){
     if(isAdmin()) payload.owner_id = document.getElementById('deal-owner').value;
+    // Mesma regra do arrastar: mudou de etapa com follow-up vencido, a data velha sai junto.
+    var dAtual = deals.find(function(x){ return x.id === editingDealId; });
+    if(payload.stage_id && dAtual && dAtual.stage_id !== payload.stage_id && followupVencido(editingDealId)){
+      payload.next_followup_date = null;
+    }
     const { error } = await db.from('deals').update(payload).eq('id', editingDealId);
     if(error){ showToast('Erro ao salvar: ' + error.message, 'err'); return; }
     showToast('Lead atualizado', 'ok');
