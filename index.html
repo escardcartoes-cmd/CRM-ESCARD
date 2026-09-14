@@ -3947,6 +3947,26 @@ const OUTCOME_RUIM    = ['numero_errado', 'numero_invalido'];   // insistir não
 function ehContatoEfetivo(o){ return OUTCOME_EFETIVO.indexOf(o) >= 0; }
 function ehContatoRuim(o){ return OUTCOME_RUIM.indexOf(o) >= 0; }
 
+// Etapa do lead (do cache local). Devolve null quando o lead nao esta em
+// `deals` -- caso do registro aberto pela fila do Follow-up, onde a etapa e,
+// por definicao, de esteira.
+function etapaDoDeal(dealId){
+  var d = null, i;
+  for(i = 0; i < deals.length; i++){ if(deals[i].id === dealId){ d = deals[i]; break; } }
+  if(!d) return null;
+  for(i = 0; i < stages.length; i++){ if(stages[i].id === d.stage_id) return stages[i]; }
+  return null;
+}
+
+// A trava do banco (migration 0017) apaga next_followup_date de lead em etapa
+// fora da fila do Follow-up -- "Leads Novos" e "Sem Contato", por regra de
+// negocio. Sem esta checagem a regua calcularia uma data, o banco a descartaria
+// em silencio, e o aviso na tela prometeria um toque que nao existe.
+function etapaNaEsteira(dealId){
+  var st = etapaDoDeal(dealId);
+  return !st || st.in_followup !== false;
+}
+
 // Tentativas consecutivas sem contato efetivo, do mais recente para trás. Zera
 // no primeiro contato efetivo: quem atendeu uma vez recomeça a régua do zero.
 // Nota não é tentativa — não tem desfecho e não conta.
@@ -4241,6 +4261,22 @@ function sugerirCadencia(){
   if(regState.canal === 'nota' || regState.canal === 'presencial') return;
   if(!regState.resultado) return;
   if(ehContatoEfetivo(regState.resultado)){ esconderAvisoCadencia(); return; }
+  // Lead fora da fila do Follow-up: a regua nao agenda nada. Dizer isso aqui
+  // evita que o SDR saia da tela achando que o sistema vai lembra-lo.
+  if(!etapaNaEsteira(regDealId)){
+    var stFora = etapaDoDeal(regDealId);
+    regState.proximoKey = 'sem';
+    regState.proximo = null;
+    document.getElementById('reg-next-date').classList.add('hidden');
+    var avisoFora = document.getElementById('reg-cadencia-aviso');
+    if(avisoFora){
+      avisoFora.textContent = 'Lead em "' + ((stFora && stFora.name) || 'etapa fora da fila')
+        + '" — fora da fila do Follow-up. Nenhum retorno sera agendado; a rediscagem sai pelo Funil.';
+      avisoFora.classList.remove('hidden');
+    }
+    renderRegProximo();
+    return;
+  }
   const tent = tentativasConsecutivas(atividadesDoDeal) + 1;
   const c = proximoDaCadencia(regState.resultado, tent);
   const aviso = document.getElementById('reg-cadencia-aviso');
@@ -4470,8 +4506,18 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
     // quando o SDR não escolheu o próximo passo à mão. A contagem vem do banco
     // porque a atividade recém-inserida já está lá e a timeline em memória pode
     // não estar carregada (registro aberto pelo Follow-up).
+    // Contato efetivo NAO passa pela regua: a contagem de tentativas zera, e
+    // proximoDaCadencia(outcome, 0) cairia no ramo de esgotamento -- marcando
+    // como "saiu da esteira" justamente o lead que acabou de atender.
+    // Reuniao agendada/realizada tambem vale como contato efetivo (trigger 0016).
+    const contatoEfetivo = ehReuniao
+      ? (regState.agendaStatus === 'agendada' || regState.agendaStatus === 'realizada')
+      : ehContatoEfetivo(outcomeFinal);
+    // O lead so segue fora da esteira se o contato NAO foi efetivo: no efetivo o
+    // trigger 0016 o move para "Contato Feito", que esta na fila.
+    const naEsteira = etapaNaEsteira(regDealId) || contatoEfetivo;
     let cadencia = null;
-    if(!editandoAtividadeId && !ehNota && !ehReuniao && !regState.proximoTocado){
+    if(!editandoAtividadeId && !ehNota && !ehReuniao && !regState.proximoTocado && naEsteira && !contatoEfetivo){
       try {
         const tent = await tentativasNoBanco(regDealId);
         cadencia = proximoDaCadencia(outcomeFinal, tent);
@@ -4485,7 +4531,8 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
     // "Sem próximo passo" (nextDate null) continua não alterando o follow-up,
     // exceto quando é a régua que decidiu tirar o lead da esteira.
     const patchDeal = {};
-    if(nextDate){ patchDeal.next_followup_date = nextDate; }
+    // Fora da esteira o banco descartaria a data (0017): nao adianta enviar.
+    if(nextDate && naEsteira){ patchDeal.next_followup_date = nextDate; }
     if(cadencia && cadencia.esgotou){
       patchDeal.next_followup_date = null;
       patchDeal.cadencia_esgotada_em = new Date().toISOString();
@@ -4516,6 +4563,8 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
         : ' · ' + CADENCIA_MAX + ' tentativas, lead saiu da esteira';
     } else if(cadencia && cadencia.data){
       rotuloOk += ' · próximo toque em ' + formatDate(cadencia.data);
+    } else if(!naEsteira && !ehNota){
+      rotuloOk += ' · lead fora da fila do Follow-up, nenhum retorno agendado';
     }
     showToast(rotuloOk, 'ok');
     const ctxReg = regContext;
