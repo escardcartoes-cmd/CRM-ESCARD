@@ -2053,11 +2053,31 @@ function paramsLista(lista, sem){
 // o campo simplesmente não aparece e nada mais deixa de funcionar.
 var cidadesDisponiveis = [];
 
+// Ordem do filtro (pedido da Priscila, 15/09): as praças que concentram a base primeiro,
+// o resto em ordem alfabética. Alfabético puro jogaria Vitória e Vila Velha para o fim de
+// uma lista de dezenas de municípios. Para mudar a prioridade, edite só esta lista.
+var CIDADES_PRIORITARIAS = ['Vitória', 'Vila Velha', 'Serra', 'Cariacica'];
+
+function chaveCidade(nome){
+  return String(nome || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
+}
+
+function ordenarCidades(lista){
+  var prio = {}, i;
+  for(i = 0; i < CIDADES_PRIORITARIAS.length; i++){ prio[chaveCidade(CIDADES_PRIORITARIAS[i])] = i + 1; }
+  return (lista || []).slice().sort(function(a, b){
+    var pa = prio[chaveCidade(a)] || 999;
+    var pb = prio[chaveCidade(b)] || 999;
+    if(pa !== pb) return pa - pb;
+    return String(a).localeCompare(String(b), 'pt-BR', { sensitivity: 'base' });
+  });
+}
+
 async function carregarCidades(){
   try {
     const { data, error } = await db.rpc('cidades_disponiveis');
     if(error) throw error;
-    cidadesDisponiveis = (data || []).map(function(r){ return r.cidade; }).filter(Boolean);
+    cidadesDisponiveis = ordenarCidades((data || []).map(function(r){ return r.cidade; }).filter(Boolean));
   } catch(err){
     cidadesDisponiveis = [];
   }
@@ -2648,6 +2668,9 @@ function fecharLegendaICP(){
 })();
 
 // Gera os selos visuais do card: follow-up atrasado e tempo parado na etapa
+// Única etapa sem selo de tempo parado: o lead ainda não foi tocado por ninguém.
+var ETAPA_ENTRADA = 'Leads Novos';
+
 function selosDoCard(d, stage){
   const selos = [];
   const hoje = new Date(); hoje.setHours(0,0,0,0);
@@ -2664,9 +2687,12 @@ function selosDoCard(d, stage){
     }
   }
 
-  // "Dias parado" só faz sentido em etapa de esteira. Em Leads Novos (in_followup=false)
-  // o lead nunca foi trabalhado: a data vem da importação e o selo só polui a coluna.
-  if(!stage.is_won && !stage.is_lost && stage.in_followup && d.stage_changed_at){
+  // "Dias parado" mede tempo de lead JÁ TRABALHADO. O critério era `stage.in_followup`,
+  // e quando "Sem Contato" saiu da fila do Follow-up o selo sumiu junto — justo da coluna
+  // de rediscagem, onde o tempo parado é a informação principal. O corte certo é a etapa
+  // de entrada: em "Leads Novos" a data vem da importação e o selo só polui (pedido da
+  // Priscila, 10/09).
+  if(!stage.is_won && !stage.is_lost && stage.name !== ETAPA_ENTRADA && d.stage_changed_at){
     const entrou = new Date(d.stage_changed_at);
     const diasParado = Math.floor((Date.now() - entrou.getTime()) / 86400000);
     if(diasParado >= 7){
