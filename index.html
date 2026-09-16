@@ -732,6 +732,18 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
       .icp-filtro__rotulo{min-width:0; font-size:11px;}
       .icp-filtro__linha{width:100%;}
     }
+  /* Lead quente — marcação manual do consultor. Amarelo forte no card e na fila;
+     desbota depois de 30 dias para que urgência antiga pare de gritar. */
+  .deal-card--quente{background:#fffbeb; border-color:#f59e0b; box-shadow:0 0 0 1px #f59e0b inset;}
+  .fu-row--quente{background:#fffbeb; border-color:#f59e0b;}
+  .deal-card--quente-velho, .fu-row--quente-velho{background:#fefce8; border-color:#fcd34d; box-shadow:none;}
+  .selo-quente{background:#f59e0b; color:#fff; font-weight:600;}
+  .selo-quente--velho{background:#fef3c7; color:#92400e; font-weight:500;}
+  .btn-quente{border:1px solid var(--border); background:var(--surface); border-radius:var(--radius);
+    cursor:pointer; font-size:13px; line-height:1; padding:4px 7px; filter:grayscale(1); opacity:.45;}
+  .btn-quente:hover{opacity:.85; filter:none;}
+  .btn-quente--on{filter:none; opacity:1; background:#fef3c7; border-color:#f59e0b;}
+  .dc-quente{position:absolute; top:6px; right:6px; z-index:2;}
 </style>
 </head>
 <body>
@@ -2668,11 +2680,80 @@ function fecharLegendaICP(){
 })();
 
 // Gera os selos visuais do card: follow-up atrasado e tempo parado na etapa
+// ---------------------------------------------------------------------------
+// Lead quente: marcação manual, por lead, que fura a fila. O consultor marca o
+// que não pode depender da memória dele; o banco (0027) coloca no topo do
+// Follow-up e do Funil, mesmo em etapa fora da fila.
+// ---------------------------------------------------------------------------
+var QUENTE_DIAS_DESBOTA = 30;
+
+function quenteInfo(d){
+  if(!d || !d.quente) return null;
+  var dias = null;
+  if(d.quente_em){
+    var q = new Date(d.quente_em);
+    if(!isNaN(q.getTime())) dias = Math.floor((Date.now() - q.getTime()) / 86400000);
+  }
+  return { dias: dias, velho: (dias !== null && dias > QUENTE_DIAS_DESBOTA) };
+}
+
+function seloQuenteHtml(d){
+  var info = quenteInfo(d);
+  if(!info) return '';
+  if(info.velho) return '<span class="card-selo selo-quente selo-quente--velho">🔥 quente há ' + info.dias + 'd</span>';
+  return '<span class="card-selo selo-quente">🔥 Quente</span>';
+}
+
+function classeQuente(d, base){
+  var info = quenteInfo(d);
+  if(!info) return '';
+  return info.velho ? (' ' + base + ' ' + base + '-velho') : (' ' + base);
+}
+
+function botaoQuenteHtml(d){
+  var on = !!(d && d.quente);
+  return '<button type="button" class="btn-quente' + (on ? ' btn-quente--on' : '') +
+         '" data-quente="' + d.id + '" data-quente-on="' + (on ? '1' : '0') +
+         '" aria-pressed="' + (on ? 'true' : 'false') +
+         '" title="' + (on ? 'Desmarcar lead quente' : 'Marcar como lead quente') + '">🔥</button>';
+}
+
+// Grava e recarrega a superfície de onde veio o clique: a ordenação é do servidor,
+// então mexer só no HTML deixaria o card amarelo no lugar errado.
+async function alternarQuente(dealId, ligar, origem){
+  try {
+    var patch = ligar
+      ? { quente: true, quente_em: new Date().toISOString() }
+      : { quente: false, quente_em: null };
+    var r = await db.from('deals').update(patch).eq('id', dealId).select('id');
+    if(r.error) throw r.error;
+    if(!r.data || !r.data.length) throw new Error('sem permissão para alterar este lead');
+    showToast(ligar ? 'Lead marcado como quente.' : 'Lead desmarcado.', 'ok');
+    if(origem === 'followup'){ await carregarFollowups({ reset: true }); await carregarContadores(); }
+    else { await carregarKanban(); }
+  } catch(err){
+    showToast('Não foi possível alterar: ' + (err && err.message ? err.message : 'erro'), 'err');
+  }
+}
+
+function ligarBotoesQuente(raiz, origem){
+  if(!raiz) return;
+  raiz.querySelectorAll('[data-quente]').forEach(function(b){
+    b.addEventListener('click', function(ev){
+      ev.stopPropagation();   // o card inteiro abre o lead; o 🔥 não pode abrir
+      ev.preventDefault();
+      alternarQuente(b.getAttribute('data-quente'), b.getAttribute('data-quente-on') !== '1', origem);
+    });
+  });
+}
+
 // Única etapa sem selo de tempo parado: o lead ainda não foi tocado por ninguém.
 var ETAPA_ENTRADA = 'Leads Novos';
 
 function selosDoCard(d, stage){
   const selos = [];
+  const selQuente = seloQuenteHtml(d);
+  if(selQuente) selos.push(selQuente);   // sempre primeiro: é a marcação do consultor
   const hoje = new Date(); hoje.setHours(0,0,0,0);
 
   if(!stage.is_won && !stage.is_lost && d.next_followup_date){
@@ -2776,8 +2857,9 @@ function renderKanban(){
     const cards = cardsVisiveis.map(d=>{
       const badge = badgeICP(d.id);
       return `
-      <div class="deal-card${badge ? ' deal-card--icp' : ''}" draggable="true" data-deal-id="${d.id}" data-stage-id="${stage.id}">
+      <div class="deal-card${badge ? ' deal-card--icp' : ''}${classeQuente(d, 'deal-card--quente')}" draggable="true" data-deal-id="${d.id}" data-stage-id="${stage.id}">
         ${badge}
+        <div class="dc-quente">${botaoQuenteHtml(d)}</div>
         <div class="dc-title">${escapeHtml(d.title)}</div>
         ${Number(d.value) > 0 ? `<div class="dc-value">${formatCurrency(d.value)}</div>` : ''}
         <div class="dc-meta">
@@ -2816,6 +2898,7 @@ function renderKanban(){
 
   attachKanbanEvents();
   kanban.querySelectorAll('[data-stage-mais]').forEach(b=>b.addEventListener('click',()=>carregarMaisColuna(b.dataset.stageMais)));
+  ligarBotoesQuente(kanban, 'kanban');
 }
 
 // Carga do Kanban a partir das RPCs (contagem + cards por etapa em paralelo).
@@ -4727,7 +4810,9 @@ async function carregarFollowups(opts){
 }
 
 function fuFlagsHtml(it){
+  var qz = seloQuenteHtml(it);
   const flags = [];
+  if(qz) flags.push(qz);
   if(it.next_followup_date){
     const hoje = new Date(); hoje.setHours(0,0,0,0);
     const alvo = new Date(it.next_followup_date + 'T00:00:00');
@@ -4755,7 +4840,7 @@ function fuLinhaHtml(it){
   const stageName = it.stage_name || '';
   const contato = [it.contact_name, it.contact_phone].filter(Boolean).map(escapeHtml).join(' · ');
   return `
-    <div class="fu-row" data-fu-id="${it.id}">
+    <div class="fu-row${classeQuente(it, 'fu-row--quente')}" data-fu-id="${it.id}">
       <div class="fu-row-top">
         <div>
           <div class="fu-title">${escapeHtml(it.title || '(sem título)')}</div>
@@ -4774,6 +4859,7 @@ function fuLinhaHtml(it){
           <a data-fu-mail="${it.id}" title="E-mail">✉️</a>
         </div>
         <div class="fu-btns">
+          ${botaoQuenteHtml(it)}
           <button type="button" class="btn btn-slim" data-fu-reg="${it.id}">Registrar contato</button>
           <button type="button" class="btn btn-slim btn-primary" data-fu-open="${it.id}">Abrir lead</button>
         </div>
@@ -4808,6 +4894,7 @@ function renderFollowupLista(){
     if(aMail){ if(mail){ aMail.href = 'mailto:'+mail; } else { aMail.classList.add('off'); } }
   });
   list.querySelectorAll('[data-fu-reg]').forEach(b=>b.addEventListener('click',()=>abrirRegistroFollowup(b.dataset.fuReg)));
+  ligarBotoesQuente(list, 'followup');
   list.querySelectorAll('[data-fu-open]').forEach(b=>b.addEventListener('click',()=>abrirLeadPorId(b.dataset.fuOpen)));
   if(info) info.textContent = `Exibindo ${fuItens.length} de ${fuTotal}`;
   if(moreWrap) moreWrap.classList.toggle('hidden', fuItens.length >= fuTotal);
