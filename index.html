@@ -1948,21 +1948,20 @@ async function loadProfileAndInit(){
   }
 
   // Carrega os dados protegendo contra erros (um erro não impede o sistema de abrir)
-  try { await loadStages(); } catch(e){}
-  try { await loadProfiles(); } catch(e){}
-  try { await loadDeals(); } catch(e){}
-  try { await carregarPriorizacaoICP(); } catch(e){}
+  // Carga do boot em paralelo. Eram 8 idas ao servidor em fila indiana: cada uma
+  // esperava a anterior terminar, e a soma das latências era o tempo de abertura.
+  // São independentes entre si -> allSettled (um erro não derruba as outras).
+  // `loadDeals()` saiu do boot: nada na tela depende do array completo (Dashboard,
+  // Funil e Follow-up leem RPC), e ele baixava a tabela `deals` inteira.
+  await Promise.allSettled([ loadStages(), loadProfiles(), carregarPriorizacaoICP() ]);
   carregarIntelBase().catch(function(){}); // motor de inteligência (não bloqueia o boot)
   // onclick (e não addEventListener): loadProfileAndInit roda mais de uma vez por sessão
   // — getSession inicial + onAuthStateChange. Com addEventListener os handlers acumulavam
   // e o clique alternava duas vezes, voltando ao estado original: o painel não abria.
   var btIntel = document.getElementById('intel-toggle');
   if(btIntel){ btIntel.onclick = function(){ intelExibir = !intelExibir; intelAplicarVisibilidade(); }; }
-  try { await carregarListas(); } catch(e){}
   carregarCidades();   // só alimenta o datalist; não bloqueia o boot e trata o próprio erro
-  try { await loadCompanies(); } catch(e){}
-  try { await loadContacts(); } catch(e){}
-  try { await carregarContadores(); } catch(e){}
+  await Promise.allSettled([ carregarListas(), loadCompanies(), loadContacts(), carregarContadores() ]);
   try { renderAll(); } catch(e){}
   try { setupRealtime(); } catch(e){}
 }
@@ -2016,12 +2015,24 @@ async function loadProfiles(){
   }
 }
 
+// `deals` é CACHE, não a base. Só entra aqui o lead que alguém abriu — via
+// abrirLeadPorId(), que busca por id quando falta. O array completo não é usado
+// por tela nenhuma: Dashboard, Funil e Follow-up agregam por RPC no servidor.
+//
+// Antes: select * em public.deals sem filtro nem limite, a cada boot e a cada
+// salvamento. Com 19 mil leads eram megabytes de JSON por vez.
+//
+// Agora: recarrega só os leads que já estão em cache, para as telas abertas
+// continuarem consistentes depois de um salvamento.
 async function loadDeals(){
+  if(!deals.length) return;
+  var ids = deals.map(function(d){ return d.id; });
+  if(ids.length > 200) ids = ids.slice(ids.length - 200);   // guarda contra sessão muito longa
   const { data, error } = await db
     .from('deals')
     .select('*, owner:profiles!deals_owner_id_fkey(id, full_name)')
-    .order('created_at', { ascending: false });
-  if(error){ showToast('Erro ao carregar leads: ' + error.message, 'err'); return; }
+    .in('id', ids);
+  if(error){ showToast('Erro ao recarregar leads: ' + error.message, 'err'); return; }
   deals = data || [];
 }
 
@@ -2992,7 +3003,7 @@ function seletorEtapaHtml(d, stage){
 // já vencida só faria ele reaparecer como "atrasado" numa esteira da qual ele saiu —
 // foi o que a Priscila reportou ao mandar leads para Sem Contato. Vencida: limpa.
 function followupVencido(dealId){
-  const d = deals.find(x => x.id === dealId);
+  const d = acharDealLocal(dealId);
   if(!d || !d.next_followup_date) return false;
   const hoje = new Date(); hoje.setHours(0,0,0,0);
   const fu = new Date(d.next_followup_date + 'T00:00:00');
@@ -4059,9 +4070,29 @@ function ehContatoRuim(o){ return OUTCOME_RUIM.indexOf(o) >= 0; }
 // Etapa do lead (do cache local). Devolve null quando o lead nao esta em
 // `deals` -- caso do registro aberto pela fila do Follow-up, onde a etapa e,
 // por definicao, de esteira.
+// Procura o lead nas três fontes que a tela pode ter em mãos: o cache (`deals`),
+// a fila do Follow-up (`fuItens`) e os cards já carregados do Funil (`kanbanCards`).
+// Com o array deixando de ser a base inteira, quem depende de achar o lead precisa
+// olhar também de onde ele veio.
+function acharDealLocal(dealId){
+  var i, col;
+  if(!dealId) return null;
+  for(i = 0; i < deals.length; i++){ if(deals[i].id === dealId) return deals[i]; }
+  if(Array.isArray(fuItens)){
+    for(i = 0; i < fuItens.length; i++){ if(fuItens[i].id === dealId) return fuItens[i]; }
+  }
+  if(kanbanCards){
+    for(col in kanbanCards){
+      if(!Object.prototype.hasOwnProperty.call(kanbanCards, col)) continue;
+      var lista = (kanbanCards[col] && kanbanCards[col].cards) || [];
+      for(i = 0; i < lista.length; i++){ if(lista[i].id === dealId) return lista[i]; }
+    }
+  }
+  return null;
+}
+
 function etapaDoDeal(dealId){
-  var d = null, i;
-  for(i = 0; i < deals.length; i++){ if(deals[i].id === dealId){ d = deals[i]; break; } }
+  var d = acharDealLocal(dealId), i;
   if(!d) return null;
   for(i = 0; i < stages.length; i++){ if(stages[i].id === d.stage_id) return stages[i]; }
   return null;
@@ -4144,13 +4175,7 @@ function linkReuniaoValido(v){
 // item vem da RPC e mora em `fuItens` — o array `deals` pode nem conter o lead.
 function dealAlvoRegistro(){
   if(!regDealId) return null;
-  const noArray = deals.find(d=>d.id===regDealId);
-  if(noArray) return noArray;
-  if(Array.isArray(fuItens)){
-    const naFila = fuItens.find(i=>i.id===regDealId);
-    if(naFila) return naFila;
-  }
-  return null;
+  return acharDealLocal(regDealId);
 }
 
 function iconeCanal(c){ const x = ACTIVITY_CHANNELS.find(k=>k.value===c); return x ? x.icon : '•'; }
