@@ -744,6 +744,25 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   .btn-quente:hover{opacity:.85; filter:none;}
   .btn-quente--on{filter:none; opacity:1; background:#fef3c7; border-color:#f59e0b;}
   .dc-quente{position:absolute; top:6px; right:6px; z-index:2;}
+  /* Distribuir leads (Admin) */
+  .dist-ajuda{color:var(--text-muted); font-size:13px; margin:0 0 12px;}
+  .dist-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px;}
+  .dist-checks{display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto;
+    border:1px solid var(--border); border-radius:var(--radius); padding:10px; background:var(--surface);}
+  .dist-inline{display:flex; align-items:center; gap:8px; font-size:13px; font-weight:400;}
+  .dist-checks label{display:flex; align-items:center; gap:8px; font-size:13px; font-weight:400; cursor:pointer;}
+  .dist-acoes{display:flex; gap:8px; flex-wrap:wrap; margin-top:14px;}
+  #dist-previa{margin-top:14px;}
+  #dist-previa table{width:100%; border-collapse:collapse; font-size:13px;}
+  #dist-previa th, #dist-previa td{padding:7px 10px; border-bottom:1px solid var(--border); text-align:left;}
+  #dist-previa td.num, #dist-previa th.num{text-align:right; font-variant-numeric:tabular-nums;}
+  #dist-previa .dist-recebe{font-weight:700; color:#a16207;}
+  #dist-previa .dist-aviso{background:#fffbeb; border:1px solid #f59e0b; border-radius:var(--radius);
+    padding:10px 12px; margin-top:10px; font-size:13px;}
+  .user-bloqueado{color:#b91c1c; font-weight:600; font-size:12px;}
+  .user-liberado{color:#15803d; font-weight:600; font-size:12px;}
+  .btn-bloquear{border-color:#fca5a5; color:#b91c1c;}
+  .btn-bloquear:hover{background:#fef2f2;}
 </style>
 </head>
 <body>
@@ -1011,6 +1030,42 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
       <div class="panel">
         <h3>Usuários</h3>
         <div id="admin-users-list"></div>
+      </div>
+      <div class="panel">
+        <h3>Distribuir leads</h3>
+        <p class="dist-ajuda">Simule primeiro. Nada muda no banco até você confirmar.</p>
+        <div class="dist-grid">
+          <div class="field">
+            <label>De quem sai</label>
+            <div id="dist-origem" class="dist-checks"></div>
+          </div>
+          <div class="field">
+            <label>Quem recebe</label>
+            <div id="dist-destino" class="dist-checks"></div>
+          </div>
+          <div class="field">
+            <label for="dist-regra">Regra</label>
+            <select id="dist-regra">
+              <option value="carga">Por carga — quem tem menos lead aberto recebe mais</option>
+              <option value="rodizio">Rodízio — reveza em círculo</option>
+              <option value="cidade">Por cidade — cada cidade fica com uma pessoa só</option>
+            </select>
+            <label for="dist-etapa" style="margin-top:10px;">Etapa (opcional)</label>
+            <select id="dist-etapa"></select>
+            <label for="dist-limite" style="margin-top:10px;">Limite de leads (opcional)</label>
+            <input type="number" id="dist-limite" min="1" step="1" placeholder="todos">
+            <label class="dist-inline" style="margin-top:10px;">
+              <input type="checkbox" id="dist-nao-tocados" checked>
+              Só leads que nunca receberam contato
+            </label>
+          </div>
+        </div>
+        <div class="dist-acoes">
+          <button type="button" class="btn" id="dist-simular">Simular</button>
+          <button type="button" class="btn btn-primary hidden" id="dist-aplicar">Confirmar distribuição</button>
+          <button type="button" class="btn hidden" id="dist-desfazer">Desfazer esta distribuição</button>
+        </div>
+        <div id="dist-previa"></div>
       </div>
       <div class="panel">
         <h3>Metas por vendedor</h3>
@@ -5016,6 +5071,7 @@ async function renderAdmin(){
         <tr style="text-align:left; border-bottom:1px solid var(--border);">
           <th style="padding:8px;">Nome</th>
           <th style="padding:8px;">Papel</th>
+          <th style="padding:8px;">Acesso</th>
           <th style="padding:8px;">Cadastro</th>
           <th style="padding:8px;">Ação</th>
         </tr>
@@ -5025,11 +5081,21 @@ async function renderAdmin(){
           <tr style="border-bottom:1px solid var(--border);">
             <td style="padding:8px;">${escapeHtml(p.full_name)}</td>
             <td style="padding:8px;">${p.role}</td>
+            <td style="padding:8px;">
+              ${p.active === false
+                ? '<span class="user-bloqueado">🚫 Bloqueado</span>'
+                : '<span class="user-liberado">● Ativo</span>'}
+            </td>
             <td style="padding:8px;">${new Date(p.created_at).toLocaleDateString('pt-BR')}</td>
             <td style="padding:8px;">
               ${p.id !== currentProfile.id ? `
                 <button class="btn" style="padding:5px 10px; font-size:12px;" data-toggle-role="${p.id}" data-current-role="${p.role}">
                   ${p.role === 'admin' ? 'Tornar vendedor' : 'Tornar admin'}
+                </button>
+                <button class="btn ${p.active === false ? '' : 'btn-bloquear'}" style="padding:5px 10px; font-size:12px; margin-left:6px;"
+                        data-toggle-acesso="${p.id}" data-ativo="${p.active === false ? '0' : '1'}"
+                        data-nome="${escapeHtml(p.full_name)}">
+                  ${p.active === false ? 'Liberar acesso' : 'Bloquear acesso'}
                 </button>
               ` : '<span style="color:var(--text-muted);">você</span>'}
             </td>
@@ -5039,6 +5105,31 @@ async function renderAdmin(){
     </table>
     </div>
   `;
+
+  // Bloquear acesso: desliga profiles.active. Não é cosmético — há policies
+  // RESTRICTIVE chamando current_user_active() em deals, deal_activities,
+  // deal_notes, companies, contacts e pipeline_stages. Com active = false a
+  // sessão até abre, mas nenhuma linha volta e nenhuma escrita passa.
+  //
+  // Os leads do bloqueado continuam com ele: transferir carteira é decisão
+  // separada, em Admin > Distribuir leads. Bloquear não move nada.
+  document.querySelectorAll('[data-toggle-acesso]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      var id = btn.getAttribute('data-toggle-acesso');
+      var estavaAtivo = btn.getAttribute('data-ativo') === '1';
+      var nome = btn.getAttribute('data-nome') || 'este usuário';
+      var msg = estavaAtivo
+        ? 'Bloquear o acesso de ' + nome + '? Ele continua conseguindo entrar, mas não verá nenhum dado. Os leads seguem no nome dele.'
+        : 'Liberar novamente o acesso de ' + nome + '?';
+      if(!window.confirm(msg)) return;
+      var r = await db.from('profiles').update({ active: !estavaAtivo }).eq('id', id).select('id');
+      if(r.error){ showToast('Erro: ' + r.error.message, 'err'); return; }
+      if(!r.data || !r.data.length){ showToast('Sem permissão para alterar este usuário.', 'err'); return; }
+      showToast(estavaAtivo ? 'Acesso bloqueado.' : 'Acesso liberado.', 'ok');
+      await loadProfiles();
+      renderAdmin();
+    });
+  });
 
   document.querySelectorAll('[data-toggle-role]').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
@@ -5053,6 +5144,147 @@ async function renderAdmin(){
   });
 
   renderMetasConfig();
+  renderDistribuicao();
+}
+
+// ============================================================
+// DISTRIBUIR LEADS (Admin) — RPC distribuir_leads / desfazer_distribuicao
+//
+// Fluxo obrigatório: simular -> ver a prévia -> confirmar. O botão de confirmar
+// só aparece depois de uma simulação, e some a cada mudança de parâmetro: o que
+// se aplica é sempre o que está na tela, nunca uma simulação velha.
+// ============================================================
+var distUltimaExecucao = null;
+
+function distMarcados(containerId){
+  var out = [], i;
+  var cx = document.querySelectorAll('#' + containerId + ' input[type="checkbox"]:checked');
+  for(i = 0; i < cx.length; i++){ out.push(cx[i].value); }
+  return out;
+}
+
+function distEsconderAcoes(){
+  var ap = document.getElementById('dist-aplicar');
+  if(ap) ap.classList.add('hidden');
+}
+
+function renderDistribuicao(){
+  var origem = document.getElementById('dist-origem');
+  var destino = document.getElementById('dist-destino');
+  if(!origem || !destino) return;
+
+  var html = '', i, p;
+  for(i = 0; i < profiles.length; i++){
+    p = profiles[i];
+    html += '<label><input type="checkbox" value="' + p.id + '"> '
+          + escapeHtml(p.full_name || p.id) + '</label>';
+  }
+  origem.innerHTML = html;
+  destino.innerHTML = html;
+
+  var et = document.getElementById('dist-etapa');
+  if(et){
+    var op = '<option value="">Todas as etapas abertas</option>';
+    for(i = 0; i < stages.length; i++){
+      if(stages[i].is_won || stages[i].is_lost) continue;
+      op += '<option value="' + stages[i].id + '">' + escapeHtml(stages[i].name) + '</option>';
+    }
+    et.innerHTML = op;
+  }
+
+  // Qualquer mudança invalida a simulação anterior.
+  var campos = document.querySelectorAll('#dist-origem input, #dist-destino input, #dist-regra, #dist-etapa, #dist-limite, #dist-nao-tocados');
+  for(i = 0; i < campos.length; i++){ campos[i].addEventListener('change', distEsconderAcoes); }
+
+  var bs = document.getElementById('dist-simular');
+  if(bs) bs.onclick = function(){ distribuir(true); };
+  var ba = document.getElementById('dist-aplicar');
+  if(ba) ba.onclick = function(){ distribuir(false); };
+  var bd = document.getElementById('dist-desfazer');
+  if(bd) bd.onclick = distDesfazer;
+}
+
+function distParams(simular){
+  var lim = parseInt(document.getElementById('dist-limite').value, 10);
+  var origem = distMarcados('dist-origem');
+  return {
+    p_regra: document.getElementById('dist-regra').value,
+    p_destinos: distMarcados('dist-destino'),
+    p_origem: origem.length ? origem : null,
+    p_etapa: document.getElementById('dist-etapa').value || null,
+    p_so_nao_tocados: document.getElementById('dist-nao-tocados').checked,
+    p_limite: (isNaN(lim) || lim <= 0) ? null : lim,
+    p_dry_run: simular
+  };
+}
+
+async function distribuir(simular){
+  var alvo = document.getElementById('dist-previa');
+  var params = distParams(simular);
+  if(!params.p_destinos.length){ showToast('Marque quem recebe.', 'err'); return; }
+
+  if(!simular){
+    if(!window.confirm('Confirmar a distribuição? A troca de dono é gravada e só volta pelo botão Desfazer.')) return;
+  }
+
+  alvo.innerHTML = '<p class="dist-ajuda">Calculando…</p>';
+  try {
+    var r = await db.rpc('distribuir_leads', params);
+    if(r.error) throw r.error;
+    distRenderPrevia(r.data, simular);
+    if(!simular){
+      distUltimaExecucao = r.data && r.data.execucao_id;
+      distEsconderAcoes();
+      var bd = document.getElementById('dist-desfazer');
+      if(bd && distUltimaExecucao) bd.classList.remove('hidden');
+      showToast('Distribuição aplicada.', 'ok');
+    } else {
+      var ba = document.getElementById('dist-aplicar');
+      if(ba && r.data && Number(r.data.candidatos) > 0) ba.classList.remove('hidden');
+    }
+  } catch(err){
+    alvo.innerHTML = '';
+    showToast('Erro: ' + (err && err.message ? err.message : 'falha na distribuição'), 'err');
+  }
+}
+
+function distRenderPrevia(data, simular){
+  var alvo = document.getElementById('dist-previa');
+  if(!data){ alvo.innerHTML = ''; return; }
+  var porDest = data.por_destino || {}, nome, linhas = '', total = 0;
+  for(nome in porDest){
+    if(!Object.prototype.hasOwnProperty.call(porDest, nome)) continue;
+    var v = porDest[nome];
+    total += Number(v.recebe) || 0;
+    linhas += '<tr><td>' + escapeHtml(nome) + '</td>'
+            + '<td class="num">' + v.carga_antes + '</td>'
+            + '<td class="num dist-recebe">' + v.recebe + '</td>'
+            + '<td class="num">' + v.carga_depois + '</td></tr>';
+  }
+  alvo.innerHTML =
+    '<table><thead><tr><th>Vendedora</th><th class="num">Antes</th>'
+    + '<th class="num">Recebe</th><th class="num">Depois</th></tr></thead>'
+    + '<tbody>' + linhas + '</tbody></table>'
+    + '<div class="dist-aviso">'
+    + (simular
+        ? 'Simulação: ' + data.candidatos + ' lead(s) no filtro, ' + total + ' mudariam de dono. Nada foi gravado.'
+        : data.movidos + ' lead(s) mudaram de dono.')
+    + '</div>';
+}
+
+async function distDesfazer(){
+  if(!distUltimaExecucao) return;
+  if(!window.confirm('Desfazer a última distribuição e devolver os leads aos donos anteriores?')) return;
+  try {
+    var r = await db.rpc('desfazer_distribuicao', { p_execucao: distUltimaExecucao });
+    if(r.error) throw r.error;
+    showToast((r.data && r.data.revertidos) + ' lead(s) devolvidos.', 'ok');
+    distUltimaExecucao = null;
+    document.getElementById('dist-desfazer').classList.add('hidden');
+    document.getElementById('dist-previa').innerHTML = '';
+  } catch(err){
+    showToast('Erro ao desfazer: ' + (err && err.message ? err.message : ''), 'err');
+  }
 }
 
 // ===== Metas por vendedor (Fase 5C) — ES5-safe. Só admin (RPC também barra). =====
