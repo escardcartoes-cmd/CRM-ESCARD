@@ -763,6 +763,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   .user-liberado{color:#15803d; font-weight:600; font-size:12px;}
   .btn-bloquear{border-color:#fca5a5; color:#b91c1c;}
   .btn-bloquear:hover{background:#fef2f2;}
+  .selo-rediscar{background:#eef2ff; color:#4338ca;}
 </style>
 </head>
 <body>
@@ -2815,6 +2816,9 @@ function ligarBotoesQuente(raiz, origem){
 
 // Única etapa sem selo de tempo parado: o lead ainda não foi tocado por ninguém.
 var ETAPA_ENTRADA = 'Leads Novos';
+// Etapa de rediscagem: fora da fila do Follow-up por regra de negócio, mas com
+// data de retorno agendada automaticamente (7 dias, sempre em dia útil).
+var ETAPA_REDISCAGEM = 'Sem Contato';
 
 function selosDoCard(d, stage){
   const selos = [];
@@ -2831,6 +2835,11 @@ function selosDoCard(d, stage){
       selos.push(`<span class="card-selo selo-hoje">📞 Contatar hoje</span>`);
     } else if(diffDias <= 3){
       selos.push(`<span class="card-selo selo-proximo">📅 Contato em ${diffDias}d</span>`);
+    } else if(stage.name === ETAPA_REDISCAGEM){
+      // Em "Sem Contato" a data vem da regra dos 7 dias úteis (0040) e cai fora
+      // da janela de 3 dias dos selos acima. Sem isto o lead ficaria com a data
+      // no banco e nada na tela — e essa coluna é o único lugar onde ele aparece.
+      selos.push(`<span class="card-selo selo-rediscar">🔁 Rediscar ${formatDate(d.next_followup_date)}</span>`);
     }
   }
 
