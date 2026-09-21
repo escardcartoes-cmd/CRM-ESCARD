@@ -4180,15 +4180,29 @@ function etapaNaEsteira(dealId){
 // Tentativas consecutivas sem contato efetivo, do mais recente para trás. Zera
 // no primeiro contato efetivo: quem atendeu uma vez recomeça a régua do zero.
 // Nota não é tentativa — não tem desfecho e não conta.
+// Mesma conta do trigger 0041: só telefone, WhatsApp e e-mail contam; reunião
+// agendada/realizada zera como contato efetivo.
+var CANAIS_TENTATIVA = ['telefone', 'whatsapp', 'email'];
 function tentativasConsecutivas(lista){
-  let n = 0;
-  for(let i = 0; i < (lista || []).length; i++){
-    const a = lista[i];
-    if(a.channel === 'nota') continue;
+  var n = 0, i, a;
+  lista = lista || [];
+  for(i = 0; i < lista.length; i++){
+    a = lista[i];
     if(ehContatoEfetivo(a.outcome)) break;
+    if(a.meeting_status === 'agendada' || a.meeting_status === 'realizada') break;
+    if(CANAIS_TENTATIVA.indexOf(a.channel) < 0) continue;
     n++;
   }
   return n;
+}
+
+// Regra 0041: na 4ª tentativa seguida sem resposta o banco move o lead para
+// "Perdidos". Só nestas etapas -- Reunião e Negociação seguem a régua de 5 toques.
+var PERDIDO_TENTATIVAS = 4;
+var ETAPAS_PERDA_POR_TENTATIVA = ['Leads Novos', 'Sem Contato', 'Contato Feito'];
+function etapaPerdePorTentativa(dealId){
+  var st = etapaDoDeal(dealId);
+  return !!st && ETAPAS_PERDA_POR_TENTATIVA.indexOf(st.name) >= 0;
 }
 
 // Próximo passo a partir do nº de tentativas JÁ acumuladas (inclui a atual).
@@ -4205,7 +4219,7 @@ function proximoDaCadencia(outcome, tentativas){
 // A tela pode ter sido aberta pelo Follow-up, onde a timeline não foi carregada.
 async function tentativasNoBanco(dealId){
   const { data, error } = await db.from('deal_activities')
-    .select('outcome, channel, occurred_at')
+    .select('outcome, channel, occurred_at, meeting_status')
     .eq('deal_id', dealId)
     .order('occurred_at', { ascending:false })
     .limit(30);
@@ -4465,6 +4479,24 @@ function sugerirCadencia(){
   if(regState.canal === 'nota' || regState.canal === 'presencial') return;
   if(!regState.resultado) return;
   if(ehContatoEfetivo(regState.resultado)){ esconderAvisoCadencia(); return; }
+  // 4ª tentativa seguida sem resposta: o banco (0041) manda para Perdidos.
+  // Vem antes da checagem de esteira porque vale também para "Sem Contato".
+  if(CANAIS_TENTATIVA.indexOf(regState.canal) >= 0 && etapaPerdePorTentativa(regDealId)){
+    var timelineDoLead = !atividadesDoDeal.length || atividadesDoDeal[0].deal_id === regDealId;
+    var tentPrev = (timelineDoLead ? tentativasConsecutivas(atividadesDoDeal) : 0) + 1;
+    if(tentPrev >= PERDIDO_TENTATIVAS){
+      regState.proximoKey = 'sem';
+      regState.proximo = null;
+      document.getElementById('reg-next-date').classList.add('hidden');
+      var avisoPerda = document.getElementById('reg-cadencia-aviso');
+      if(avisoPerda){
+        avisoPerda.textContent = tentPrev + 'ª tentativa sem resposta — ao salvar, o lead vai para "Perdidos" e sai do Follow-up.';
+        avisoPerda.classList.remove('hidden');
+      }
+      renderRegProximo();
+      return;
+    }
+  }
   // Lead fora da fila do Follow-up: a regua nao agenda nada. Dizer isso aqui
   // evita que o SDR saia da tela achando que o sistema vai lembra-lo.
   if(!etapaNaEsteira(regDealId)){
@@ -4673,6 +4705,8 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
 
   const btn = document.getElementById('reg-salvar');
   btn.disabled = true;
+  var etapaAntesReg = etapaDoDeal(regDealId);
+  var movidoPerdido = null;   // etapa "Perdidos" quando o trigger 0041 agiu
   try {
     if(editandoAtividadeId){
       const { error } = await db.from('deal_activities').update({
@@ -4705,6 +4739,43 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
         meeting_contact_phone: agendaFone,
       });
       if(error) throw error;
+      // O trigger 0041 pode ter levado o lead para "Perdidos". A fonte da verdade
+      // é o banco: relê a etapa em vez de repetir a regra aqui.
+      if(!ehNota && !ehReuniao && !(etapaAntesReg && (etapaAntesReg.is_lost || etapaAntesReg.is_won))){
+        try {
+          var rEt = await db.from('deals').select('stage_id, loss_reason').eq('id', regDealId).maybeSingle();
+          if(rEt && !rEt.error && rEt.data){
+            for(var iEt = 0; iEt < stages.length; iEt++){
+              if(stages[iEt].id === rEt.data.stage_id && stages[iEt].is_lost){
+                movidoPerdido = { stage: stages[iEt], loss_reason: rEt.data.loss_reason };
+              }
+            }
+          }
+        } catch(eEt){ movidoPerdido = null; }
+      }
+      if(movidoPerdido){
+        var locPerd = acharDealLocal(regDealId);
+        var dCache = deals.find(function(x){ return x.id === regDealId; });
+        [locPerd, dCache].forEach(function(o){
+          if(!o) return;
+          o.stage_id = movidoPerdido.stage.id;
+          o.next_followup_date = null;
+          o.cadencia_esgotada_em = null;
+          o.loss_reason = movidoPerdido.loss_reason;
+        });
+        // Modal do lead aberto: sem isto, o próximo "Salvar" devolveria o lead
+        // para a etapa antiga e apagaria o motivo da perda.
+        if(editingDealId && editingDealId === regDealId){
+          var selEt = document.getElementById('deal-stage');
+          if(selEt) selEt.value = movidoPerdido.stage.id;
+          var selMot = document.getElementById('deal-loss-reason');
+          if(selMot) selMot.value = movidoPerdido.loss_reason || '';
+          var inpFu = document.getElementById('deal-followup');
+          if(inpFu) inpFu.value = '';
+          atualizarCampoMotivoPerda();
+          aplicarModoFollowup(editingDealId);
+        }
+      }
     }
     // Régua de cadência — só age em contato NOVO, de canal com desfecho, e
     // quando o SDR não escolheu o próximo passo à mão. A contagem vem do banco
@@ -4721,7 +4792,7 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
     // trigger 0016 o move para "Contato Feito", que esta na fila.
     const naEsteira = etapaNaEsteira(regDealId) || contatoEfetivo;
     let cadencia = null;
-    if(!editandoAtividadeId && !ehNota && !ehReuniao && !regState.proximoTocado && naEsteira && !contatoEfetivo){
+    if(!movidoPerdido && !editandoAtividadeId && !ehNota && !ehReuniao && !regState.proximoTocado && naEsteira && !contatoEfetivo){
       try {
         const tent = await tentativasNoBanco(regDealId);
         cadencia = proximoDaCadencia(outcomeFinal, tent);
@@ -4736,7 +4807,7 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
     // exceto quando é a régua que decidiu tirar o lead da esteira.
     const patchDeal = {};
     // Fora da esteira o banco descartaria a data (0017): nao adianta enviar.
-    if(nextDate && naEsteira){ patchDeal.next_followup_date = nextDate; }
+    if(nextDate && naEsteira && !movidoPerdido){ patchDeal.next_followup_date = nextDate; }
     if(cadencia && cadencia.esgotou){
       patchDeal.next_followup_date = null;
       patchDeal.cadencia_esgotada_em = new Date().toISOString();
@@ -4761,7 +4832,10 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
       ? (editandoAtividadeId ? 'Reunião atualizada' : 'Reunião registrada na agenda')
       : (editandoAtividadeId ? 'Contato atualizado' : 'Contato registrado');
     // O SDR precisa ver o que foi agendado por ele — senão a régua vira caixa-preta.
-    if(cadencia && cadencia.esgotou){
+    if(movidoPerdido){
+      rotuloOk += ' · ' + PERDIDO_TENTATIVAS + ' tentativas sem resposta, lead movido para "' + movidoPerdido.stage.name + '"';
+      renderAll();
+    } else if(cadencia && cadencia.esgotou){
       rotuloOk += (cadencia.motivo === 'ruim')
         ? ' · contato inválido, lead saiu da esteira'
         : ' · ' + CADENCIA_MAX + ' tentativas, lead saiu da esteira';
