@@ -929,7 +929,9 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
         <input type="search" id="filter-cidade" class="hidden" list="cidades-datalist" placeholder="Cidade" aria-label="Filtrar por cidade" autocomplete="off" maxlength="120">
         <datalist id="cidades-datalist"></datalist>
         <div class="icp-filtro hidden" id="icp-filtro-wrap" aria-label="Filtros ICP">
-          <div class="icp-filtro__linha" role="group" aria-label="Prioridade ICP">
+          <!-- Prioridade S/A/B/C oculta a pedido (21/09): ninguém usava. A priorização
+               continua carregando (icpPorDeal) para Produto, legenda e modal do lead. -->
+          <div class="icp-filtro__linha hidden" role="group" aria-label="Prioridade ICP">
             <span class="icp-filtro__rotulo">Prioridade</span>
             <div class="icp-chips" id="icp-chips">
               <button type="button" class="icp-chip icp-chip--ativo" data-grupo="tier" data-valor="todos" aria-pressed="true">Todos</button>
@@ -2881,7 +2883,10 @@ function marcadorEdicao(d){
 
 // Badge de tier ICP para um deal. Retorna '' se o deal não tiver classificação
 // (comportamento correto: deal sem ICP não mostra badge).
+// Selo S/A/B/C oculto na frente do card (21/09). Para voltar: true.
+var ICP_TIER_NO_CARD = false;
 function badgeICP(dealId){
+  if(!ICP_TIER_NO_CARD) return '';
   const icp = icpPorDeal[dealId];
   if(!icp || !icp.tier) return '';
   const t = String(icp.tier).toUpperCase();
