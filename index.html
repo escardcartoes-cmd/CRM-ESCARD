@@ -2446,7 +2446,7 @@ function renderAgendaPainel(ag){
     const wa = normalizarTelefoneBR(fone || d.whatsapp);
     const aWa = lista.querySelector('[data-agenda-wa="' + r.id + '"]');
     if(aWa){
-      if(wa){ aWa.href = ehMobile() ? ('https://wa.me/' + wa) : ('https://web.whatsapp.com/send?phone=' + wa); }
+      if(wa){ aWa.href = linkWhatsapp(wa); }
       else { aWa.classList.add('off'); }
     }
   });
@@ -3977,6 +3977,12 @@ function normalizarTelefoneBR(v){
   if(!d.startsWith('55') && (d.length === 10 || d.length === 11)) d = '55' + d;
   return (d.length === 12 || d.length === 13) ? d : null;
 }
+// Link único de WhatsApp para todo o CRM: wa.me em qualquer dispositivo.
+// No celular abre o app; no computador abre a página do WhatsApp com as opções
+// "Abrir app" / "usar WhatsApp Web". Recebe o número já normalizado (55+DDD+número).
+function linkWhatsapp(wa){
+  return 'https://wa.me/' + wa;
+}
 function emailValido(v){
   const e = (v||'').trim();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : null;
@@ -3988,7 +3994,7 @@ function aplicarLink(link, href){
 function atualizarLinksContato(){
   const wa = normalizarTelefoneBR(document.getElementById('deal-whatsapp').value);
   aplicarLink(document.getElementById('deal-whatsapp-link'),
-    wa ? (ehMobile() ? 'https://wa.me/' + wa : 'https://web.whatsapp.com/send?phone=' + wa) : null);
+    wa ? linkWhatsapp(wa) : null);
   const tel = normalizarTelefoneBR(document.getElementById('deal-contact-phone').value);
   aplicarLink(document.getElementById('deal-phone-link'), tel ? 'tel:+' + tel : null);
   const mail = emailValido(document.getElementById('deal-contact-email').value);
@@ -4974,7 +4980,7 @@ function renderFollowupLista(){
   fuItens.forEach(it=>{
     const wa = normalizarTelefoneBR(it.whatsapp);
     const aWa = list.querySelector('[data-fu-wa="'+it.id+'"]');
-    if(aWa){ if(wa){ aWa.href = ehMobile() ? ('https://wa.me/'+wa) : ('https://web.whatsapp.com/send?phone='+wa); } else { aWa.classList.add('off'); } }
+    if(aWa){ if(wa){ aWa.href = linkWhatsapp(wa); } else { aWa.classList.add('off'); } }
     const tel = normalizarTelefoneBR(it.contact_phone);
     const aTel = list.querySelector('[data-fu-tel="'+it.id+'"]');
     if(aTel){ if(tel){ aTel.href = 'tel:+'+tel; } else { aTel.classList.add('off'); } }
