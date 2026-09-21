@@ -2011,7 +2011,13 @@ async function loadProfileAndInit(){
   // São independentes entre si -> allSettled (um erro não derruba as outras).
   // `loadDeals()` saiu do boot: nada na tela depende do array completo (Dashboard,
   // Funil e Follow-up leem RPC), e ele baixava a tabela `deals` inteira.
-  await Promise.allSettled([ loadStages(), loadProfiles(), carregarPriorizacaoICP() ]);
+  // Só etapas e perfis travam a abertura: sem eles o Funil não desenha.
+  // Priorização ICP, listas, empresas, pessoas e contadores do Follow-up
+  // carregam em segundo plano e se encaixam na tela quando chegam.
+  await Promise.allSettled([ loadStages(), loadProfiles() ]);
+  carregarPriorizacaoICP().then(function(){
+    if(kanbanCards && Object.keys(kanbanCards).length){ try { renderKanban(); } catch(eRk){} }
+  }).catch(function(){});
   carregarIntelBase().catch(function(){}); // motor de inteligência (não bloqueia o boot)
   // onclick (e não addEventListener): loadProfileAndInit roda mais de uma vez por sessão
   // — getSession inicial + onAuthStateChange. Com addEventListener os handlers acumulavam
@@ -2019,9 +2025,13 @@ async function loadProfileAndInit(){
   var btIntel = document.getElementById('intel-toggle');
   if(btIntel){ btIntel.onclick = function(){ intelExibir = !intelExibir; intelAplicarVisibilidade(); }; }
   carregarCidades();   // só alimenta o datalist; não bloqueia o boot e trata o próprio erro
-  await Promise.allSettled([ carregarListas(), loadCompanies(), loadContacts(), carregarContadores() ]);
   try { renderAll(); } catch(e){}
   try { setupRealtime(); } catch(e){}
+  Promise.allSettled([ carregarListas(), loadCompanies(), loadContacts(), carregarContadores() ]).then(function(){
+    // Quem abriu Empresas/Pessoas antes da carga terminar vê a lista preenchida.
+    if(paginaVisivel('companies')){ try { renderCompanies(); } catch(eC){} }
+    if(paginaVisivel('contacts')){ try { renderContacts(); } catch(eP){} }
+  });
 }
 
 // ============================================================
@@ -2033,6 +2043,8 @@ document.querySelectorAll('.nav-btn[data-page]').forEach(btn=>{
     btn.classList.add('active');
     document.querySelectorAll('main > section').forEach(s=>s.classList.add('hidden'));
     document.getElementById('page-' + btn.dataset.page).classList.remove('hidden');
+    if(btn.dataset.page === 'funnel' && realtimeSujo.funnel){ realtimeSujo.funnel = false; carregarKanban(); }
+    if(btn.dataset.page === 'dashboard' && realtimeSujo.dashboard){ realtimeSujo.dashboard = false; renderDashboard(); }
     if(btn.dataset.page === 'admin') renderAdmin();
     if(btn.dataset.page === 'companies') renderCompanies();
     if(btn.dataset.page === 'contacts') renderContacts();
@@ -2267,6 +2279,20 @@ function preencherDatalistListas(){
 // devolver ordens diferentes entre as páginas, fazendo linhas se repetirem e
 // outras nunca aparecerem (o bug que deixava ~1.000 dos 4.694 deals sem badge).
 async function carregarPriorizacaoICP(){
+  // Caminho rápido (0042): índice inteiro num JSON só, ~200 ms em vez de ~12
+  // idas em fila. Se a RPC não existir/falhar, cai na paginação antiga abaixo.
+  try {
+    var rIcp = await db.rpc('icp_indice');
+    if(rIcp && !rIcp.error && Array.isArray(rIcp.data)){
+      var idx = {}, iI;
+      for(iI = 0; iI < rIcp.data.length; iI++){
+        if(rIcp.data[iI] && rIcp.data[iI].deal_id != null){ idx[rIcp.data[iI].deal_id] = rIcp.data[iI]; }
+      }
+      icpPorDeal = idx;
+      atualizarVisibilidadeFiltroICP();
+      return;
+    }
+  } catch(eIcp){ /* segue para a paginação */ }
   const BLOCO = 1000;
   const MAX_BLOCOS = 100; // trava de segurança (até 100k linhas) contra loop infinito
   const indice = {};
@@ -2295,17 +2321,37 @@ let realtimeTimer = null;
 // visível. Mantém loadDeals (array p/ modal/drag) e o dashboard atualizados.
 // Recarga TOTAL a cada tick (não faz update cirúrgico por payload) — é o fallback
 // seguro para qualquer payload inesperado.
+// O cron de enriquecimento (a cada 3 min) também mexe em `deals`: com recarga
+// a cada 1 s, todo navegador aberto refazia Funil + Dashboard o tempo todo.
+// Agora: espera 4 s de calma, só recarrega a tela visível, e com a aba em
+// segundo plano apenas marca como "sujo" -- recarrega ao voltar ou ao navegar.
+var realtimeSujo = { funnel:false, dashboard:false };
+function paginaVisivel(id){
+  var el = document.getElementById('page-' + id);
+  return !!el && !el.classList.contains('hidden');
+}
+async function executarRefreshRealtime(){
+  try {
+    await loadDeals();
+    if(paginaVisivel('funnel')){ realtimeSujo.funnel = false; await carregarKanban(); }
+    else { realtimeSujo.funnel = true; }
+    if(paginaVisivel('dashboard')){ realtimeSujo.dashboard = false; renderDashboard(); }
+    else { realtimeSujo.dashboard = true; }
+  } catch(err){ /* silencioso; o próximo evento tenta novamente */ }
+}
 function agendarRefreshRealtime(){
   clearTimeout(realtimeTimer);
-  realtimeTimer = setTimeout(async ()=>{
-    try {
-      await loadDeals();
-      const funnel = document.getElementById('page-funnel');
-      if(funnel && !funnel.classList.contains('hidden')){ await carregarKanban(); }
-      renderDashboard();
-    } catch(err){ /* silencioso; o próximo evento tenta novamente */ }
-  }, 1000);
+  realtimeTimer = setTimeout(function(){
+    if(document.hidden){ realtimeSujo.funnel = true; realtimeSujo.dashboard = true; return; }
+    executarRefreshRealtime();
+  }, 4000);
 }
+document.addEventListener('visibilitychange', function(){
+  if(document.hidden || !currentUser) return;
+  if((realtimeSujo.funnel && paginaVisivel('funnel')) || (realtimeSujo.dashboard && paginaVisivel('dashboard'))){
+    executarRefreshRealtime();
+  }
+});
 function setupRealtime(){
   if(dealsChannel) db.removeChannel(dealsChannel);
   dealsChannel = db
