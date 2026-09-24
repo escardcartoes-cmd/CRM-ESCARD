@@ -1319,7 +1319,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
           <input type="text" id="deal-whatsapp" placeholder="(00) 00000-0000" inputmode="numeric">
         </div>
         <div class="field">
-          <label>CNPJ</label>
+          <label>CNPJ / CPF</label>
           <input type="text" id="deal-cnpj" placeholder="00.000.000/0000-00" inputmode="numeric">
         </div>
       </div>
@@ -3246,7 +3246,7 @@ async function openDealModal(dealId){
     document.getElementById('deal-contact-phone').value = deal.contact_phone || '';
     document.getElementById('deal-contact-email').value = deal.contact_email || '';
     document.getElementById('deal-whatsapp').value = deal.whatsapp || '';
-    document.getElementById('deal-cnpj').value = deal.cnpj || '';
+    document.getElementById('deal-cnpj').value = formatarDocumento(deal.cnpj);
     document.getElementById('deal-value').value = deal.value || '';
     document.getElementById('deal-close-date').value = deal.expected_close_date || '';
     document.getElementById('deal-followup').value = deal.next_followup_date || '';
@@ -4039,12 +4039,14 @@ function mascararWhatsapp(v){
   return '(' + d.slice(0,2) + ') ' + d.slice(2,7) + '-' + d.slice(7);
 }
 function mascararCnpj(v){
-  const d = (v||'').replace(/\D/g,'').slice(0,14);
-  if(d.length > 12) return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2}).*/, '$1.$2.$3/$4-$5');
-  if(d.length > 8)  return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{0,4}).*/, '$1.$2.$3/$4');
-  if(d.length > 5)  return d.replace(/^(\d{2})(\d{3})(\d{0,3}).*/, '$1.$2.$3');
-  if(d.length > 2)  return d.replace(/^(\d{2})(\d{0,3}).*/, '$1.$2');
-  return d;
+  var d = (v||'').replace(/\D/g,'').slice(0,14);
+  if(d.length <= 11){
+    if(d.length > 9) return d.replace(/^(\d{3})(\d{3})(\d{3})(\d{0,2}).*/, '$1.$2.$3-$4');
+    if(d.length > 6) return d.replace(/^(\d{3})(\d{3})(\d{0,3}).*/, '$1.$2.$3');
+    if(d.length > 3) return d.replace(/^(\d{3})(\d{0,3}).*/, '$1.$2');
+    return d;
+  }
+  return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2}).*/, '$1.$2.$3/$4-$5');
 }
 document.getElementById('deal-whatsapp').addEventListener('input', (e)=>{ e.target.value = mascararWhatsapp(e.target.value); });
 document.getElementById('deal-cnpj').addEventListener('input', (e)=>{ e.target.value = mascararCnpj(e.target.value); });
@@ -4088,30 +4090,64 @@ function atualizarLinksContato(){
   document.getElementById(id).addEventListener('input', atualizarLinksContato);
 });
 
-// Dígito verificador do CNPJ. Vazio = válido (campo opcional).
-function cnpjValido(valor){
-  const c = (valor||'').replace(/\D/g,'');
-  if(c.length === 0) return true;
-  if(c.length !== 14) return false;
-  if(/^(\d)\1{13}$/.test(c)) return false; // rejeita sequências repetidas
-  const calc = (base)=>{
-    let peso = base.length - 7, soma = 0;
-    for(let i=0;i<base.length;i++){
-      soma += Number(base[i]) * peso;
+// Documento do lead: CNPJ ou CPF. Vazio = válido (campo opcional).
+// Planilha do Excel perde o zero à esquerda do CNPJ (09.199.443/0001-28 vira
+// 9199443000128): 12 ou 13 dígitos são completados até 14 antes de validar.
+function cnpjDvOk(c){
+  if(c.length !== 14 || /^(\d)\1{13}$/.test(c)) return false;
+  var calc = function(base){
+    var peso = base.length - 7, soma = 0, i, r;
+    for(i = 0; i < base.length; i++){
+      soma += Number(base.charAt(i)) * peso;
       peso = (peso === 2) ? 9 : peso - 1;
     }
-    const r = soma % 11;
+    r = soma % 11;
     return (r < 2) ? 0 : 11 - r;
   };
-  const d1 = calc(c.slice(0,12));
-  const d2 = calc(c.slice(0,12) + d1);
-  return c[12] === String(d1) && c[13] === String(d2);
+  var d1 = calc(c.slice(0,12));
+  var d2 = calc(c.slice(0,12) + d1);
+  return c.charAt(12) === String(d1) && c.charAt(13) === String(d2);
+}
+function cpfDvOk(c){
+  if(c.length !== 11 || /^(\d)\1{10}$/.test(c)) return false;
+  var calc = function(n){
+    var soma = 0, i, r;
+    for(i = 0; i < n; i++) soma += Number(c.charAt(i)) * (n + 1 - i);
+    r = soma % 11;
+    return (r < 2) ? 0 : 11 - r;
+  };
+  return c.charAt(9) === String(calc(9)) && c.charAt(10) === String(calc(10));
+}
+// Retorna só os dígitos normalizados (CPF com 11, CNPJ com 14) ou null se inválido.
+function normalizarDocumento(valor){
+  var c = (valor == null ? '' : String(valor)).replace(/\D/g,'');
+  if(!c) return '';
+  if(c.length === 11 && cpfDvOk(c)) return c;
+  if(c.length >= 12 && c.length <= 14){
+    while(c.length < 14) c = '0' + c;
+    if(cnpjDvOk(c)) return c;
+  }
+  if(c.length < 11){
+    var p = c;
+    while(p.length < 14) p = '0' + p;
+    if(cnpjDvOk(p)) return p;
+  }
+  return null;
+}
+// Documento pronto para exibir/salvar (mascarado). Inválido volta como veio.
+function formatarDocumento(valor){
+  var n = normalizarDocumento(valor);
+  if(n === null) return (valor == null ? '' : String(valor)).trim();
+  return mascararCnpj(n);
+}
+function cnpjValido(valor){
+  return normalizarDocumento(valor) !== null;
 }
 
 // Validações do modal de deal, executadas só no submit. Retorna true se pode salvar.
 function validarDeal(){
   if(!cnpjValido(document.getElementById('deal-cnpj').value)){
-    showToast('CNPJ inválido. Confira os números ou deixe o campo em branco.', 'err');
+    showToast('CNPJ/CPF inválido. Confira os números ou deixe o campo em branco.', 'err');
     return false;
   }
   return true;
@@ -4126,7 +4162,7 @@ dealForm.addEventListener('submit', async (e)=>{
     contact_phone: document.getElementById('deal-contact-phone').value.trim() || null,
     contact_email: document.getElementById('deal-contact-email').value.trim() || null,
     whatsapp: document.getElementById('deal-whatsapp').value.trim() || null,
-    cnpj: document.getElementById('deal-cnpj').value.trim() || null,
+    cnpj: formatarDocumento(document.getElementById('deal-cnpj').value) || null,
     value: document.getElementById('deal-value').value || 0,
     expected_close_date: document.getElementById('deal-close-date').value || null,
     origem: document.getElementById('deal-source').value.trim() || null,
@@ -5884,7 +5920,7 @@ function transformarLinhaImport(row, modo){
     contact_phone: tels.contact_phone,
     whatsapp: tels.whatsapp,
     contact_email: primeiroEmail(valorColunaImport(row, 'contact_email')),
-    cnpj: valorColunaImport(row, 'cnpj') || null,
+    cnpj: formatarDocumento(valorColunaImport(row, 'cnpj')) || null,
     city: normalizarMunicipio(valorColunaImport(row, 'city')),
     bairro: valorColunaImport(row, 'bairro') || null,
     cnae: valorColunaImport(row, 'cnae') || null,
