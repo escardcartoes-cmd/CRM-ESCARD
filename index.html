@@ -1928,6 +1928,12 @@ function traduzErro(msg){
   return msg;
 }
 
+// Boot único por usuário. O SDK emite SIGNED_IN toda vez que a aba volta a ficar
+// visível e TOKEN_REFRESHED a cada hora; antes, cada evento refazia o boot inteiro
+// (~25 consultas pesadas, incluindo o índice ICP): 643 boots em 24 h para ~6 pessoas.
+// Mesma pessoa = só atualiza a sessão. Pessoa diferente ou sem boot = boot completo.
+var bootUsuarioId = null;
+
 // Observa mudanças de sessão
 db.auth.onAuthStateChange(async (event, session) => {
   // Req 2: modo recuperação ATIVA só quando o SDK confirma o token via
@@ -1948,12 +1954,20 @@ db.auth.onAuthStateChange(async (event, session) => {
   if(session && session.user){
     currentUser = session.user;
     if(hashTinhaRecovery){ limparHashDaUrl(); } // higieniza a URL seja qual for o desfecho
+    if(bootUsuarioId === session.user.id){ return; }
+    bootUsuarioId = session.user.id;
     // Fora do callback (macrotask nova): quebra o deadlock do LockManager. A query em
     // loadProfileAndInit chama getSession()->_acquireLock, que não pode rodar enquanto o
     // evento (via _recoverAndRefresh/_initialize) ainda segura o lock. Padrão do CLAUDE.md;
     // o próprio gotrue defere assim no _initialize. .catch evita rejeição solta silenciosa.
-    setTimeout(() => { loadProfileAndInit().catch(err => showToast('Erro ao inicializar: ' + (err && err.message ? err.message : err), 'err')); }, 0);
+    setTimeout(function(){
+      loadProfileAndInit().catch(function(err){
+        bootUsuarioId = null;   // falhou: o próximo evento de sessão tenta de novo
+        showToast('Erro ao inicializar: ' + (err && err.message ? err.message : err), 'err');
+      });
+    }, 0);
   } else {
+    bootUsuarioId = null;
     currentUser = null;
     currentProfile = null;
     if(dealsChannel){ db.removeChannel(dealsChannel); dealsChannel = null; }
@@ -2019,7 +2033,9 @@ async function loadProfileAndInit(){
   carregarPriorizacaoICP().then(function(){
     if(kanbanCards && Object.keys(kanbanCards).length){ try { renderKanban(); } catch(eRk){} }
   }).catch(function(){});
-  carregarIntelBase().catch(function(){}); // motor de inteligência (não bloqueia o boot)
+  // Motor de inteligência: 7 consultas que só servem ao modal do lead. Saem depois
+  // que Funil/Dashboard já pediram os dados, para não disputar o banco na abertura.
+  setTimeout(function(){ carregarIntelBase().catch(function(){}); }, 2500);
   // onclick (e não addEventListener): loadProfileAndInit roda mais de uma vez por sessão
   // — getSession inicial + onAuthStateChange. Com addEventListener os handlers acumulavam
   // e o clique alternava duas vezes, voltando ao estado original: o painel não abria.
@@ -2280,38 +2296,35 @@ function preencherDatalistListas(){
 // devolver ordens diferentes entre as páginas, fazendo linhas se repetirem e
 // outras nunca aparecerem (o bug que deixava ~1.000 dos 4.694 deals sem badge).
 async function carregarPriorizacaoICP(){
-  // Caminho rápido (0042): índice inteiro num JSON só, ~200 ms em vez de ~12
-  // idas em fila. Se a RPC não existir/falhar, cai na paginação antiga abaixo.
+  // 0057: índice compacto [deal_id, tier, mascara, score] — ~1,4 MB em vez de
+  // ~7,3 MB. Detalhes (motivo, roadmap) o modal busca só do lead aberto.
+  // Sem paginação de fallback: quando o índice falhava, a paginação disparava
+  // ~27 consultas em fila e piorava o banco justamente quando ele estava lento.
+  var idx = {}, iI, lin, m;
   try {
-    var rIcp = await db.rpc('icp_indice');
-    if(rIcp && !rIcp.error && Array.isArray(rIcp.data)){
-      var idx = {}, iI;
-      for(iI = 0; iI < rIcp.data.length; iI++){
-        if(rIcp.data[iI] && rIcp.data[iI].deal_id != null){ idx[rIcp.data[iI].deal_id] = rIcp.data[iI]; }
+    var rC = await db.rpc('icp_indice_compacto');
+    if(rC && !rC.error && Array.isArray(rC.data)){
+      for(iI = 0; iI < rC.data.length; iI++){
+        lin = rC.data[iI];
+        if(!lin || lin[0] == null) continue;
+        m = Number(lin[2]) || 0;
+        idx[lin[0]] = { tier: lin[1], mascara: m, score: lin[3], afinidade_private: (m & 8) ? 'Alta' : null };
       }
       icpPorDeal = idx;
       atualizarVisibilidadeFiltroICP();
       return;
     }
-  } catch(eIcp){ /* segue para a paginação */ }
-  const BLOCO = 1000;
-  const MAX_BLOCOS = 100; // trava de segurança (até 100k linhas) contra loop infinito
-  const indice = {};
-  let inicio = 0;
-  for(let b = 0; b < MAX_BLOCOS; b++){
-    const { data, error } = await db
-      .from('vw_sdr_priorizacao_escard')
-      .select('deal_id,tier,prioridade,produto_entrada,produto_roadmap,afinidade_private,motivo_afinidade,score,rota,municipio')
-      .order('deal_id', { ascending: true })
-      .range(inicio, inicio + BLOCO - 1);
-    if(error){ throw new Error(error.message); }
-    const linhas = data || [];
-    for(const r of linhas){ if(r.deal_id != null){ indice[r.deal_id] = r; } }
-    if(linhas.length < BLOCO) break;
-    inicio += BLOCO;
-  }
-  icpPorDeal = indice;
-  atualizarVisibilidadeFiltroICP();
+  } catch(eC){ /* tenta o índice completo, uma chamada só */ }
+  try {
+    var rIcp = await db.rpc('icp_indice');
+    if(rIcp && !rIcp.error && Array.isArray(rIcp.data)){
+      for(iI = 0; iI < rIcp.data.length; iI++){
+        if(rIcp.data[iI] && rIcp.data[iI].deal_id != null){ idx[rIcp.data[iI].deal_id] = rIcp.data[iI]; }
+      }
+      icpPorDeal = idx;
+      atualizarVisibilidadeFiltroICP();
+    }
+  } catch(eIcp){ /* sem ICP: filtros e legenda ficam ocultos */ }
 }
 
 // ============================================================
@@ -2681,6 +2694,12 @@ var icpFiltroProdutos = [];
 function icpProdutosDe(icp){
   var out = [];
   if(!icp) return out;
+  if(typeof icp.mascara === 'number'){
+    if(icp.mascara & 1) out.push('beneficios');
+    if(icp.mascara & 2) out.push('cobranca');
+    if(icp.mascara & 4) out.push('private');
+    return out;
+  }
   var p = icp.produto_entrada ? String(icp.produto_entrada).toLowerCase() : '';
   var a = icp.afinidade_private ? String(icp.afinidade_private).toLowerCase() : '';
   a = a.replace(/[\u00e9\u00ea]/g, 'e');
@@ -3300,8 +3319,20 @@ async function openDealModal(dealId){
 function preencherICPModal(dealId){
   const sec = document.getElementById('deal-icp-section');
   if(!sec) return;
-  const icp = dealId ? icpPorDeal[dealId] : null;
-  if(!icp){ sec.classList.add('hidden'); return; }
+  if(!dealId || !icpPorDeal[dealId]){ sec.classList.add('hidden'); return; }
+  // O índice só tem tier/máscara/score; o resto vem da view, só deste lead.
+  preencherICPModalCampos(icpPorDeal[dealId]);
+  sec.classList.remove('hidden');
+  Promise.resolve(
+    db.from('vw_sdr_priorizacao_escard')
+      .select('tier,prioridade,produto_entrada,afinidade_private,motivo_afinidade')
+      .eq('deal_id', dealId).maybeSingle()
+  ).then(function(r){
+    if(editingDealId !== dealId || !r || r.error || !r.data) return;
+    preencherICPModalCampos(r.data);
+  }).catch(function(){ /* fica o que o índice já mostrou */ });
+}
+function preencherICPModalCampos(icp){
   const tierEl = document.getElementById('deal-icp-tier');
   const t = icp.tier ? String(icp.tier).toUpperCase() : '';
   if(t === 'S' || t === 'A' || t === 'B' || t === 'C'){
@@ -3314,7 +3345,6 @@ function preencherICPModal(dealId){
   document.getElementById('deal-icp-produto').textContent = icp.produto_entrada || '—';
   document.getElementById('deal-icp-afinidade').textContent = icp.afinidade_private || '—';
   document.getElementById('deal-icp-motivo').textContent = icp.motivo_afinidade || '—';
-  sec.classList.remove('hidden');
 }
 
 // ===== Motor de Inteligência (regras, 100% no navegador) — aditivo =====
