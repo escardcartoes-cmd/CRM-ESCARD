@@ -4131,6 +4131,11 @@ function validarDeal(){
   return true;
 }
 
+function nomeDoPerfil(id){
+  for(var i = 0; i < profiles.length; i++){ if(profiles[i].id === id) return profiles[i].full_name; }
+  return 'outro vendedor';
+}
+
 // Rele etapa/follow-up/motivo do banco e atualiza caches e o modal aberto.
 // Se o usuario ja tinha mexido no select de etapa, a escolha dele e mantida
 // (so a referencia muda), e o Salvar envia a escolha manual.
@@ -4196,11 +4201,21 @@ dealForm.addEventListener('submit', async (e)=>{
   };
 
   if(editingDealId){
-    // Responsavel so vai no update se o admin trocou no select.
+    // Responsavel NUNCA vai no update direto: o banco (0056) rejeita troca de
+    // dono por PATCH. Transferencia so pela RPC transferir_lead, e so depois de
+    // o admin confirmar de/para -- troca silenciosa de dono some com o lead do
+    // funil de quem o trabalha.
+    var novoDono = null;
     if(isAdmin()){
       var selDonoSv = document.getElementById('deal-owner');
-      if(selDonoSv && selDonoSv.value && selDonoSv.value !== selDonoSv.dataset.orig){
-        payload.owner_id = selDonoSv.value;
+      if(selDonoSv && selDonoSv.value && selDonoSv.dataset.orig && selDonoSv.value !== selDonoSv.dataset.orig){
+        var nomeDe = nomeDoPerfil(selDonoSv.dataset.orig);
+        var nomePara = nomeDoPerfil(selDonoSv.value);
+        if(window.confirm('Transferir este lead de ' + nomeDe + ' para ' + nomePara + '?')){
+          novoDono = selDonoSv.value;
+        } else {
+          selDonoSv.value = selDonoSv.dataset.orig;
+        }
       }
     }
     // Mesma regra do arrastar: mudou de etapa com follow-up vencido, a data velha sai junto.
@@ -4214,7 +4229,11 @@ dealForm.addEventListener('submit', async (e)=>{
     if(payload.stage_id){ payload.stage_changed_at = new Date().toISOString(); }
     const { error } = await db.from('deals').update(payload).eq('id', editingDealId);
     if(error){ showToast('Erro ao salvar: ' + error.message, 'err'); return; }
-    showToast('Lead atualizado', 'ok');
+    if(novoDono){
+      var rTr = await db.rpc('transferir_lead', { p_deal: editingDealId, p_owner: novoDono });
+      if(rTr.error){ showToast('Lead salvo, mas a transferência falhou: ' + rTr.error.message, 'err'); return; }
+    }
+    showToast(novoDono ? 'Lead atualizado e transferido' : 'Lead atualizado', 'ok');
   } else {
     payload.owner_id = isAdmin() ? document.getElementById('deal-owner').value : currentProfile.id;
     payload.next_followup_date = document.getElementById('deal-followup').value || null;
