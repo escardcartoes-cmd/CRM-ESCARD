@@ -2082,7 +2082,7 @@ async function loadProfiles(){
   if(isAdmin()){
     ownerSelect.innerHTML = profiles.map(p=>`<option value="${p.id}">${p.full_name}</option>`).join('');
     filterSelect.innerHTML = '<option value="">Todos os vendedores</option>' +
-      profiles.filter(p=>p.role==='vendedor').map(p=>`<option value="${p.id}">${p.full_name}</option>`).join('');
+      profiles.filter(function(p){ return p.active !== false && !p.deleted_at; }).map(p=>`<option value="${p.id}">${p.full_name}</option>`).join('');
   }
 }
 
@@ -5149,7 +5149,7 @@ async function abrirFollowup(){
       sel.classList.remove('hidden');
       if(!sel.dataset.montado){
         sel.innerHTML = '<option value="">Todos os vendedores</option>' +
-          profiles.filter(p=>p.role==='vendedor').map(p=>`<option value="${p.id}">${escapeHtml(p.full_name)}</option>`).join('');
+          profiles.filter(function(p){ return p.active !== false && !p.deleted_at; }).map(p=>`<option value="${p.id}">${escapeHtml(p.full_name)}</option>`).join('');
         sel.dataset.montado = '1';
       }
     } else {
