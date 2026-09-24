@@ -3309,6 +3309,11 @@ var intelConsultivo = [];
 var INTEL_MODO_ROT = { abordagem: 'Abordagem', proposta: 'Proposta', carteira: 'Carteira' };
 var intelAtual = null;
 var INTEL_FIT = { S: 50, A: 40, B: 25, C: 10, DESCARTE: 0 };
+// Parceiros de canal (contabilidade, seguros): não compram, indicam. O arquétipo vem de
+// escard.fn_classificar_deals a partir do marcador PARCEIRO de lista_origem. Para eles o
+// roteiro genérico (venda direta) não serve: só o conteúdo próprio, exceto a abertura.
+var INTEL_ARQ_CANAL = { 'Canal contábil': true, 'Canal seguros': true };
+function intelEhCanal(arq){ return !!(arq && INTEL_ARQ_CANAL[arq]); }
 
 async function carregarIntelBase(){
   var f = await db.from('vw_intel_frases').select('id,arquetipo,angulo,gatilho_tipo,hook,proposta');
@@ -3439,6 +3444,7 @@ function intelEscolherAngulo(ctx, sinais){
 
 function intelProduto(ctx){
   var arq = ctx.arquetipo || '';
+  if(intelEhCanal(arq)){ return 'Parceria'; }
   if(arq === 'Varejista'){ return 'Private Label'; }
   if(arq === 'Varejo-empregador'){ return 'Hybrid'; }
   if(arq === 'Empregador puro'){ return 'Corporate Benefits'; }
@@ -3501,7 +3507,7 @@ function intelObjecao(arq){
   for(var i = 0; i < intelObjecoes.length; i++){
     var o = intelObjecoes[i];
     if(o.arquetipo === arq && !esp){ esp = o; }
-    if(!o.arquetipo && !gen){ gen = o; }
+    if(!o.arquetipo && !gen && !intelEhCanal(arq)){ gen = o; }
   }
   return esp || gen;
 }
@@ -3526,7 +3532,7 @@ function intelRoteiroDo(bloco, arquetipo){
     var r = intelRoteiro[i];
     if(r.bloco !== bloco){ continue; }
     if(r.arquetipo === arquetipo){ esp.push(r); }
-    else if(!r.arquetipo){ gen.push(r); }
+    else if(!r.arquetipo && (bloco === 'abertura' || !intelEhCanal(arquetipo))){ gen.push(r); }
   }
   function porOrdem(x, y){ return Number(x.ordem) - Number(y.ordem); }
   return esp.concat(gen).sort(porOrdem);
@@ -3536,7 +3542,7 @@ function intelConsultivoDo(arquetipo){
   var gen = null;
   for(var i = 0; i < intelConsultivo.length; i++){
     if(intelConsultivo[i].arquetipo === arquetipo){ return intelConsultivo[i]; }
-    if(!intelConsultivo[i].arquetipo && !gen){ gen = intelConsultivo[i]; }
+    if(!intelConsultivo[i].arquetipo && !gen && !intelEhCanal(arquetipo)){ gen = intelConsultivo[i]; }
   }
   return gen;
 }
@@ -3546,7 +3552,7 @@ function intelArgumentosDo(arquetipo){
   for(var i = 0; i < intelArgumentos.length; i++){
     var a = intelArgumentos[i];
     if(a.arquetipo === arquetipo){ esp.push(a); }
-    else if(!a.arquetipo){ gen.push(a); }
+    else if(!a.arquetipo && !intelEhCanal(arquetipo)){ gen.push(a); }
   }
   function porOrdem(x, y){ return Number(x.ordem) - Number(y.ordem); }
   esp.sort(porOrdem); gen.sort(porOrdem);
@@ -3561,6 +3567,7 @@ var INTEL_CONC_POR_ARQ = {
   'Varejo-empregador': ['Alelo', 'Le Card / Comprocard', 'Nenhum / paga em dinheiro']
 };
 function intelConcorrentesDo(arquetipo, qtd){
+  if(intelEhCanal(arquetipo)){ return []; } // parceiro não troca de operadora: indica
   var nomes = INTEL_CONC_POR_ARQ[arquetipo] || ['Alelo', 'VR', 'Nenhum / paga em dinheiro'];
   if(qtd != null && qtd >= 50){ nomes = ['Alelo', 'VR', 'Ticket / Edenred', 'Flash']; }
   var out = [];
@@ -3756,7 +3763,7 @@ function intelRenderAbordagem(st){
 
   h += intelBloco('As 5 coisas a descobrir', 'descobrir', st, false);
   h += intelBloco('Marcar a reunião', 'fechar', st, true);
-  h += intelBloco('Se perguntar de valor', 'cerca', st, true);
+  h += intelBloco(intelEhCanal(st.ctx.arquetipo) ? 'Se perguntar quanto ganha' : 'Se perguntar de valor', 'cerca', st, true);
   h += intelBloco('Objeções do seu turno', 'porta', st, false);
 
   if(p.objecoes_recentes.length){
@@ -3770,7 +3777,8 @@ function intelRenderAbordagem(st){
 // ===== PROPOSTA (Reunião, Negociação) — munição de produto e concorrência =====
 function intelRenderProposta(st){
   var p = st.pitch, h = '';
-  h += '<div class="intel-sub">O que ofertar — e como falar</div>';
+  var canal = intelEhCanal(st.ctx.arquetipo);
+  h += '<div class="intel-sub">' + (canal ? 'Como a parceria funciona — e como falar' : 'O que ofertar — e como falar') + '</div>';
   for(var q = 0; q < p.argumentos.length; q++){
     var g = p.argumentos[q], principal = (q === 0);
     h += '<details class="intel-prod"' + (principal ? ' open' : '') + '>';
@@ -3783,6 +3791,7 @@ function intelRenderProposta(st){
     h += '</details>';
   }
 
+  if(!canal){
   h += '<div class="intel-sub">Se ele disser quem atende hoje</div>';
   var nomes = [];
   for(var n = 0; n < Math.min(3, p.concorrentes.length); n++){ nomes.push(p.concorrentes[n].operadora); }
@@ -3797,7 +3806,10 @@ function intelRenderProposta(st){
     h += '</details>';
   }
 
-  h += '<div class="intel-alerta">Preço e condição saem do Consultor de Oferta, com os dados do cliente. Não improvise número.</div>';
+  }
+  h += '<div class="intel-alerta">' + (canal
+    ? 'O ganho do parceiro sai da tabela oficial de Parceiro, em R$. Não fale percentual e não estime valor de cabeça.'
+    : 'Preço e condição saem do Consultor de Oferta, com os dados do cliente. Não improvise número.') + '</div>';
   if(p.objecao){
     h += '<div class="intel-sub">Objeção provável</div>';
     h += '<div class="intel-objecao"><b>' + escapeHtml(p.objecao.objecao) + '</b><br>' + escapeHtml(p.objecao.resposta) + '</div>';
@@ -3807,6 +3819,7 @@ function intelRenderProposta(st){
 
 // ===== CARTEIRA (Fechado Ganho) =====
 function intelRenderCarteira(st){
+  if(intelEhCanal(st.ctx.arquetipo)){ return intelRenderCarteiraCanal(); }
   var h = '<div class="intel-sub">Cliente ativo</div>';
   h += '<div class="intel-linha">Assinou. O que vale agora é a primeira carga — contrato sem carga não é receita.</div>';
   h += '<div class="intel-fala">Oi, [nome], tudo certo? Passei só para saber se ficou alguma dúvida na hora de fazer a primeira carga. Consigo resolver por aqui agora mesmo.' +
@@ -3819,6 +3832,17 @@ function intelRenderCarteira(st){
     h += '<div class="intel-fala">' + escapeHtml(g.fala) +
          ' <button type="button" class="btn btn-slim intel-copiar-txt" data-txt="' + escapeHtml(g.fala) + '">Copiar</button></div>';
   }
+  return h;
+}
+
+// Parceiro assinado: o que vale é a primeira indicação, não a carga.
+function intelRenderCarteiraCanal(){
+  var fala = 'Oi, [nome], tudo certo? Passei para pegar as primeiras empresas que você ficou de indicar. Me passa três nomes e eu já ligo em nome da parceria.';
+  var h = '<div class="intel-sub">Parceiro ativo</div>';
+  h += '<div class="intel-linha">Parceria assinada. O que vale agora é a primeira indicação — parceiro que não indica no primeiro mês esfria.</div>';
+  h += '<div class="intel-fala">' + escapeHtml(fala) +
+       ' <button type="button" class="btn btn-slim intel-copiar-txt" data-txt="' + escapeHtml(fala) + '">Copiar</button></div>';
+  h += '<div class="intel-linha intel-quando">Cada empresa indicada entra no CRM como lead próprio. Registre de quem veio na observação.</div>';
   return h;
 }
 
