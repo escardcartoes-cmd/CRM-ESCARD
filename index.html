@@ -2897,9 +2897,15 @@ function selosDoCard(d, stage){
   // de rediscagem, onde o tempo parado é a informação principal. O corte certo é a etapa
   // de entrada: em "Leads Novos" a data vem da importação e o selo só polui (pedido da
   // Priscila, 10/09).
+  // Desde 24/09 (0049): conta a partir do MAIS RECENTE entre a entrada na etapa e o
+  // último registro de contato (qualquer canal/desfecho). E-mail enviado hoje = 0d parado.
   if(!stage.is_won && !stage.is_lost && stage.name !== ETAPA_ENTRADA && d.stage_changed_at){
-    const entrou = new Date(d.stage_changed_at);
-    const diasParado = Math.floor((Date.now() - entrou.getTime()) / 86400000);
+    var refParado = new Date(d.stage_changed_at).getTime();
+    if(d.ultima_atividade){
+      var tAtiv = new Date(d.ultima_atividade).getTime();
+      if(!isNaN(tAtiv) && tAtiv > refParado) refParado = tAtiv;
+    }
+    const diasParado = Math.floor((Date.now() - refParado) / 86400000);
     if(diasParado >= 7){
       const cor = diasParado >= 15 ? 'selo-parado-alerta' : 'selo-parado';
       selos.push(`<span class="card-selo ${cor}">⏱ ${diasParado}d parado</span>`);
