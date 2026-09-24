@@ -2898,8 +2898,10 @@ function selosDoCard(d, stage){
   // de entrada: em "Leads Novos" a data vem da importação e o selo só polui (pedido da
   // Priscila, 10/09).
   // Desde 24/09 (0049): conta a partir do MAIS RECENTE entre a entrada na etapa e o
-  // último registro de contato (qualquer canal/desfecho). E-mail enviado hoje = 0d parado.
-  if(!stage.is_won && !stage.is_lost && stage.name !== ETAPA_ENTRADA && d.stage_changed_at){
+  // último registro de contato válido (número errado/inválido não conta — 0050).
+  // Decisão de Roberto (24/09): em "Sem Contato" não há selo de parado — o lead ainda
+  // não foi alcançado, e a informação útil ali é a data de rediscagem (🔁).
+  if(!stage.is_won && !stage.is_lost && stage.name !== ETAPA_ENTRADA && stage.name !== ETAPA_REDISCAGEM && d.stage_changed_at){
     var refParado = new Date(d.stage_changed_at).getTime();
     if(d.ultima_atividade){
       var tAtiv = new Date(d.ultima_atividade).getTime();
