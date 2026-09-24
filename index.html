@@ -3262,15 +3262,29 @@ async function openDealModal(dealId){
       selEtapa.value = '';
       showToast('A etapa deste lead nao esta na lista. Recarregue a pagina (Ctrl+F5) antes de salvar.', 'err');
     }
+    // Referencia da abertura: o Salvar so envia etapa/responsavel se o usuario
+    // mudou o select. Sem isto, o valor lido na abertura desfazia o avanco
+    // automatico feito pelo trigger ao registrar contato (0016/0041).
+    selEtapa.dataset.orig = selEtapa.value;
     document.getElementById('deal-lista').value = deal.lista_origem || '';
     document.getElementById('deal-loss-reason').value = deal.loss_reason || '';
-    if(isAdmin()) document.getElementById('deal-owner').value = deal.owner_id;
+    if(isAdmin()){
+      var selDono = document.getElementById('deal-owner');
+      selDono.value = deal.owner_id;
+      // Guarda o que o select EXIBE, nao o owner_id: se o dono nao casar com
+      // nenhuma option, o browser cai na primeira e o Salvar transferia o lead.
+      selDono.dataset.orig = selDono.value;
+    }
     fecharFormRegistro();
     await loadAtividades(dealId);
   } else {
     document.getElementById('deal-modal-title').textContent = 'Novo Lead';
-    document.getElementById('deal-stage').value = stages[0]?.id || '';
-    if(isAdmin()) document.getElementById('deal-owner').value = currentProfile.id;
+    document.getElementById('deal-stage').value = (stages[0] && stages[0].id) || '';
+    document.getElementById('deal-stage').dataset.orig = '';
+    if(isAdmin()){
+      document.getElementById('deal-owner').value = currentProfile.id;
+      document.getElementById('deal-owner').dataset.orig = '';
+    }
   }
   aplicarModoFollowup(dealId);
   atualizarCampoMotivoPerda();
@@ -4117,6 +4131,38 @@ function validarDeal(){
   return true;
 }
 
+// Rele etapa/follow-up/motivo do banco e atualiza caches e o modal aberto.
+// Se o usuario ja tinha mexido no select de etapa, a escolha dele e mantida
+// (so a referencia muda), e o Salvar envia a escolha manual.
+async function sincronizarEtapaModal(dealId){
+  try {
+    var r = await db.from('deals').select('stage_id, next_followup_date, loss_reason').eq('id', dealId).maybeSingle();
+    if(!r || r.error || !r.data) return;
+    var loc = acharDealLocal(dealId);
+    var dC = deals.find(function(x){ return x.id === dealId; });
+    [loc, dC].forEach(function(o){
+      if(!o) return;
+      o.stage_id = r.data.stage_id;
+      o.next_followup_date = r.data.next_followup_date;
+      o.loss_reason = r.data.loss_reason;
+    });
+    if(editingDealId !== dealId) return;
+    var sel = document.getElementById('deal-stage');
+    if(!sel) return;
+    var intocado = !sel.dataset.orig || sel.value === sel.dataset.orig;
+    sel.dataset.orig = r.data.stage_id;
+    if(intocado){
+      sel.value = r.data.stage_id;
+      var mot = document.getElementById('deal-loss-reason');
+      if(mot) mot.value = r.data.loss_reason || '';
+      var fu = document.getElementById('deal-followup');
+      if(fu) fu.value = r.data.next_followup_date || '';
+      atualizarCampoMotivoPerda();
+      aplicarModoFollowup(dealId);
+    }
+  } catch(eSync){ /* falha de leitura nao invalida o contato ja gravado */ }
+}
+
 dealForm.addEventListener('submit', async (e)=>{
   e.preventDefault();
   if(!validarDeal()) return;
@@ -4134,18 +4180,38 @@ dealForm.addEventListener('submit', async (e)=>{
     // que o JSON.stringify do postgrest omite: o update nao toca stage_id e a
     // etapa atual do banco fica preservada. Fecha tambem o submit implicito
     // (Enter num input do bloco de registro dispara o submit deste form).
-    stage_id: (function(){ var el = document.getElementById('deal-stage'); var v = el ? el.value : ''; for(var i=0;i<stages.length;i++){ if(stages[i].id === v) return v; } return undefined; })(),
+    // Na edicao, etapa igual a da abertura tambem fica de fora: quem muda etapa
+    // sem o usuario tocar no select e o banco (triggers), e o banco vence.
+    stage_id: (function(){
+      var el = document.getElementById('deal-stage');
+      var v = el ? el.value : '';
+      var existe = false;
+      for(var i=0;i<stages.length;i++){ if(stages[i].id === v) existe = true; }
+      if(!existe) return undefined;
+      if(editingDealId && el.dataset.orig && v === el.dataset.orig) return undefined;
+      return v;
+    })(),
     lista_origem: document.getElementById('deal-lista').value.trim().slice(0, 120) || null,
     loss_reason: document.getElementById('deal-loss-reason').value || null,
   };
 
   if(editingDealId){
-    if(isAdmin()) payload.owner_id = document.getElementById('deal-owner').value;
+    // Responsavel so vai no update se o admin trocou no select.
+    if(isAdmin()){
+      var selDonoSv = document.getElementById('deal-owner');
+      if(selDonoSv && selDonoSv.value && selDonoSv.value !== selDonoSv.dataset.orig){
+        payload.owner_id = selDonoSv.value;
+      }
+    }
     // Mesma regra do arrastar: mudou de etapa com follow-up vencido, a data velha sai junto.
     var dAtual = deals.find(function(x){ return x.id === editingDealId; });
     if(payload.stage_id && dAtual && dAtual.stage_id !== payload.stage_id && followupVencido(editingDealId)){
       payload.next_followup_date = null;
     }
+    // Troca manual de etapa carimba a data, como o arrastar no Funil. E este
+    // carimbo que a trava do banco (0055) usa para distinguir escolha do usuario
+    // de reenvio de etapa velha por aba desatualizada.
+    if(payload.stage_id){ payload.stage_changed_at = new Date().toISOString(); }
     const { error } = await db.from('deals').update(payload).eq('id', editingDealId);
     if(error){ showToast('Erro ao salvar: ' + error.message, 'err'); return; }
     showToast('Lead atualizado', 'ok');
@@ -4950,6 +5016,11 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
       rotuloOk += ' · próximo toque em ' + formatDate(cadencia.data);
     } else if(!naEsteira && !ehNota){
       rotuloOk += ' · lead fora da fila do Follow-up, nenhum retorno agendado';
+    }
+    // Os triggers podem ter mudado a etapa ao gravar o contato: o modal aberto
+    // passa a refletir o banco antes de qualquer Salvar.
+    if(!editandoAtividadeId && editingDealId && editingDealId === regDealId){
+      await sincronizarEtapaModal(regDealId);
     }
     showToast(rotuloOk, 'ok');
     const ctxReg = regContext;
