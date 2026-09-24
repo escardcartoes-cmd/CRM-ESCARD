@@ -4202,6 +4202,9 @@ const PROXIMO_OPCOES = [
   { k:'15dias', label:'15 dias',           dias:15 },
   { k:'data',   label:'Data...',           dias:null },
   { k:'sem',    label:'Sem próximo passo', dias:null },
+  // 0053: recusa do cliente. Registra o contato e move o lead para Perdidos
+  // (motivo "Sem interesse") via RPC marcar_sem_interesse — sai da fila e do "parado".
+  { k:'sem_interesse', label:'✖ Sem interesse → Perdido', dias:null },
 ];
 
 // ===== Régua de cadência — 5 toques em 15 dias =====
@@ -4542,7 +4545,7 @@ function selecionarProximo(k){
   regState.proximoKey = k;
   const dateInput = document.getElementById('reg-next-date');
   const opc = PROXIMO_OPCOES.find(o=>o.k===k);
-  if(k === 'sem'){ regState.proximo = null; dateInput.classList.add('hidden'); }
+  if(k === 'sem' || k === 'sem_interesse'){ regState.proximo = null; dateInput.classList.add('hidden'); }
   else if(k === 'data'){ dateInput.classList.remove('hidden'); regState.proximo = dateInput.value || null; }
   else { regState.proximo = dataMaisDias(opc.dias); dateInput.classList.add('hidden'); }
   renderRegProximo();
@@ -4745,6 +4748,9 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
   if(!ehNota && !ehReuniao && !regState.resultado){ showToast('Escolha o resultado do contato antes de salvar.', 'err'); return; }
   const note = document.getElementById('reg-note').value.trim();
   if(ehNota && !note){ showToast('A nota precisa de um texto.', 'err'); return; }
+  if(regState.proximoKey === 'sem_interesse' && editandoAtividadeId){
+    showToast('"Sem interesse" vale para um contato novo. Registre um novo contato para mover o lead.', 'err'); return;
+  }
 
   // Reunião: outcome deriva da situação (agenda_outcome_coerente no banco).
   const infoStatus   = ehReuniao ? infoAgendaStatus(regState.agendaStatus) : null;
@@ -4790,6 +4796,7 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
   btn.disabled = true;
   var etapaAntesReg = etapaDoDeal(regDealId);
   var movidoPerdido = null;   // etapa "Perdidos" quando o trigger 0041 agiu
+  var semInteresse = false;   // 0053: o próprio vendedor marcou a recusa
   try {
     if(editandoAtividadeId){
       const { error } = await db.from('deal_activities').update({
@@ -4835,6 +4842,21 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
             }
           }
         } catch(eEt){ movidoPerdido = null; }
+      }
+      // 0053: "Sem interesse" — o banco move para Perdidos (ou só troca o motivo,
+      // se o trigger 0041 já tiver movido) e devolve o id da etapa.
+      if(regState.proximoKey === 'sem_interesse'){
+        // O contato já foi gravado: se a mudança de etapa falhar, avisa sem desfazer o registro
+        // (lançar erro aqui levaria o vendedor a registrar o contato de novo, duplicado).
+        var rSi = await db.rpc('marcar_sem_interesse', { p_deal: regDealId });
+        if(rSi.error){
+          showToast('Contato salvo, mas o lead não foi para Perdidos: ' + (rSi.error.message || 'erro') + '. Mova pelo lead.', 'err');
+        } else {
+          for(var iSi = 0; iSi < stages.length; iSi++){
+            if(stages[iSi].id === rSi.data){ movidoPerdido = { stage: stages[iSi], loss_reason: 'Sem interesse' }; }
+          }
+          semInteresse = true;
+        }
       }
       if(movidoPerdido){
         var locPerd = acharDealLocal(regDealId);
@@ -4916,7 +4938,9 @@ document.getElementById('reg-salvar').addEventListener('click', async ()=>{
       : (editandoAtividadeId ? 'Contato atualizado' : 'Contato registrado');
     // O SDR precisa ver o que foi agendado por ele — senão a régua vira caixa-preta.
     if(movidoPerdido){
-      rotuloOk += ' · ' + PERDIDO_TENTATIVAS + ' tentativas sem resposta, lead movido para "' + movidoPerdido.stage.name + '"';
+      rotuloOk += semInteresse
+        ? ' · sem interesse, lead movido para "' + movidoPerdido.stage.name + '"'
+        : ' · ' + PERDIDO_TENTATIVAS + ' tentativas sem resposta, lead movido para "' + movidoPerdido.stage.name + '"';
       renderAll();
     } else if(cadencia && cadencia.esgotou){
       rotuloOk += (cadencia.motivo === 'ruim')
