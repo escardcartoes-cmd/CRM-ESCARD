@@ -970,13 +970,13 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
       <div class="fu-stages" id="fu-stages"></div>
       <div class="funnel-toolbar">
         <input type="text" id="fu-busca" placeholder="Buscar por nome, contato ou CNPJ...">
-        <select id="fu-min-dias" aria-label="Filtrar por dias sem contato efetivo">
+        <select id="fu-min-dias" aria-label="Filtrar por dias parado">
           <option value="0">Qualquer período</option>
-          <option value="7">7+ dias sem contato</option>
-          <option value="15">15+ dias sem contato</option>
-          <option value="30">30+ dias sem contato</option>
-          <option value="60">60+ dias sem contato</option>
-          <option value="90">90+ dias sem contato</option>
+          <option value="7">7+ dias parado</option>
+          <option value="15">15+ dias parado</option>
+          <option value="30">30+ dias parado</option>
+          <option value="60">60+ dias parado</option>
+          <option value="90">90+ dias parado</option>
         </select>
         <select id="fu-owner" class="hidden"></select>
         <select id="fu-lista" class="hidden" aria-label="Filtrar por lista de origem"></select>
@@ -2898,7 +2898,7 @@ function selosDoCard(d, stage){
   // de entrada: em "Leads Novos" a data vem da importação e o selo só polui (pedido da
   // Priscila, 10/09).
   // Desde 24/09 (0049): conta a partir do MAIS RECENTE entre a entrada na etapa e o
-  // último registro de contato válido (número errado/inválido não conta — 0050).
+  // último contato válido — mesma regra do Follow-up (public.fn_ultimo_contato, 0051).
   // Decisão de Roberto (24/09): em "Sem Contato" não há selo de parado — o lead ainda
   // não foi alcançado, e a informação útil ali é a data de rediscagem (🔁).
   if(!stage.is_won && !stage.is_lost && stage.name !== ETAPA_ENTRADA && stage.name !== ETAPA_REDISCAGEM && d.stage_changed_at){
@@ -5076,15 +5076,14 @@ function fuFlagsHtml(it){
   } else {
     flags.push(`<span>Sem próximo passo</span>`);
   }
-  // "Sem contato" e não "parado": desde a migration 0011 o contador só zera com
-  // contato efetivo (atendeu / respondeu / reunião realizada). Ligação que o
-  // cliente não atendeu é esforço registrado, não é lead alcançado.
-  // Quatro dias é o limite acordado: passou disso sem conversar com ninguém, o
-  // lead precisa de outra abordagem — telefone novo, outro canal, ou descarte.
-  // 30 dias continua sendo o vermelho de "isso aqui virou entulho".
+  // Regra única (0051, 24/09): "parado" = dias desde o MAIS RECENTE entre o último
+  // contato registrado (qualquer canal/desfecho, exceto nota e número errado/inválido)
+  // e a entrada na etapa. Mesma conta do selo do Kanban — vem pronta do banco
+  // (public.fn_ultimo_contato). Limites: 4d = alerta, >30d = vermelho.
   const parado = Number(it.dias_parado || 0);
   const clsParado = parado > 30 ? 'fu-flag-parado' : (parado >= DIAS_ALERTA_SEM_CONTATO ? 'fu-flag-alerta' : '');
-  flags.push(`<span class="${clsParado}" title="Dias sem contato efetivo. Tentativas sem resposta não zeram este contador.">${parado}d sem contato</span>`);
+  const txtParado = parado === 0 ? 'Atualizado hoje' : (parado + 'd parado');
+  flags.push(`<span class="${clsParado}" title="Dias desde o último contato registrado ou mudança de etapa. Nota interna e número errado/inválido não contam.">${txtParado}</span>`);
   flags.push(`<span>${it.total_atividades} atividade${Number(it.total_atividades)===1?'':'s'}</span>`);
   return flags.join(' · ');
 }
