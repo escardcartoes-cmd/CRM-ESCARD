@@ -4188,11 +4188,10 @@ const ACTIVITY_CHANNELS = [
 const ACTIVITY_OUTCOMES = {
   telefone:   [ {v:'atendeu',t:'Atendeu',tone:'pos'}, {v:'nao_atendeu',t:'Não atendeu',tone:'neg'}, {v:'caixa_postal',t:'Caixa postal',tone:'neg'}, {v:'numero_errado',t:'Número errado',tone:'neg'} ],
   whatsapp:   [ {v:'respondeu',t:'Respondeu',tone:'pos'}, {v:'visualizou',t:'Visualizou',tone:'neu'}, {v:'nao_visualizou',t:'Não visualizou',tone:'neg'}, {v:'numero_invalido',t:'Número inválido',tone:'neg'} ],
-  // 'bounce' é o valor gravado (constraint resultado_valido do banco vivo); o
-  // rótulo é 'Enviado'. Renomear a chave exige alterar a constraint — feito
-  // depois, junto com o UPDATE das linhas já gravadas. Nenhuma lógica lê
-  // 'bounce': ele só aparece em rótulo.
-  email:      [ {v:'respondeu',t:'Respondeu',tone:'pos'}, {v:'sem_resposta',t:'Sem resposta',tone:'neu'}, {v:'bounce',t:'Enviado',tone:'neu'} ],
+  // 'enviado' desde a migration 0052 (24/09). O valor antigo 'bounce' (que em inglês
+  // significa e-mail devolvido e causava leitura errada) foi convertido no banco, e um
+  // trigger converte qualquer 'bounce' que ainda chegue de aba antiga.
+  email:      [ {v:'respondeu',t:'Respondeu',tone:'pos'}, {v:'sem_resposta',t:'Sem resposta',tone:'neu'}, {v:'enviado',t:'Enviado',tone:'neu'} ],
   presencial: [ {v:'realizada',t:'Realizada',tone:'pos'}, {v:'nao_compareceu',t:'Não compareceu',tone:'neg'} ],
   nota:       [],
 };
@@ -6826,7 +6825,7 @@ async function criarProspeccaoDeContato(contactId){
       atendeu:"Atendeu", nao_atendeu:"Não atendeu", caixa_postal:"Caixa postal",
       numero_errado:"Número errado", respondeu:"Respondeu", visualizou:"Visualizou",
       nao_visualizou:"Não visualizou", numero_invalido:"Número inválido",
-      sem_resposta:"Sem resposta", bounce:"Enviado",
+      sem_resposta:"Sem resposta", enviado:"Enviado",
       realizada:"Reunião realizada", nao_compareceu:"Reunião — não compareceu"
     }, null);
     if(desf.length) desenharBarras("rel-desfecho", desf); else estadoTexto("rel-desfecho", "Nenhum contato registrado neste período.");
