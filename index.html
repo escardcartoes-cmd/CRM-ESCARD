@@ -1284,6 +1284,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
         <span id="deal-icp-tier"></span>
       </div>
       <dl class="icp-detail-grid">
+        <div class="icp-detail-full"><dt>Ramo de atividade</dt><dd id="deal-icp-ramo">—</dd></div>
         <div><dt>Produto de entrada</dt><dd id="deal-icp-produto">—</dd></div>
         <div><dt>Afinidade private</dt><dd id="deal-icp-afinidade">—</dd></div>
         <div class="icp-detail-full"><dt>Motivo da afinidade</dt><dd id="deal-icp-motivo">—</dd></div>
@@ -3322,15 +3323,53 @@ function preencherICPModal(dealId){
   if(!dealId || !icpPorDeal[dealId]){ sec.classList.add('hidden'); return; }
   // O índice só tem tier/máscara/score; o resto vem da view, só deste lead.
   preencherICPModalCampos(icpPorDeal[dealId]);
+  preencherRamoModal(dealId, null);
   sec.classList.remove('hidden');
   Promise.resolve(
     db.from('vw_sdr_priorizacao_escard')
-      .select('tier,prioridade,produto_entrada,afinidade_private,motivo_afinidade')
+      .select('tier,prioridade,produto_entrada,afinidade_private,motivo_afinidade,arquetipo')
       .eq('deal_id', dealId).maybeSingle()
   ).then(function(r){
     if(editingDealId !== dealId || !r || r.error || !r.data) return;
     preencherICPModalCampos(r.data);
+    ramoArquetipo[dealId] = r.data.arquetipo || '';
+    preencherRamoModal(dealId, null);
   }).catch(function(){ /* fica o que o índice já mostrou */ });
+  // Ramo de atividade: descrição do CNAE gravada em deals.cnae ("4781400 - Comércio...").
+  Promise.resolve(
+    db.from('deals').select('cnae').eq('id', dealId).maybeSingle()
+  ).then(function(r){
+    if(editingDealId !== dealId || !r || r.error || !r.data) return;
+    preencherRamoModal(dealId, r.data.cnae || '');
+  }).catch(function(){ /* sem CNAE: fica o fallback */ });
+}
+
+// Ramo de atividade no bloco ICP. Prioridade: descrição do CNAE; sem CNAE
+// (listas sem CNPJ), cai para o arquétipo da classificação; sem nada, avisa.
+// textContent apenas — dado importado nunca vira HTML.
+var ramoCnae = {};
+var ramoArquetipo = {};
+function preencherRamoModal(dealId, cnae){
+  if(cnae !== null) ramoCnae[dealId] = cnae;
+  if(editingDealId !== dealId) return;
+  var el = document.getElementById('deal-icp-ramo');
+  if(!el) return;
+  if(!Object.prototype.hasOwnProperty.call(ramoCnae, dealId)){ el.textContent = 'carregando…'; return; }
+  var bruto = String(ramoCnae[dealId] || '').trim();
+  var txt = '';
+  if(bruto){
+    var sep = bruto.indexOf(' - ');
+    if(sep > 0){
+      txt = bruto.slice(sep + 3).trim() + ' (CNAE ' + bruto.slice(0, sep).trim() + ')';
+    } else {
+      txt = 'CNAE ' + bruto;
+    }
+  } else if(ramoArquetipo[dealId]){
+    txt = ramoArquetipo[dealId] + ' (sem CNAE — pergunte o ramo na abordagem)';
+  } else {
+    txt = 'Não informado — sem CNAE na base';
+  }
+  el.textContent = txt;
 }
 function preencherICPModalCampos(icp){
   const tierEl = document.getElementById('deal-icp-tier');
